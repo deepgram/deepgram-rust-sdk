@@ -46,9 +46,29 @@ where
 }
 
 #[derive(Debug, Deserialize)]
-pub struct StreamResponse {
-    pub duration: f64,
-    pub is_final: bool,
+pub struct Alternatives {
+    pub transcript: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Channel {
+    pub alternatives: Vec<Alternatives>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum StreamResponse {
+    TranscriptResponse {
+        duration: f64,
+        is_final: bool,
+        channel: Channel,
+    },
+    TerminalResponse {
+        request_id: String,
+        created: String,
+        duration: f64,
+        channels: u32,
+    },
 }
 
 type Result<T> = std::result::Result<T, DeepgramError>;
@@ -174,16 +194,15 @@ where
             }
 
             // This unwrap is not safe.
-            println!("sending close...");
             write.send(Message::binary([])).await.unwrap();
         };
 
         let recv_task = async move {
             while let Some(Ok(msg)) = read.next().await {
-                println!("receiving...");
-                match dbg!(msg) {
+                match msg {
                     Message::Text(txt) => {
-                        tx.send(serde_json::from_str(&txt).map_err(DeepgramError::from))
+                        let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
+                        tx.send(resp)
                             .await
                             // This unwrap is probably not safe.
                             .unwrap();
@@ -193,7 +212,9 @@ where
             }
         };
 
-        tokio::join!(send_task, recv_task);
+        tokio::spawn(async move {
+            tokio::join!(send_task, recv_task);
+        });
 
         Ok(rx)
     }
