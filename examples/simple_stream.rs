@@ -14,7 +14,7 @@ async fn main() -> Result<(), DeepgramError> {
         .stream_request()
         .file(
             &env::var("FILENAME").unwrap(),
-            128,
+            3174,
             Duration::from_millis(16),
         )
         .await?
@@ -22,7 +22,7 @@ async fn main() -> Result<(), DeepgramError> {
         .await?;
 
     while let Some(result) = results.next().await {
-        println!("got: {result}");
+        println!("got: {:?}", result);
     }
 
     Ok(())
