@@ -18,3 +18,8 @@ tokio = { version = "1.17.0", features = [ "full" ] }
 tokio-tungstenite = { version = "0.17.1", features = [ "native-tls" ] }
 tokio-util = { version = "0.7.1", features = [ "codec", "io" ] }
 tungstenite = "0.17.2"
+url = "2.2.2"
+
+[dev-dependencies]
+cpal = "0.13.5"
+crossbeam = "0.8.1"

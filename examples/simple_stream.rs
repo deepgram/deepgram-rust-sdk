@@ -7,13 +7,12 @@ use deepgram::{Deepgram, DeepgramError};
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
-    let api_key = env::var("DEEPGRAM_API_KEY").unwrap();
-    let dg = Deepgram::new(&api_key);
+    let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap());
 
     let mut results = dg
         .stream_request()
         .file(
-            &env::var("FILENAME").unwrap(),
+            env::var("FILENAME").unwrap(),
             3174,
             Duration::from_millis(16),
         )

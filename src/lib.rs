@@ -16,10 +16,14 @@ use tokio::fs::File;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
+use url::Url;
 
 #[derive(Debug)]
-pub struct Deepgram<'a> {
-    api_key: &'a str,
+pub struct Deepgram<K>
+where
+    K: AsRef<str>,
+{
+    api_key: K,
 }
 
 // TODO sub-errors for the different types?
@@ -37,17 +41,30 @@ pub enum DeepgramError {
     SerdeError(#[from] serde_json::Error),
 }
 
-pub struct StreamRequestBuilder<'a, S>
+pub struct StreamRequestBuilder<'a, S, K, E>
 where
-    S: Stream<Item = Result<Bytes>>,
+    S: Stream<Item = std::result::Result<Bytes, E>>,
+    K: AsRef<str>,
 {
-    config: &'a Deepgram<'a>,
+    config: &'a Deepgram<K>,
     source: Option<S>,
+    encoding: Option<String>,
+    sample_rate: Option<u32>,
+    channels: Option<u16>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Word {
+    pub word: String,
+    pub start: f64,
+    pub end: f64,
+    pub confidence: f64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Alternatives {
     pub transcript: String,
+    pub words: Vec<Word>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -123,28 +140,67 @@ impl Stream for FileChunker {
     }
 }
 
-impl<'a> Deepgram<'a> {
-    // AsRef<str>
-    pub fn new(api_key: &'a str) -> Self {
+impl<K> Deepgram<K>
+where
+    K: AsRef<str>,
+{
+    pub fn new(api_key: K) -> Self {
         Deepgram { api_key }
     }
 
-    pub fn stream_request<S: Stream<Item = Result<Bytes>>>(&self) -> StreamRequestBuilder<S> {
+    pub fn stream_request<E, S: Stream<Item = std::result::Result<Bytes, E>>>(
+        &self,
+    ) -> StreamRequestBuilder<S, K, E> {
         StreamRequestBuilder {
             config: self,
             source: None,
+            encoding: None,
+            sample_rate: None,
+            channels: None,
         }
     }
 }
 
-impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>> {
-    // Into<Path>
+impl<'a, S, K, E> StreamRequestBuilder<'a, S, K, E>
+where
+    S: Stream<Item = std::result::Result<Bytes, E>>,
+    K: AsRef<str>,
+{
+    pub fn stream(mut self, stream: S) -> Self {
+        self.source = Some(stream);
+
+        self
+    }
+
+    pub fn encoding(mut self, encoding: String) -> Self {
+        self.encoding = Some(encoding);
+
+        self
+    }
+
+    pub fn sample_rate(mut self, sample_rate: u32) -> Self {
+        self.sample_rate = Some(sample_rate);
+
+        self
+    }
+
+    pub fn channels(mut self, channels: u16) -> Self {
+        self.channels = Some(channels);
+
+        self
+    }
+}
+
+impl<'a, K> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, K, DeepgramError>
+where
+    K: AsRef<str>,
+{
     pub async fn file(
         mut self,
         filename: impl AsRef<Path>,
         frame_size: usize,
         frame_delay: Duration,
-    ) -> Result<StreamRequestBuilder<'a, Receiver<Result<Bytes>>>> {
+    ) -> Result<StreamRequestBuilder<'a, Receiver<Result<Bytes>>, K, DeepgramError>> {
         let file = File::open(filename).await?;
         let mut chunker = FileChunker::new(file, frame_size);
         let (mut tx, rx) = mpsc::channel(1);
@@ -163,20 +219,45 @@ impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>> {
     }
 }
 
-impl<S> StreamRequestBuilder<'_, S>
+impl<S, K, E> StreamRequestBuilder<'_, S, K, E>
 where
-    S: Stream<Item = Result<Bytes>> + Send + Unpin + 'static,
+    S: Stream<Item = std::result::Result<Bytes, E>> + Send + Unpin + 'static,
+    K: AsRef<str>,
+    E: Send + std::fmt::Debug,
 {
     pub async fn start(self) -> Result<Receiver<Result<StreamResponse>>> {
-        let StreamRequestBuilder { config, source } = self;
+        let StreamRequestBuilder {
+            config,
+            source,
+            encoding,
+            sample_rate,
+            channels,
+        } = self;
         let mut source = source
             .ok_or(DeepgramError::NoSource)?
             .map(|res| res.map(|bytes| Message::binary(Vec::from(bytes.as_ref()))));
 
+        // This unwrap is safe because we're parsing a static.
+        let mut base = Url::parse("wss://api.deepgram.com/v1/listen").unwrap();
+        let mut pairs = base.query_pairs_mut();
+        if let Some(encoding) = encoding {
+            pairs.append_pair("encoding", &encoding);
+        }
+        if let Some(sample_rate) = sample_rate {
+            pairs.append_pair("sample_rate", &sample_rate.to_string());
+        }
+        if let Some(channels) = channels {
+            pairs.append_pair("channels", &channels.to_string());
+        }
+
         let request = Request::builder()
             .method("GET")
-            .uri("wss://api.deepgram.com/v1/listen")
-            .header("authorization", format!("token {}", config.api_key))
+            // TODO Hard-coded.
+            .uri("wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=44100&channels=2")
+            .header(
+                "authorization",
+                format!("token {}", config.api_key.as_ref()),
+            )
             .header("sec-websocket-key", client::generate_key())
             .header("host", "api.deepgram.com")
             .header("connection", "upgrade")
@@ -188,9 +269,18 @@ where
         let (mut tx, rx) = mpsc::channel::<Result<StreamResponse>>(1);
 
         let send_task = async move {
-            while let Some(Ok(frame)) = source.next().await {
-                // This unwrap is not safe.
-                write.send(frame).await.unwrap();
+            loop {
+                match source.next().await {
+                    None => break,
+                    Some(Ok(frame)) => {
+                        // This unwrap is not safe.
+                        write.send(frame).await.unwrap();
+                    }
+                    Some(e) => {
+                        let _ = dbg!(e);
+                        break;
+                    }
+                }
             }
 
             // This unwrap is not safe.
@@ -198,16 +288,25 @@ where
         };
 
         let recv_task = async move {
-            while let Some(Ok(msg)) = read.next().await {
-                match msg {
-                    Message::Text(txt) => {
-                        let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
-                        tx.send(resp)
-                            .await
-                            // This unwrap is probably not safe.
-                            .unwrap();
+            loop {
+                match read.next().await {
+                    None => break,
+                    Some(Ok(msg)) => {
+                        match msg {
+                            Message::Text(txt) => {
+                                let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
+                                tx.send(resp)
+                                    .await
+                                    // This unwrap is probably not safe.
+                                    .unwrap();
+                            }
+                            _ => {}
+                        }
                     }
-                    _ => {}
+                    Some(e) => {
+                        let _ = dbg!(e);
+                        break;
+                    }
                 }
             }
         };
