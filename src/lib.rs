@@ -1,3 +1,6 @@
+// TODO: Split this all into modules
+
+use std::collections::HashMap;
 use std::io;
 use std::path::Path;
 use std::pin::Pin;
@@ -10,6 +13,7 @@ use futures::stream::StreamExt;
 use futures::{SinkExt, Stream};
 use http::Request;
 use pin_project::pin_project;
+use reqwest::{header::CONTENT_TYPE, RequestBuilder};
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::fs::File;
@@ -24,6 +28,101 @@ where
     K: AsRef<str>,
 {
     api_key: K,
+    client: reqwest::Client,
+}
+
+#[non_exhaustive]
+#[allow(non_camel_case_types)]
+pub enum Mimetype {
+    audio_mpeg,
+    audio_wav,
+    // TODO: Add all mimetypes that Deepgram supports
+}
+
+pub trait Source {
+    fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
+}
+
+pub struct UrlSource<'a>(pub &'a str);
+
+pub struct BufferSource<B: Into<reqwest::Body>> {
+    pub buffer: B,
+    pub mimetype: Mimetype,
+}
+
+#[derive(Debug)]
+pub enum Model<'a> {
+    General,
+    Meeting,
+    Phonecall,
+    Voicemail,
+    Finance,
+    Conversational,
+    Video,
+    CustomId(&'a str),
+}
+
+#[derive(Debug)]
+pub enum Redact {
+    Pci,
+    Numbers,
+    Ssn,
+}
+
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+#[allow(non_camel_case_types)]
+pub enum Language {
+    zh_CN,
+    zh_TW,
+    nl,
+    en_US,
+    en_AU,
+    en_GB,
+    en_IN,
+    en_NZ,
+    fr,
+    fr_CA,
+    de,
+    hi,
+    id,
+    it,
+    ja,
+    ko,
+    pt,
+    pr_BR,
+    ru,
+    es,
+    es_419,
+    sv,
+    tr,
+    uk,
+}
+
+#[derive(Debug)]
+pub enum Utterances {
+    Disabled,
+    Enabled { utt_split: u32 },
+}
+
+#[derive(Debug)]
+pub struct OptionsBuilder<'a> {
+    model: Option<Model<'a>>,
+    version: Option<&'a str>,
+    language: Option<Language>,
+    punctuate: Option<bool>,
+    profanity_filter: Option<bool>,
+    redact: Vec<Redact>,
+    diarize: Option<bool>,
+    ner: Option<bool>,
+    multichannel: Option<bool>,
+    alternatives: Option<u32>,
+    numerals: Option<bool>,
+    search: Vec<&'a str>,
+    callback: Option<&'a str>,
+    keywords: Vec<&'a str>,
+    utterances: Option<Utterances>,
+    tag: Option<&'a str>,
 }
 
 // TODO sub-errors for the different types?
@@ -33,6 +132,8 @@ pub enum DeepgramError {
     NoSource,
     #[error("Something went wrong when generating the http request: {0}")]
     HttpError(#[from] http::Error),
+    #[error("Something went wrong when making the HTTP request: {0}")]
+    ReqwestError(#[from] reqwest::Error),
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
     #[error("Something went wrong with WS: {0}")]
@@ -86,6 +187,11 @@ pub enum StreamResponse {
         duration: f64,
         channels: u32,
     },
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PrerecordedResponse {
+    // TODO: Define this struct
 }
 
 type Result<T> = std::result::Result<T, DeepgramError>;
@@ -145,7 +251,10 @@ where
     K: AsRef<str>,
 {
     pub fn new(api_key: K) -> Self {
-        Deepgram { api_key }
+        Deepgram {
+            api_key,
+            client: reqwest::Client::new(),
+        }
     }
 
     pub fn stream_request<E, S: Stream<Item = std::result::Result<Bytes, E>>>(
@@ -158,6 +267,128 @@ where
             sample_rate: None,
             channels: None,
         }
+    }
+
+    pub async fn prerecorded_request(
+        &self,
+        source: impl Source,
+        options: &OptionsBuilder<'_>,
+    ) -> Result<PrerecordedResponse> {
+        let request_builder = self
+            .client
+            .post("https://api.deepgram.com/v1/listen")
+            .query(&options.to_query());
+        let request_builder = source.fill_body(request_builder);
+
+        Ok(request_builder.send().await?.json().await?)
+    }
+}
+
+impl<'a> OptionsBuilder<'a> {
+    pub fn new() -> Self {
+        Self {
+            model: None,
+            version: None,
+            language: None,
+            punctuate: None,
+            profanity_filter: None,
+            redact: Vec::new(),
+            diarize: None,
+            ner: None,
+            multichannel: None,
+            alternatives: None,
+            numerals: None,
+            search: Vec::new(),
+            callback: None,
+            keywords: Vec::new(),
+            utterances: None,
+            tag: None,
+        }
+    }
+
+    pub fn model(mut self, model: Model<'a>) -> Self {
+        self.model = Some(model);
+        self
+    }
+
+    pub fn version(mut self, version: &'a str) -> Self {
+        self.version = Some(version);
+        self
+    }
+
+    pub fn language(mut self, language: Language) -> Self {
+        self.language = Some(language);
+        self
+    }
+
+    pub fn punctuate(mut self, punctuate: bool) -> Self {
+        self.punctuate = Some(punctuate);
+        self
+    }
+
+    pub fn profanity_filter(mut self, profanity_filter: bool) -> Self {
+        self.profanity_filter = Some(profanity_filter);
+        self
+    }
+
+    pub fn redact(mut self, redact: impl OneOrMany<Redact>) -> Self {
+        self.redact.append(&mut redact.to_vec());
+        self
+    }
+
+    pub fn diarize(mut self, diarize: bool) -> Self {
+        self.diarize = Some(diarize);
+        self
+    }
+
+    pub fn ner(mut self, ner: bool) -> Self {
+        self.ner = Some(ner);
+        self
+    }
+
+    pub fn multichannel(mut self, multichannel: bool) -> Self {
+        self.multichannel = Some(multichannel);
+        self
+    }
+
+    pub fn alternatives(mut self, alternatives: u32) -> Self {
+        self.alternatives = Some(alternatives);
+        self
+    }
+
+    pub fn numerals(mut self, numerals: bool) -> Self {
+        self.numerals = Some(numerals);
+        self
+    }
+
+    pub fn search(mut self, search: impl OneOrMany<&'a str>) -> Self {
+        self.search.append(&mut search.to_vec());
+        self
+    }
+
+    pub fn callback(mut self, callback: &'a str) -> Self {
+        self.callback = Some(callback);
+        self
+    }
+
+    pub fn keywords(mut self, keywords: impl OneOrMany<&'a str>) -> Self {
+        self.keywords.append(&mut keywords.to_vec());
+        self
+    }
+
+    pub fn utterances(mut self, utterances: Utterances) -> Self {
+        self.utterances = Some(utterances);
+        self
+    }
+
+    pub fn tag(mut self, tag: &'a str) -> Self {
+        self.tag = Some(tag);
+        self
+    }
+
+    fn to_query(&self) -> Vec<(&str, &str)> {
+        // TODO: Generate a URL query string
+        todo!()
     }
 }
 
@@ -316,5 +547,44 @@ where
         });
 
         Ok(rx)
+    }
+}
+
+pub trait OneOrMany<T> {
+    fn to_vec(self) -> Vec<T>;
+}
+
+impl<'a> OneOrMany<&'a str> for Vec<&'a str> {
+    fn to_vec(self) -> Self {
+        self
+    }
+}
+
+impl<'a> OneOrMany<&'a str> for &'a str {
+    fn to_vec(self) -> Vec<Self> {
+        vec![self]
+    }
+}
+
+impl Source for UrlSource<'_> {
+    fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
+        let body = {
+            let mut body = HashMap::new();
+            body.insert("url", self.0);
+            body
+        };
+
+        request_builder.json(&body)
+    }
+}
+
+impl<B: Into<reqwest::Body>> Source for BufferSource<B> {
+    fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
+        // TODO: Set the correct mimetype
+        let content_type: &str = todo!();
+
+        request_builder
+            .body(self.buffer)
+            .header(CONTENT_TYPE, content_type)
     }
 }
