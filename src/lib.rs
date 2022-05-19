@@ -415,13 +415,13 @@ impl Serialize for OptionsBuilder<'_> {
 
         if let Some(model) = model {
             let s = match model {
-                Model::General => "",
-                Model::Meeting => "",
-                Model::Phonecall => "",
-                Model::Voicemail => "",
-                Model::Finance => "",
-                Model::Conversational => "",
-                Model::Video => "",
+                Model::General => "general",
+                Model::Meeting => "meeting",
+                Model::Phonecall => "phonecall",
+                Model::Voicemail => "voicemail",
+                Model::Finance => "finance",
+                Model::Conversational => "conversational",
+                Model::Video => "video",
                 Model::CustomId(id) => id,
             };
 
