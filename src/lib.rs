@@ -331,8 +331,8 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    pub fn redact(mut self, redact: impl OneOrMany<Redact>) -> Self {
-        self.redact.append(&mut redact.to_vec());
+    pub fn redact(mut self, redact: impl IntoIterator<Item = Redact>) -> Self {
+        self.redact.extend(redact);
         self
     }
 
@@ -361,8 +361,8 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    pub fn search(mut self, search: impl OneOrMany<&'a str>) -> Self {
-        self.search.append(&mut search.to_vec());
+    pub fn search(mut self, search: impl IntoIterator<Item = &'a str>) -> Self {
+        self.search.extend(search);
         self
     }
 
@@ -371,8 +371,8 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    pub fn keywords(mut self, keywords: impl OneOrMany<&'a str>) -> Self {
-        self.keywords.append(&mut keywords.to_vec());
+    pub fn keywords(mut self, keywords: impl IntoIterator<Item = &'a str>) -> Self {
+        self.keywords.extend(keywords);
         self
     }
 
@@ -547,22 +547,6 @@ where
         });
 
         Ok(rx)
-    }
-}
-
-pub trait OneOrMany<T> {
-    fn to_vec(self) -> Vec<T>;
-}
-
-impl<'a> OneOrMany<&'a str> for Vec<&'a str> {
-    fn to_vec(self) -> Self {
-        self
-    }
-}
-
-impl<'a> OneOrMany<&'a str> for &'a str {
-    fn to_vec(self) -> Vec<Self> {
-        vec![self]
     }
 }
 
