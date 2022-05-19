@@ -380,6 +380,12 @@ impl<'a> OptionsBuilder<'a> {
     }
 }
 
+impl<'a> Default for OptionsBuilder<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Serialize for OptionsBuilder<'_> {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
