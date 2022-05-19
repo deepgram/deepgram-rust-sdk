@@ -2,7 +2,6 @@
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::io;
 use std::path::Path;
 use std::pin::Pin;
@@ -33,22 +32,15 @@ where
     client: reqwest::Client,
 }
 
-#[non_exhaustive]
-pub enum Mimetype {
-    AudioMpeg,
-    AudioWav,
-    // TODO: Add all mimetypes that Deepgram supports
-}
-
 pub trait AudioSource {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
 }
 
 pub struct UrlSource<'a>(pub &'a str);
 
-pub struct BufferSource<B: Into<reqwest::Body>> {
+pub struct BufferSource<'a, B: Into<reqwest::Body>> {
     pub buffer: B,
-    pub mimetype: Option<Mimetype>,
+    pub mimetype: Option<&'a str>,
 }
 
 #[derive(Debug)]
@@ -559,26 +551,14 @@ impl<'a, B: Borrow<UrlSource<'a>>> AudioSource for B {
     }
 }
 
-impl<B: Into<reqwest::Body>> AudioSource for BufferSource<B> {
+impl<B: Into<reqwest::Body>> AudioSource for BufferSource<'_, B> {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
         let request_builder = request_builder.body(self.buffer);
 
         if let Some(mimetype) = self.mimetype {
-            request_builder.header(CONTENT_TYPE, mimetype.to_string())
+            request_builder.header(CONTENT_TYPE, mimetype)
         } else {
             request_builder
         }
-    }
-}
-
-impl Display for Mimetype {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        use Mimetype::*;
-        let s = match self {
-            AudioMpeg => "audio/mpeg",
-            AudioWav => "audio/wav",
-        };
-
-        write!(f, "{s}")
     }
 }

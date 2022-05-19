@@ -1,4 +1,4 @@
-use deepgram::{BufferSource, Deepgram, DeepgramError, Language, Mimetype, OptionsBuilder};
+use deepgram::{BufferSource, Deepgram, DeepgramError, Language, OptionsBuilder};
 use tokio::fs::File;
 
 const DEEPGRAM_API_KEY: &str = "YOUR_SECRET";
@@ -12,7 +12,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let source = BufferSource {
         buffer: file,
-        mimetype: Some(Mimetype::AudioWav),
+        mimetype: Some("audio/wav"),
     };
 
     let options = OptionsBuilder::new()
