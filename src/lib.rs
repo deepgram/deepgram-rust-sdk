@@ -116,7 +116,7 @@ pub struct OptionsBuilder<'a> {
     diarize: Option<bool>,
     ner: Option<bool>,
     multichannel: Option<bool>,
-    alternatives: Option<u32>,
+    alternatives: Option<usize>,
     numerals: Option<bool>,
     search: Vec<&'a str>,
     callback: Option<&'a str>,
@@ -351,7 +351,7 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    pub fn alternatives(mut self, alternatives: u32) -> Self {
+    pub fn alternatives(mut self, alternatives: usize) -> Self {
         self.alternatives = Some(alternatives);
         self
     }
