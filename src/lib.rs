@@ -15,7 +15,7 @@ use futures::{SinkExt, Stream};
 use http::Request;
 use pin_project::pin_project;
 use reqwest::{header::CONTENT_TYPE, RequestBuilder};
-use serde::Deserialize;
+use serde::{ser::SerializeSeq, Deserialize, Serialize};
 use thiserror::Error;
 use tokio::fs::File;
 use tokio_tungstenite::tungstenite::protocol::Message;
@@ -95,7 +95,7 @@ pub enum Language {
 #[derive(Debug)]
 pub enum Utterances {
     Disabled,
-    Enabled { utt_split: u32 },
+    Enabled { utt_split: Option<u32> },
 }
 
 #[derive(Debug)]
@@ -270,7 +270,7 @@ where
         let request_builder = self
             .client
             .post("https://api.deepgram.com/v1/listen")
-            .query(&options.to_query());
+            .query(&options);
         let request_builder = source.fill_body(request_builder);
 
         Ok(request_builder.send().await?.json().await?)
@@ -378,10 +378,154 @@ impl<'a> OptionsBuilder<'a> {
         self.tag = Some(tag);
         self
     }
+}
 
-    fn to_query(&self) -> Vec<(&str, &str)> {
-        // TODO: Generate a URL query string
-        todo!()
+impl Serialize for OptionsBuilder<'_> {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut seq = serializer.serialize_seq(None)?;
+
+        // Destructuring it makes sure that we don't forget to use any of it
+        let Self {
+            model,
+            version,
+            language,
+            punctuate,
+            profanity_filter,
+            redact,
+            diarize,
+            ner,
+            multichannel,
+            alternatives,
+            numerals,
+            search,
+            callback,
+            keywords,
+            utterances,
+            tag,
+        } = self;
+
+        if let Some(model) = model {
+            let s = match model {
+                Model::General => "",
+                Model::Meeting => "",
+                Model::Phonecall => "",
+                Model::Voicemail => "",
+                Model::Finance => "",
+                Model::Conversational => "",
+                Model::Video => "",
+                Model::CustomId(id) => id,
+            };
+
+            seq.serialize_element(&("model", s))?;
+        }
+
+        if let Some(version) = version {
+            seq.serialize_element(&("version", version))?;
+        }
+
+        if let Some(language) = language {
+            let s = match language {
+                Language::zh_CN => "zh-CN",
+                Language::zh_TW => "zh-TW",
+                Language::nl => "nl",
+                Language::en_US => "en-US",
+                Language::en_AU => "en-AU",
+                Language::en_GB => "en-GB",
+                Language::en_IN => "en-IN",
+                Language::en_NZ => "en-NZ",
+                Language::fr => "fr",
+                Language::fr_CA => "fr-CA",
+                Language::de => "de",
+                Language::hi => "hi",
+                Language::id => "id",
+                Language::it => "it",
+                Language::ja => "ja",
+                Language::ko => "ko",
+                Language::pt => "pt",
+                Language::pr_BR => "pr_BR",
+                Language::ru => "ru",
+                Language::es => "es",
+                Language::es_419 => "es-419",
+                Language::sv => "sv",
+                Language::tr => "tr",
+                Language::uk => "uk",
+            };
+
+            seq.serialize_element(&("language", s))?;
+        }
+
+        if let Some(punctuate) = punctuate {
+            seq.serialize_element(&("punctuate", punctuate))?;
+        }
+
+        if let Some(profanity_filter) = profanity_filter {
+            seq.serialize_element(&("profanity_filter", profanity_filter))?;
+        }
+
+        for element in redact {
+            let s = match element {
+                Redact::Pci => "pci",
+                Redact::Numbers => "numbers",
+                Redact::Ssn => "ssn",
+            };
+
+            seq.serialize_element(&("redact", s))?;
+        }
+
+        if let Some(diarize) = diarize {
+            seq.serialize_element(&("diarize", diarize))?;
+        }
+
+        if let Some(ner) = ner {
+            seq.serialize_element(&("ner", ner))?;
+        }
+
+        if let Some(multichannel) = multichannel {
+            seq.serialize_element(&("multichannel", multichannel))?;
+        }
+
+        if let Some(alternatives) = alternatives {
+            seq.serialize_element(&("alternatives", alternatives))?;
+        }
+
+        if let Some(numerals) = numerals {
+            seq.serialize_element(&("numerals", numerals))?;
+        }
+
+        for element in search {
+            seq.serialize_element(&("redact", element))?;
+        }
+
+        if let Some(callback) = callback {
+            seq.serialize_element(&("callback", callback))?;
+        }
+
+        for element in keywords {
+            seq.serialize_element(&("redact", element))?;
+        }
+
+        match utterances {
+            Some(Utterances::Disabled) => seq.serialize_element(&("utterances", false))?,
+            Some(Utterances::Enabled { utt_split: None }) => {
+                seq.serialize_element(&("utterances", true))?
+            }
+            Some(Utterances::Enabled {
+                utt_split: Some(utt_split),
+            }) => {
+                seq.serialize_element(&("utterances", true))?;
+                seq.serialize_element(&("utt_split", utt_split))?;
+            }
+            None => (),
+        };
+
+        if let Some(tag) = tag {
+            seq.serialize_element(&("tag", tag))?;
+        }
+
+        seq.end()
     }
 }
 
