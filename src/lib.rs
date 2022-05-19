@@ -2,6 +2,7 @@
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::io;
 use std::path::Path;
 use std::pin::Pin;
@@ -560,11 +561,24 @@ impl<'a, B: Borrow<UrlSource<'a>>> AudioSource for B {
 
 impl<B: Into<reqwest::Body>> AudioSource for BufferSource<B> {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
-        // TODO: Set the correct mimetype
-        let content_type: &str = todo!();
+        let request_builder = request_builder.body(self.buffer);
 
-        request_builder
-            .body(self.buffer)
-            .header(CONTENT_TYPE, content_type)
+        if let Some(mimetype) = self.mimetype {
+            request_builder.header(CONTENT_TYPE, mimetype.to_string())
+        } else {
+            request_builder
+        }
+    }
+}
+
+impl Display for Mimetype {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use Mimetype::*;
+        let s = match self {
+            AudioMpeg => "audio/mpeg",
+            AudioWav => "audio/wav",
+        };
+
+        write!(f, "{s}")
     }
 }
