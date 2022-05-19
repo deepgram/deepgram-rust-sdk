@@ -1,5 +1,6 @@
 // TODO: Split this all into modules
 
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
 use std::path::Path;
@@ -32,14 +33,13 @@ where
 }
 
 #[non_exhaustive]
-#[allow(non_camel_case_types)]
 pub enum Mimetype {
-    audio_mpeg,
-    audio_wav,
+    AudioMpeg,
+    AudioWav,
     // TODO: Add all mimetypes that Deepgram supports
 }
 
-pub trait Source {
+pub trait AudioSource {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
 }
 
@@ -47,7 +47,7 @@ pub struct UrlSource<'a>(pub &'a str);
 
 pub struct BufferSource<B: Into<reqwest::Body>> {
     pub buffer: B,
-    pub mimetype: Mimetype,
+    pub mimetype: Option<Mimetype>,
 }
 
 #[derive(Debug)]
@@ -271,7 +271,7 @@ where
 
     pub async fn prerecorded_request(
         &self,
-        source: impl Source,
+        source: impl AudioSource,
         options: &OptionsBuilder<'_>,
     ) -> Result<PrerecordedResponse> {
         let request_builder = self
@@ -550,19 +550,15 @@ where
     }
 }
 
-impl Source for UrlSource<'_> {
+impl<'a, B: Borrow<UrlSource<'a>>> AudioSource for B {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
-        let body = {
-            let mut body = HashMap::new();
-            body.insert("url", self.0);
-            body
-        };
+        let body: HashMap<&str, &str> = HashMap::from([("url", self.borrow().0)]);
 
         request_builder.json(&body)
     }
 }
 
-impl<B: Into<reqwest::Body>> Source for BufferSource<B> {
+impl<B: Into<reqwest::Body>> AudioSource for BufferSource<B> {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
         // TODO: Set the correct mimetype
         let content_type: &str = todo!();

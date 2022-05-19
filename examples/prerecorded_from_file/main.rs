@@ -12,7 +12,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let source = BufferSource {
         buffer: file,
-        mimetype: Mimetype::audio_wav,
+        mimetype: Some(Mimetype::AudioWav),
     };
 
     let options = OptionsBuilder::new()
