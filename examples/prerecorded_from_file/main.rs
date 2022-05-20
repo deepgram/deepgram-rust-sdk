@@ -20,7 +20,9 @@ async fn main() -> Result<(), DeepgramError> {
         .language(Language::en_US);
 
     let response = dg_client.prerecorded_request(source, &options).await?;
-    println!("{:?}", response);
+
+    let transcript = &response.results.channels[0].alternatives[0].transcript;
+    println!("{}", transcript);
 
     Ok(())
 }

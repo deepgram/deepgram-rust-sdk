@@ -20,6 +20,7 @@ tokio-tungstenite = { version = "0.17.1", features = [ "native-tls" ] }
 tokio-util = { version = "0.7.1", features = [ "codec", "io" ] }
 tungstenite = "0.17.2"
 url = "2.2.2"
+uuid = { version = "1.0.0", features = ["serde"] }
 
 [dev-dependencies]
 cpal = "0.13.5"

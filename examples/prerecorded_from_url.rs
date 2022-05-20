@@ -14,7 +14,9 @@ async fn main() -> Result<(), DeepgramError> {
     let response = dg_client
         .prerecorded_request(UrlSource { url: AUDIO_URL }, &options)
         .await?;
-    println!("{:?}", response);
+
+    let transcript = &response.results.channels[0].alternatives[0].transcript;
+    println!("{}", transcript);
 
     Ok(())
 }
