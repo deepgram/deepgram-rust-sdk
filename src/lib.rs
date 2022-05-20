@@ -95,7 +95,7 @@ pub enum Language {
 #[derive(Debug)]
 pub enum Utterances {
     Disabled,
-    Enabled { utt_split: Option<u32> },
+    Enabled { utt_split: Option<f64> },
 }
 
 #[derive(Debug)]
@@ -502,7 +502,7 @@ impl Serialize for OptionsBuilder<'_> {
         }
 
         for element in search {
-            seq.serialize_element(&("redact", element))?;
+            seq.serialize_element(&("search", element))?;
         }
 
         if let Some(callback) = callback {
@@ -510,7 +510,7 @@ impl Serialize for OptionsBuilder<'_> {
         }
 
         for element in keywords {
-            seq.serialize_element(&("redact", element))?;
+            seq.serialize_element(&("keywords", element))?;
         }
 
         match utterances {
@@ -712,3 +712,6 @@ impl<B: Into<reqwest::Body>> AudioSource for BufferSource<'_, B> {
         }
     }
 }
+
+#[cfg(test)]
+mod serialize_options_tests;
