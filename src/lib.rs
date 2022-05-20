@@ -270,6 +270,7 @@ where
         let request_builder = self
             .client
             .post("https://api.deepgram.com/v1/listen")
+            .header("Authorization", format!("Token {}", self.api_key.as_ref()))
             .query(&options);
         let request_builder = source.fill_body(request_builder);
 
