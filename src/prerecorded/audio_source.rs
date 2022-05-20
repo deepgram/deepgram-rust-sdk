@@ -1,12 +1,15 @@
 use reqwest::{header::CONTENT_TYPE, RequestBuilder};
+use serde::Serialize;
 use std::borrow::Borrow;
-use std::collections::HashMap;
 
 pub trait AudioSource {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
 }
 
-pub struct UrlSource<'a>(pub &'a str);
+#[derive(Serialize)]
+pub struct UrlSource<'a> {
+    pub url: &'a str,
+}
 
 pub struct BufferSource<'a, B: Into<reqwest::Body>> {
     pub buffer: B,
@@ -15,9 +18,7 @@ pub struct BufferSource<'a, B: Into<reqwest::Body>> {
 
 impl<'a, B: Borrow<UrlSource<'a>>> AudioSource for B {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
-        let body: HashMap<&str, &str> = HashMap::from([("url", self.borrow().0)]);
-
-        request_builder.json(&body)
+        request_builder.json(self.borrow())
     }
 }
 

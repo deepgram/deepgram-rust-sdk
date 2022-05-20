@@ -12,7 +12,7 @@ async fn main() -> Result<(), DeepgramError> {
         .language(Language::en_US);
 
     let response = dg_client
-        .prerecorded_request(UrlSource(AUDIO_URL), &options)
+        .prerecorded_request(UrlSource { url: AUDIO_URL }, &options)
         .await?;
     println!("{:?}", response);
 
