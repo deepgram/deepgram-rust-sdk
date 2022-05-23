@@ -324,14 +324,12 @@ impl Serialize for OptionsBuilder<'_> {
 
         match utterances {
             Some(Utterances::Disabled) => seq.serialize_element(&("utterances", false))?,
-            Some(Utterances::Enabled { utt_split: None }) => {
-                seq.serialize_element(&("utterances", true))?
-            }
-            Some(Utterances::Enabled {
-                utt_split: Some(utt_split),
-            }) => {
+            Some(Utterances::Enabled { utt_split }) => {
                 seq.serialize_element(&("utterances", true))?;
-                seq.serialize_element(&("utt_split", utt_split))?;
+
+                if let Some(utt_split) = utt_split {
+                    seq.serialize_element(&("utt_split", utt_split))?;
+                }
             }
             None => (),
         };
