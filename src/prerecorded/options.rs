@@ -36,14 +36,16 @@ pub enum Model<'a> {
 #[non_exhaustive]
 #[allow(non_camel_case_types)]
 pub enum Language<'a> {
+    zh,
     zh_CN,
     zh_TW,
     nl,
-    en_US,
+    en,
     en_AU,
     en_GB,
     en_IN,
     en_NZ,
+    en_US,
     fr,
     fr_CA,
     de,
@@ -53,7 +55,7 @@ pub enum Language<'a> {
     ja,
     ko,
     pt,
-    pr_BR,
+    pt_BR,
     ru,
     es,
     es_419,
@@ -241,14 +243,16 @@ impl Serialize for OptionsBuilder<'_> {
 
         if let Some(language) = language {
             let s = match language {
+                Language::zh => "zh",
                 Language::zh_CN => "zh-CN",
                 Language::zh_TW => "zh-TW",
                 Language::nl => "nl",
-                Language::en_US => "en-US",
+                Language::en => "en",
                 Language::en_AU => "en-AU",
                 Language::en_GB => "en-GB",
                 Language::en_IN => "en-IN",
                 Language::en_NZ => "en-NZ",
+                Language::en_US => "en-US",
                 Language::fr => "fr",
                 Language::fr_CA => "fr-CA",
                 Language::de => "de",
@@ -258,7 +262,7 @@ impl Serialize for OptionsBuilder<'_> {
                 Language::ja => "ja",
                 Language::ko => "ko",
                 Language::pt => "pt",
-                Language::pr_BR => "pr_BR",
+                Language::pt_BR => "pt-BR",
                 Language::ru => "ru",
                 Language::es => "es",
                 Language::es_419 => "es-419",
