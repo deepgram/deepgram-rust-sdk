@@ -237,18 +237,7 @@ impl Serialize for SerializableOptions<'_> {
         } = self.0;
 
         if let Some(model) = model {
-            let s = match model {
-                Model::General => "general",
-                Model::Meeting => "meeting",
-                Model::Phonecall => "phonecall",
-                Model::Voicemail => "voicemail",
-                Model::Finance => "finance",
-                Model::Conversational => "conversational",
-                Model::Video => "video",
-                Model::CustomId(id) => id,
-            };
-
-            seq.serialize_element(&("model", s))?;
+            seq.serialize_element(&("model", model.as_ref()))?;
         }
 
         if let Some(version) = version {
@@ -256,37 +245,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(language) = language {
-            let s = match language {
-                Language::zh => "zh",
-                Language::zh_CN => "zh-CN",
-                Language::zh_TW => "zh-TW",
-                Language::nl => "nl",
-                Language::en => "en",
-                Language::en_AU => "en-AU",
-                Language::en_GB => "en-GB",
-                Language::en_IN => "en-IN",
-                Language::en_NZ => "en-NZ",
-                Language::en_US => "en-US",
-                Language::fr => "fr",
-                Language::fr_CA => "fr-CA",
-                Language::de => "de",
-                Language::hi => "hi",
-                Language::id => "id",
-                Language::it => "it",
-                Language::ja => "ja",
-                Language::ko => "ko",
-                Language::pt => "pt",
-                Language::pt_BR => "pt-BR",
-                Language::ru => "ru",
-                Language::es => "es",
-                Language::es_419 => "es-419",
-                Language::sv => "sv",
-                Language::tr => "tr",
-                Language::uk => "uk",
-                Language::Other(bcp_47_tag) => bcp_47_tag,
-            };
-
-            seq.serialize_element(&("language", s))?;
+            seq.serialize_element(&("language", language.as_ref()))?;
         }
 
         if let Some(punctuate) = punctuate {
@@ -298,14 +257,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         for element in redact {
-            let s = match element {
-                Redact::Pci => "pci",
-                Redact::Numbers => "numbers",
-                Redact::Ssn => "ssn",
-                Redact::Other(id) => id,
-            };
-
-            seq.serialize_element(&("redact", s))?;
+            seq.serialize_element(&("redact", element.as_ref()))?;
         }
 
         if let Some(diarize) = diarize {
@@ -357,6 +309,72 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         seq.end()
+    }
+}
+
+impl AsRef<str> for Model<'_> {
+    fn as_ref(&self) -> &str {
+        use Model::*;
+
+        match self {
+            General => "general",
+            Meeting => "meeting",
+            Phonecall => "phonecall",
+            Voicemail => "voicemail",
+            Finance => "finance",
+            Conversational => "conversational",
+            Video => "video",
+            CustomId(id) => id,
+        }
+    }
+}
+
+impl AsRef<str> for Language<'_> {
+    fn as_ref(&self) -> &str {
+        use Language::*;
+
+        match self {
+            zh => "zh",
+            zh_CN => "zh-CN",
+            zh_TW => "zh-TW",
+            nl => "nl",
+            en => "en",
+            en_AU => "en-AU",
+            en_GB => "en-GB",
+            en_IN => "en-IN",
+            en_NZ => "en-NZ",
+            en_US => "en-US",
+            fr => "fr",
+            fr_CA => "fr-CA",
+            de => "de",
+            hi => "hi",
+            id => "id",
+            it => "it",
+            ja => "ja",
+            ko => "ko",
+            pt => "pt",
+            pt_BR => "pt-BR",
+            ru => "ru",
+            es => "es",
+            es_419 => "es-419",
+            sv => "sv",
+            tr => "tr",
+            uk => "uk",
+            Other(bcp_47_tag) => bcp_47_tag,
+        }
+    }
+}
+
+impl AsRef<str> for Redact<'_> {
+    fn as_ref(&self) -> &str {
+        use Redact::*;
+
+        match self {
+            Pci => "pci",
+            Numbers => "numbers",
+            Ssn => "ssn",
+            Other(id) => id,
+        }
     }
 }
 
