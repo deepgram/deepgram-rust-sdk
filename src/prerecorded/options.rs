@@ -88,6 +88,8 @@ pub enum Utterances {
 
 pub struct OptionsBuilder<'a>(Options<'a>);
 
+pub(super) struct SerializableOptions<'a>(pub &'a Options<'a>);
+
 impl<'a> Options<'a> {
     pub fn builder() -> OptionsBuilder<'a> {
         OptionsBuilder::new()
@@ -207,7 +209,7 @@ impl<'a> Default for OptionsBuilder<'a> {
     }
 }
 
-impl Serialize for Options<'_> {
+impl Serialize for SerializableOptions<'_> {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -215,7 +217,7 @@ impl Serialize for Options<'_> {
         let mut seq = serializer.serialize_seq(None)?;
 
         // Destructuring it makes sure that we don't forget to use any of it
-        let Self {
+        let Options {
             model,
             version,
             language,
@@ -232,7 +234,7 @@ impl Serialize for Options<'_> {
             keywords,
             utterances,
             tag,
-        } = self;
+        } = self.0;
 
         if let Some(model) = model {
             let s = match model {
@@ -366,7 +368,7 @@ mod serialize_options_tests {
         let actual = {
             let mut serializer = form_urlencoded::Serializer::new(String::new());
 
-            options
+            SerializableOptions(options)
                 .serialize(serde_urlencoded::Serializer::new(&mut serializer))
                 .unwrap();
 
