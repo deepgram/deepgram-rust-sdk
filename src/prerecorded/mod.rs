@@ -4,9 +4,11 @@ mod audio_source;
 mod options;
 mod response;
 
-pub use audio_source::{AudioSource, BufferSource, UrlSource};
+pub use audio_source::{BufferSource, UrlSource};
 pub use options::{Language, Model, OptionsBuilder, Redact, Utterances};
 pub use response::PrerecordedResponse;
+
+use audio_source::AudioSource;
 
 impl<K: AsRef<str>> Deepgram<K> {
     pub async fn prerecorded_request(

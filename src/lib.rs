@@ -20,8 +20,8 @@ use url::Url;
 
 mod prerecorded;
 pub use prerecorded::{
-    AudioSource, BufferSource, Language, Model, OptionsBuilder, PrerecordedResponse, Redact,
-    UrlSource, Utterances,
+    BufferSource, Language, Model, OptionsBuilder, PrerecordedResponse, Redact, UrlSource,
+    Utterances,
 };
 
 #[derive(Debug)]
