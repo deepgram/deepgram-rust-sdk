@@ -4,10 +4,10 @@ use serde::{ser::SerializeSeq, Serialize};
 pub struct OptionsBuilder<'a> {
     model: Option<Model<'a>>,
     version: Option<&'a str>,
-    language: Option<Language>,
+    language: Option<Language<'a>>,
     punctuate: Option<bool>,
     profanity_filter: Option<bool>,
-    redact: Vec<Redact>,
+    redact: Vec<Redact<'a>>,
     diarize: Option<bool>,
     ner: Option<bool>,
     multichannel: Option<bool>,
@@ -35,7 +35,7 @@ pub enum Model<'a> {
 #[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 #[allow(non_camel_case_types)]
-pub enum Language {
+pub enum Language<'a> {
     zh_CN,
     zh_TW,
     nl,
@@ -60,13 +60,22 @@ pub enum Language {
     sv,
     tr,
     uk,
+    /// Avoid using the `Other` variant where possible.
+    /// It exists so that you can use new languages that Deepgram supports without being forced to update your version of the SDK.
+    /// Please consult the [Deepgram Language Documentation](https://developers.deepgram.com/documentation/features/language/) for the most up-to-date list of supported languages.
+    Other(&'a str),
 }
 
 #[derive(Debug)]
-pub enum Redact {
+#[non_exhaustive]
+pub enum Redact<'a> {
     Pci,
     Numbers,
     Ssn,
+    /// Avoid using the `Other` variant where possible.
+    /// It exists so that you can use new redactable items that Deepgram supports without being forced to update your version of the SDK.
+    /// Please consult the [Deepgram Redact Documentation](https://developers.deepgram.com/documentation/features/redact/) for the most up-to-date list of redactable items.
+    Other(&'a str),
 }
 
 #[derive(Debug)]
@@ -107,7 +116,7 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    pub fn language(mut self, language: Language) -> Self {
+    pub fn language(mut self, language: Language<'a>) -> Self {
         self.language = Some(language);
         self
     }
@@ -122,7 +131,7 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    pub fn redact(mut self, redact: impl IntoIterator<Item = Redact>) -> Self {
+    pub fn redact(mut self, redact: impl IntoIterator<Item = Redact<'a>>) -> Self {
         self.redact.extend(redact);
         self
     }
@@ -256,6 +265,7 @@ impl Serialize for OptionsBuilder<'_> {
                 Language::sv => "sv",
                 Language::tr => "tr",
                 Language::uk => "uk",
+                Language::Other(bcp_47_tag) => bcp_47_tag,
             };
 
             seq.serialize_element(&("language", s))?;
@@ -274,6 +284,7 @@ impl Serialize for OptionsBuilder<'_> {
                 Redact::Pci => "pci",
                 Redact::Numbers => "numbers",
                 Redact::Ssn => "ssn",
+                Redact::Other(id) => id,
             };
 
             seq.serialize_element(&("redact", s))?;
