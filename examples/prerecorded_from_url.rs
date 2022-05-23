@@ -1,8 +1,7 @@
 use deepgram::{Deepgram, DeepgramError, Language, OptionsBuilder, UrlSource};
 use std::env;
 
-const DEEPGRAM_API_KEY: &str = "YOUR_SECRET";
-const AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
+static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {

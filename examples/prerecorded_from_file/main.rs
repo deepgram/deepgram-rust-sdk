@@ -2,8 +2,7 @@ use deepgram::{BufferSource, Deepgram, DeepgramError, Language, OptionsBuilder};
 use std::env;
 use tokio::fs::File;
 
-const DEEPGRAM_API_KEY: &str = "YOUR_SECRET";
-const PATH_TO_FILE: &str = "examples/prerecorded_from_file/Bueller-Life-moves-pretty-fast.wav";
+static PATH_TO_FILE: &str = "examples/prerecorded_from_file/Bueller-Life-moves-pretty-fast.wav";
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
