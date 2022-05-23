@@ -351,6 +351,27 @@ mod serialize_options_tests {
         assert_eq!(actual, expected);
     }
 
+    fn generate_alphabet_test(key: &str) -> ([&str; 25], String) {
+        let letters = [
+            "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q",
+            "R", "S", "T", "U", "V", "W", "X", "Y",
+        ];
+
+        let expected = {
+            let mut expected = String::new();
+            for letter in letters {
+                expected.push_str(key);
+                expected.push_str("=");
+                expected.push_str(letter);
+                expected.push_str("&");
+            }
+            expected.pop(); // Pop the extra & off the end
+            expected
+        };
+
+        (letters, expected)
+    }
+
     #[test]
     fn all_options() {
         let options = OptionsBuilder::new()
@@ -437,6 +458,18 @@ mod serialize_options_tests {
             &OptionsBuilder::new().redact([Redact::Ssn, Redact::Pci]),
             "redact=ssn&redact=pci",
         );
+
+        check_serialization(
+            &OptionsBuilder::new().redact([
+                Redact::Numbers,
+                Redact::Ssn,
+                Redact::Pci,
+                Redact::Ssn,
+                Redact::Numbers,
+                Redact::Pci,
+            ]),
+            "redact=numbers&redact=ssn&redact=pci&redact=ssn&redact=numbers&redact=pci",
+        );
     }
 
     #[test]
@@ -488,6 +521,11 @@ mod serialize_options_tests {
             &OptionsBuilder::new().search(["Rust", "Deepgram"]),
             "search=Rust&search=Deepgram",
         );
+
+        {
+            let (input, expected) = generate_alphabet_test("search");
+            check_serialization(&OptionsBuilder::new().search(input), &expected);
+        }
     }
 
     #[test]
@@ -511,6 +549,11 @@ mod serialize_options_tests {
             &OptionsBuilder::new().keywords(["Ferris", "Cargo"]),
             "keywords=Ferris&keywords=Cargo",
         );
+
+        {
+            let (input, expected) = generate_alphabet_test("keywords");
+            check_serialization(&OptionsBuilder::new().keywords(input), &expected);
+        }
     }
 
     #[test]
