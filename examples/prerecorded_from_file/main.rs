@@ -1,4 +1,5 @@
 use deepgram::{BufferSource, Deepgram, DeepgramError, Language, OptionsBuilder};
+use std::env;
 use tokio::fs::File;
 
 const DEEPGRAM_API_KEY: &str = "YOUR_SECRET";
@@ -6,7 +7,10 @@ const PATH_TO_FILE: &str = "examples/prerecorded_from_file/Bueller-Life-moves-pr
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
-    let dg_client = Deepgram::new(DEEPGRAM_API_KEY);
+    let deepgram_api_key =
+        env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+
+    let dg_client = Deepgram::new(&deepgram_api_key);
 
     let file = File::open(PATH_TO_FILE).await.unwrap();
 
