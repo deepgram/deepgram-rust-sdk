@@ -1,7 +1,7 @@
 use serde::{ser::SerializeSeq, Serialize};
 
 #[derive(Debug)]
-pub struct OptionsBuilder<'a> {
+pub struct Options<'a> {
     model: Option<Model<'a>>,
     version: Option<&'a str>,
     language: Option<Language<'a>>,
@@ -86,9 +86,17 @@ pub enum Utterances {
     Enabled { utt_split: Option<f64> },
 }
 
+pub struct OptionsBuilder<'a>(Options<'a>);
+
+impl<'a> Options<'a> {
+    pub fn builder() -> OptionsBuilder<'a> {
+        OptionsBuilder::new()
+    }
+}
+
 impl<'a> OptionsBuilder<'a> {
     pub fn new() -> Self {
-        Self {
+        Self(Options {
             model: None,
             version: None,
             language: None,
@@ -105,87 +113,91 @@ impl<'a> OptionsBuilder<'a> {
             keywords: Vec::new(),
             utterances: None,
             tag: None,
-        }
+        })
     }
 
     pub fn model(mut self, model: Model<'a>) -> Self {
-        self.model = Some(model);
+        self.0.model = Some(model);
         self
     }
 
     pub fn version(mut self, version: &'a str) -> Self {
-        self.version = Some(version);
+        self.0.version = Some(version);
         self
     }
 
     pub fn language(mut self, language: Language<'a>) -> Self {
-        self.language = Some(language);
+        self.0.language = Some(language);
         self
     }
 
     pub fn punctuate(mut self, punctuate: bool) -> Self {
-        self.punctuate = Some(punctuate);
+        self.0.punctuate = Some(punctuate);
         self
     }
 
     pub fn profanity_filter(mut self, profanity_filter: bool) -> Self {
-        self.profanity_filter = Some(profanity_filter);
+        self.0.profanity_filter = Some(profanity_filter);
         self
     }
 
     pub fn redact(mut self, redact: impl IntoIterator<Item = Redact<'a>>) -> Self {
-        self.redact.extend(redact);
+        self.0.redact.extend(redact);
         self
     }
 
     pub fn diarize(mut self, diarize: bool) -> Self {
-        self.diarize = Some(diarize);
+        self.0.diarize = Some(diarize);
         self
     }
 
     pub fn ner(mut self, ner: bool) -> Self {
-        self.ner = Some(ner);
+        self.0.ner = Some(ner);
         self
     }
 
     pub fn multichannel(mut self, multichannel: bool) -> Self {
-        self.multichannel = Some(multichannel);
+        self.0.multichannel = Some(multichannel);
         self
     }
 
     pub fn alternatives(mut self, alternatives: usize) -> Self {
-        self.alternatives = Some(alternatives);
+        self.0.alternatives = Some(alternatives);
         self
     }
 
     pub fn numerals(mut self, numerals: bool) -> Self {
-        self.numerals = Some(numerals);
+        self.0.numerals = Some(numerals);
         self
     }
 
     pub fn search(mut self, search: impl IntoIterator<Item = &'a str>) -> Self {
-        self.search.extend(search);
+        self.0.search.extend(search);
         self
     }
 
     pub fn callback(mut self, callback: &'a str) -> Self {
-        self.callback = Some(callback);
+        self.0.callback = Some(callback);
         self
     }
 
     pub fn keywords(mut self, keywords: impl IntoIterator<Item = &'a str>) -> Self {
-        self.keywords.extend(keywords);
+        self.0.keywords.extend(keywords);
         self
     }
 
     pub fn utterances(mut self, utterances: Utterances) -> Self {
-        self.utterances = Some(utterances);
+        self.0.utterances = Some(utterances);
         self
     }
 
     pub fn tag(mut self, tag: &'a str) -> Self {
-        self.tag = Some(tag);
+        self.0.tag = Some(tag);
         self
+    }
+
+    pub fn build(self) -> Options<'a> {
+        self.0
     }
 }
 
@@ -195,7 +207,7 @@ impl<'a> Default for OptionsBuilder<'a> {
     }
 }
 
-impl Serialize for OptionsBuilder<'_> {
+impl Serialize for Options<'_> {
     fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -350,7 +362,7 @@ impl Serialize for OptionsBuilder<'_> {
 mod serialize_options_tests {
     use super::*;
 
-    fn check_serialization(options: &OptionsBuilder, expected: &str) {
+    fn check_serialization(options: &Options, expected: &str) {
         let actual = {
             let mut serializer = form_urlencoded::Serializer::new(String::new());
 
@@ -387,7 +399,7 @@ mod serialize_options_tests {
 
     #[test]
     fn all_options() {
-        let options = OptionsBuilder::new()
+        let options = Options::builder()
             .model(Model::General)
             .version("1.2.3")
             .language(Language::en_US)
@@ -405,7 +417,8 @@ mod serialize_options_tests {
             .utterances(Utterances::Enabled {
                 utt_split: Some(0.9),
             })
-            .tag("SDK Test");
+            .tag("SDK Test")
+            .build();
 
         check_serialization(&options, "model=general&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&callback=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ&keywords=Ferris&keywords=Cargo&utterances=true&utt_split=0.9&tag=SDK+Test");
     }
@@ -413,184 +426,214 @@ mod serialize_options_tests {
     #[test]
     fn model() {
         check_serialization(
-            &OptionsBuilder::new().model(Model::General),
+            &Options::builder().model(Model::General).build(),
             "model=general",
         );
 
         check_serialization(
-            &OptionsBuilder::new().model(Model::CustomId("extra_crispy")),
+            &Options::builder()
+                .model(Model::CustomId("extra_crispy"))
+                .build(),
             "model=extra_crispy",
         );
     }
 
     #[test]
     fn version() {
-        check_serialization(&OptionsBuilder::new().version("1.2.3"), "version=1.2.3");
+        check_serialization(
+            &Options::builder().version("1.2.3").build(),
+            "version=1.2.3",
+        );
     }
 
     #[test]
     fn language() {
         check_serialization(
-            &OptionsBuilder::new().language(Language::en_US),
+            &Options::builder().language(Language::en_US).build(),
             "language=en-US",
         );
 
-        check_serialization(&OptionsBuilder::new().language(Language::ja), "language=ja");
+        check_serialization(
+            &Options::builder().language(Language::ja).build(),
+            "language=ja",
+        );
     }
 
     #[test]
     fn punctuate() {
-        check_serialization(&OptionsBuilder::new().punctuate(true), "punctuate=true");
+        check_serialization(
+            &Options::builder().punctuate(true).build(),
+            "punctuate=true",
+        );
 
-        check_serialization(&OptionsBuilder::new().punctuate(false), "punctuate=false");
+        check_serialization(
+            &Options::builder().punctuate(false).build(),
+            "punctuate=false",
+        );
     }
 
     #[test]
     fn profanity_filter() {
         check_serialization(
-            &OptionsBuilder::new().profanity_filter(true),
+            &Options::builder().profanity_filter(true).build(),
             "profanity_filter=true",
         );
 
         check_serialization(
-            &OptionsBuilder::new().profanity_filter(false),
+            &Options::builder().profanity_filter(false).build(),
             "profanity_filter=false",
         );
     }
 
     #[test]
     fn redact() {
-        check_serialization(&OptionsBuilder::new().redact([]), "");
+        check_serialization(&Options::builder().redact([]).build(), "");
 
         check_serialization(
-            &OptionsBuilder::new().redact([Redact::Numbers]),
+            &Options::builder().redact([Redact::Numbers]).build(),
             "redact=numbers",
         );
 
         check_serialization(
-            &OptionsBuilder::new().redact([Redact::Ssn, Redact::Pci]),
+            &Options::builder()
+                .redact([Redact::Ssn, Redact::Pci])
+                .build(),
             "redact=ssn&redact=pci",
         );
 
         check_serialization(
-            &OptionsBuilder::new().redact([
-                Redact::Numbers,
-                Redact::Ssn,
-                Redact::Pci,
-                Redact::Ssn,
-                Redact::Numbers,
-                Redact::Pci,
-            ]),
+            &Options::builder()
+                .redact([
+                    Redact::Numbers,
+                    Redact::Ssn,
+                    Redact::Pci,
+                    Redact::Ssn,
+                    Redact::Numbers,
+                    Redact::Pci,
+                ])
+                .build(),
             "redact=numbers&redact=ssn&redact=pci&redact=ssn&redact=numbers&redact=pci",
         );
     }
 
     #[test]
     fn diarize() {
-        check_serialization(&OptionsBuilder::new().diarize(true), "diarize=true");
+        check_serialization(&Options::builder().diarize(true).build(), "diarize=true");
 
-        check_serialization(&OptionsBuilder::new().diarize(false), "diarize=false");
+        check_serialization(&Options::builder().diarize(false).build(), "diarize=false");
     }
 
     #[test]
     fn ner() {
-        check_serialization(&OptionsBuilder::new().ner(true), "ner=true");
+        check_serialization(&Options::builder().ner(true).build(), "ner=true");
 
-        check_serialization(&OptionsBuilder::new().ner(false), "ner=false");
+        check_serialization(&Options::builder().ner(false).build(), "ner=false");
     }
 
     #[test]
     fn multichannel() {
         check_serialization(
-            &OptionsBuilder::new().multichannel(true),
+            &Options::builder().multichannel(true).build(),
             "multichannel=true",
         );
 
         check_serialization(
-            &OptionsBuilder::new().multichannel(false),
+            &Options::builder().multichannel(false).build(),
             "multichannel=false",
         );
     }
 
     #[test]
     fn alternatives() {
-        check_serialization(&OptionsBuilder::new().alternatives(4), "alternatives=4");
+        check_serialization(
+            &Options::builder().alternatives(4).build(),
+            "alternatives=4",
+        );
     }
 
     #[test]
     fn numerals() {
-        check_serialization(&OptionsBuilder::new().numerals(true), "numerals=true");
+        check_serialization(&Options::builder().numerals(true).build(), "numerals=true");
 
-        check_serialization(&OptionsBuilder::new().numerals(false), "numerals=false");
+        check_serialization(
+            &Options::builder().numerals(false).build(),
+            "numerals=false",
+        );
     }
 
     #[test]
     fn search() {
-        check_serialization(&OptionsBuilder::new().search([]), "");
+        check_serialization(&Options::builder().search([]).build(), "");
 
-        check_serialization(&OptionsBuilder::new().search(["Rust"]), "search=Rust");
+        check_serialization(&Options::builder().search(["Rust"]).build(), "search=Rust");
 
         check_serialization(
-            &OptionsBuilder::new().search(["Rust", "Deepgram"]),
+            &Options::builder().search(["Rust", "Deepgram"]).build(),
             "search=Rust&search=Deepgram",
         );
 
         {
             let (input, expected) = generate_alphabet_test("search");
-            check_serialization(&OptionsBuilder::new().search(input), &expected);
+            check_serialization(&Options::builder().search(input).build(), &expected);
         }
     }
 
     #[test]
     fn callback() {
         check_serialization(
-            &OptionsBuilder::new().callback("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+            &Options::builder()
+                .callback("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+                .build(),
             "callback=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ",
         );
     }
 
     #[test]
     fn keywords() {
-        check_serialization(&OptionsBuilder::new().keywords([]), "");
+        check_serialization(&Options::builder().keywords([]).build(), "");
 
         check_serialization(
-            &OptionsBuilder::new().keywords(["Ferris"]),
+            &Options::builder().keywords(["Ferris"]).build(),
             "keywords=Ferris",
         );
 
         check_serialization(
-            &OptionsBuilder::new().keywords(["Ferris", "Cargo"]),
+            &Options::builder().keywords(["Ferris", "Cargo"]).build(),
             "keywords=Ferris&keywords=Cargo",
         );
 
         {
             let (input, expected) = generate_alphabet_test("keywords");
-            check_serialization(&OptionsBuilder::new().keywords(input), &expected);
+            check_serialization(&Options::builder().keywords(input).build(), &expected);
         }
     }
 
     #[test]
     fn utterances() {
         check_serialization(
-            &OptionsBuilder::new().utterances(Utterances::Disabled),
+            &Options::builder().utterances(Utterances::Disabled).build(),
             "utterances=false",
         );
 
         check_serialization(
-            &OptionsBuilder::new().utterances(Utterances::Enabled { utt_split: None }),
+            &Options::builder()
+                .utterances(Utterances::Enabled { utt_split: None })
+                .build(),
             "utterances=true",
         );
 
         check_serialization(
-            &OptionsBuilder::new().utterances(Utterances::Enabled {
-                utt_split: Some(0.9),
-            }),
+            &Options::builder()
+                .utterances(Utterances::Enabled {
+                    utt_split: Some(0.9),
+                })
+                .build(),
             "utterances=true&utt_split=0.9",
         );
     }
 
     #[test]
     fn tag() {
-        check_serialization(&OptionsBuilder::new().tag("SDK Test"), "tag=SDK+Test");
+        check_serialization(&Options::builder().tag("SDK Test").build(), "tag=SDK+Test");
     }
 }

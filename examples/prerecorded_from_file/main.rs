@@ -1,4 +1,4 @@
-use deepgram::{BufferSource, Deepgram, DeepgramError, Language, OptionsBuilder};
+use deepgram::{BufferSource, Deepgram, DeepgramError, Language, Options};
 use std::env;
 use tokio::fs::File;
 
@@ -18,9 +18,10 @@ async fn main() -> Result<(), DeepgramError> {
         mimetype: Some("audio/wav"),
     };
 
-    let options = OptionsBuilder::new()
+    let options = Options::builder()
         .punctuate(true)
-        .language(Language::en_US);
+        .language(Language::en_US)
+        .build();
 
     let response = dg_client.prerecorded_request(source, &options).await?;
 

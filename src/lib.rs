@@ -20,7 +20,7 @@ use url::Url;
 
 mod prerecorded;
 pub use prerecorded::{
-    BufferSource, Language, Model, OptionsBuilder, PrerecordedResponse, Redact, UrlSource,
+    BufferSource, Language, Model, Options, OptionsBuilder, PrerecordedResponse, Redact, UrlSource,
     Utterances,
 };
 
