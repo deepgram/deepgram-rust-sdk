@@ -86,8 +86,10 @@ pub enum Utterances {
     Enabled { utt_split: Option<f64> },
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct OptionsBuilder<'a>(Options<'a>);
 
+#[derive(Debug, PartialEq, Clone)]
 pub(super) struct SerializableOptions<'a>(pub &'a Options<'a>);
 
 impl<'a> Options<'a> {
