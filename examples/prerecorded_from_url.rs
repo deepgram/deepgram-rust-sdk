@@ -13,14 +13,14 @@ async fn main() -> Result<(), DeepgramError> {
 
     let dg_client = Deepgram::new(&deepgram_api_key);
 
+    let source = UrlSource { url: AUDIO_URL };
+
     let options = Options::builder()
         .punctuate(true)
         .language(Language::en_US)
         .build();
 
-    let response = dg_client
-        .prerecorded_request(UrlSource { url: AUDIO_URL }, &options)
-        .await?;
+    let response = dg_client.prerecorded_request(&source, &options).await?;
 
     let transcript = &response.results.channels[0].alternatives[0].transcript;
     println!("{}", transcript);
