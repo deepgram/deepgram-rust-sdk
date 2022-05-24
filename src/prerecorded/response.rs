@@ -1,13 +1,13 @@
 use serde::Deserialize;
 use uuid::Uuid;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct PrerecordedResponse {
     pub metadata: ListenMetadata,
     pub results: ListenResults,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct ListenMetadata {
     pub request_id: Uuid,
     pub transaction_key: String,
@@ -17,24 +17,24 @@ pub struct ListenMetadata {
     pub channels: usize,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct ListenResults {
     pub channels: Vec<ChannelResult>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct ChannelResult {
     pub search: Option<Vec<SearchResults>>,
     pub alternatives: Vec<ResultAlternative>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct SearchResults {
     pub query: String,
     pub hits: Vec<Hit>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct Hit {
     pub confidence: f64,
     pub start: f64,
@@ -42,14 +42,14 @@ pub struct Hit {
     pub snippet: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct ResultAlternative {
     pub transcript: String,
     pub confidence: f64,
     pub words: Vec<Word>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct Word {
     pub word: String,
     pub start: f64,

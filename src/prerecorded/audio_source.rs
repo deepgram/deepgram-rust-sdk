@@ -6,11 +6,12 @@ pub trait AudioSource {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
 }
 
-#[derive(Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
 pub struct UrlSource<'a> {
     pub url: &'a str,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct BufferSource<'a, B: Into<reqwest::Body>> {
     pub buffer: B,
     pub mimetype: Option<&'a str>,

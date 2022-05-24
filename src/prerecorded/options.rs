@@ -1,6 +1,6 @@
 use serde::{ser::SerializeSeq, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Options<'a> {
     model: Option<Model<'a>>,
     version: Option<&'a str>,
@@ -20,7 +20,7 @@ pub struct Options<'a> {
     tag: Option<&'a str>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum Model<'a> {
     General,
     Meeting,
@@ -32,7 +32,7 @@ pub enum Model<'a> {
     CustomId(&'a str),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 #[allow(non_camel_case_types)]
 pub enum Language<'a> {
@@ -68,7 +68,7 @@ pub enum Language<'a> {
     Other(&'a str),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 pub enum Redact<'a> {
     Pci,
@@ -80,7 +80,7 @@ pub enum Redact<'a> {
     Other(&'a str),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Utterances {
     Disabled,
     Enabled { utt_split: Option<f64> },
