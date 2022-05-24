@@ -1,4 +1,7 @@
-use deepgram::{Deepgram, DeepgramError, Language, Options, UrlSource};
+use deepgram::{
+    prerecorded::{Language, Options, UrlSource},
+    Deepgram, DeepgramError,
+};
 use std::env;
 
 static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";

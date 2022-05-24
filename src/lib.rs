@@ -18,11 +18,7 @@ use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
 
-mod prerecorded;
-pub use prerecorded::{
-    BufferSource, Language, Model, Options, OptionsBuilder, PrerecordedResponse, Redact, UrlSource,
-    Utterances,
-};
+pub mod prerecorded;
 
 #[derive(Debug)]
 pub struct Deepgram<K>

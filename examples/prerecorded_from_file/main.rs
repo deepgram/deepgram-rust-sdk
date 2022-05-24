@@ -1,4 +1,7 @@
-use deepgram::{BufferSource, Deepgram, DeepgramError, Language, Options};
+use deepgram::{
+    prerecorded::{BufferSource, Language, Options},
+    Deepgram, DeepgramError,
+};
 use std::env;
 use tokio::fs::File;
 
