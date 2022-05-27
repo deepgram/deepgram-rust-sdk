@@ -27,7 +27,7 @@ pub enum Model<'a> {
     Phonecall,
     Voicemail,
     Finance,
-    Conversational,
+    Conversationalai,
     Video,
     CustomId(&'a str),
 }
@@ -324,7 +324,7 @@ impl AsRef<str> for Model<'_> {
             Phonecall => "phonecall",
             Voicemail => "voicemail",
             Finance => "finance",
-            Conversational => "conversational",
+            Conversationalai => "conversationalai",
             Video => "video",
             CustomId(id) => id,
         }
