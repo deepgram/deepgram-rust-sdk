@@ -16,7 +16,7 @@ pub struct Options<'a> {
     search: Vec<&'a str>,
     keywords: Vec<&'a str>,
     utterances: Option<Utterances>,
-    tag: Option<&'a str>,
+    tags: Vec<&'a str>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -117,7 +117,7 @@ impl<'a> OptionsBuilder<'a> {
             search: Vec::new(),
             keywords: Vec::new(),
             utterances: None,
-            tag: None,
+            tags: Vec::new(),
         })
     }
 
@@ -191,8 +191,8 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    pub fn tag(mut self, tag: &'a str) -> Self {
-        self.0.tag = Some(tag);
+    pub fn tag(mut self, tag: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.tags.extend(tag);
         self
     }
 
@@ -230,7 +230,7 @@ impl Serialize for SerializableOptions<'_> {
             search,
             keywords,
             utterances,
-            tag,
+            tags,
         } = self.0;
 
         if let Some(model) = model {
@@ -297,8 +297,8 @@ impl Serialize for SerializableOptions<'_> {
             None => (),
         };
 
-        if let Some(tag) = tag {
-            seq.serialize_element(&("tag", tag))?;
+        for element in tags {
+            seq.serialize_element(&("tag", element))?;
         }
 
         seq.end()
@@ -431,7 +431,7 @@ mod serialize_options_tests {
             .utterances(Utterances::Enabled {
                 utt_split: Some(0.9),
             })
-            .tag("SDK Test")
+            .tag(["SDK Test"])
             .build();
 
         check_serialization(&options, "model=general&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&keywords=Ferris&keywords=Cargo&utterances=true&utt_split=0.9&tag=SDK+Test");
@@ -638,6 +638,11 @@ mod serialize_options_tests {
 
     #[test]
     fn tag() {
-        check_serialization(&Options::builder().tag("SDK Test").build(), "tag=SDK+Test");
+        check_serialization(&Options::builder().tag(["Tag 1"]).build(), "tag=Tag+1");
+
+        check_serialization(
+            &Options::builder().tag(["Tag 1", "Tag 2"]).build(),
+            "tag=Tag+1&tag=Tag+2",
+        );
     }
 }
