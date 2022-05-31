@@ -25,12 +25,25 @@ pub struct ListenMetadata {
 #[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct ListenResults {
     pub channels: Vec<ChannelResult>,
+    pub utterances: Option<Vec<Utterance>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct ChannelResult {
     pub search: Option<Vec<SearchResults>>,
     pub alternatives: Vec<ResultAlternative>,
+}
+
+#[derive(Debug, PartialEq, Clone, Deserialize)]
+pub struct Utterance {
+    pub start: f64,
+    pub end: f64,
+    pub confidence: f64,
+    pub channel: usize,
+    pub transcript: String,
+    pub words: Vec<Word>,
+    pub speaker: Option<usize>,
+    pub id: Uuid,
 }
 
 #[derive(Debug, PartialEq, Clone, Deserialize)]
