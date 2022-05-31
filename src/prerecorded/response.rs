@@ -55,4 +55,5 @@ pub struct Word {
     pub start: f64,
     pub end: f64,
     pub confidence: f64,
+    pub speaker: Option<usize>,
 }
