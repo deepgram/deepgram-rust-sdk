@@ -14,7 +14,6 @@ pub struct Options<'a> {
     alternatives: Option<usize>,
     numerals: Option<bool>,
     search: Vec<&'a str>,
-    callback: Option<&'a str>,
     keywords: Vec<&'a str>,
     utterances: Option<Utterances>,
     tag: Option<&'a str>,
@@ -116,7 +115,6 @@ impl<'a> OptionsBuilder<'a> {
             alternatives: None,
             numerals: None,
             search: Vec::new(),
-            callback: None,
             keywords: Vec::new(),
             utterances: None,
             tag: None,
@@ -183,11 +181,6 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    pub fn callback(mut self, callback: &'a str) -> Self {
-        self.0.callback = Some(callback);
-        self
-    }
-
     pub fn keywords(mut self, keywords: impl IntoIterator<Item = &'a str>) -> Self {
         self.0.keywords.extend(keywords);
         self
@@ -235,7 +228,6 @@ impl Serialize for SerializableOptions<'_> {
             alternatives,
             numerals,
             search,
-            callback,
             keywords,
             utterances,
             tag,
@@ -287,10 +279,6 @@ impl Serialize for SerializableOptions<'_> {
 
         for element in search {
             seq.serialize_element(&("search", element))?;
-        }
-
-        if let Some(callback) = callback {
-            seq.serialize_element(&("callback", callback))?;
         }
 
         for element in keywords {
@@ -439,7 +427,6 @@ mod serialize_options_tests {
             .alternatives(4)
             .numerals(true)
             .search(["Rust", "Deepgram"])
-            .callback("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
             .keywords(["Ferris", "Cargo"])
             .utterances(Utterances::Enabled {
                 utt_split: Some(0.9),
@@ -447,7 +434,7 @@ mod serialize_options_tests {
             .tag("SDK Test")
             .build();
 
-        check_serialization(&options, "model=general&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&callback=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ&keywords=Ferris&keywords=Cargo&utterances=true&utt_split=0.9&tag=SDK+Test");
+        check_serialization(&options, "model=general&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&keywords=Ferris&keywords=Cargo&utterances=true&utt_split=0.9&tag=SDK+Test");
     }
 
     #[test]
@@ -603,16 +590,6 @@ mod serialize_options_tests {
             let (input, expected) = generate_alphabet_test("search");
             check_serialization(&Options::builder().search(input).build(), &expected);
         }
-    }
-
-    #[test]
-    fn callback() {
-        check_serialization(
-            &Options::builder()
-                .callback("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-                .build(),
-            "callback=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ",
-        );
     }
 
     #[test]

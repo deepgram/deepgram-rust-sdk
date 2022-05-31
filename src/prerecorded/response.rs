@@ -7,6 +7,11 @@ pub struct PrerecordedResponse {
     pub results: ListenResults,
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Deserialize)]
+pub struct CallbackResponse {
+    pub request_id: Uuid,
+}
+
 #[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct ListenMetadata {
     pub request_id: Uuid,

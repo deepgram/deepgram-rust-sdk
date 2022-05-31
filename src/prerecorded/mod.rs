@@ -7,7 +7,7 @@ mod response;
 
 pub use audio_source::{BufferSource, UrlSource};
 pub use options::{Language, Model, Options, OptionsBuilder, Redact, Utterances};
-pub use response::PrerecordedResponse;
+pub use response::{CallbackResponse, PrerecordedResponse};
 
 use audio_source::AudioSource;
 use options::SerializableOptions;
@@ -23,12 +23,23 @@ impl<K: AsRef<str>> Deepgram<K> {
         Ok(request_builder.send().await?.json().await?)
     }
 
-    /// Makes a `reqwest::RequestBuilder` without actually sending the request.
+    pub async fn callback_request(
+        &self,
+        source: impl AudioSource,
+        options: &Options<'_>,
+        callback: &str,
+    ) -> Result<CallbackResponse> {
+        let request_builder = self.make_callback_request_builder(source, options, callback);
+
+        Ok(request_builder.send().await?.json().await?)
+    }
+
+    /// Makes a [`reqwest::RequestBuilder`] without actually sending the request.
     /// This allows you to modify the request before it is sent.
     ///
-    /// Avoid using `make_prerecorded_request_builder` where possible.
+    /// Avoid using this where possible.
     /// By customizing the request, there is less of a guarentee that it will conform to the Deepgram API.
-    /// Prefer using `Deepgram::prerecorded_request`.
+    /// Prefer using [`Deepgram::prerecorded_request`].
     ///
     /// # Examples
     ///
@@ -83,5 +94,19 @@ impl<K: AsRef<str>> Deepgram<K> {
         let request_builder = source.fill_body(request_builder);
 
         request_builder
+    }
+
+    /// Similar to [`Deepgram::make_prerecorded_request_builder`],
+    /// but for the purposes of a [callback request](https://developers.deepgram.com/documentation/features/callback/).
+    ///
+    /// You should avoid using this where possible too, preferring [`Deepgram::callback_request`].
+    pub fn make_callback_request_builder(
+        &self,
+        source: impl AudioSource,
+        options: &Options<'_>,
+        callback: &str,
+    ) -> RequestBuilder {
+        self.make_prerecorded_request_builder(source, options)
+            .query(&[("callback", callback)])
     }
 }
