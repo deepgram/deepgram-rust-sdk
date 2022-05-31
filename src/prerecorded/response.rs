@@ -74,4 +74,5 @@ pub struct Word {
     pub end: f64,
     pub confidence: f64,
     pub speaker: Option<usize>,
+    pub punctuated_word: Option<String>,
 }
