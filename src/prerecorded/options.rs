@@ -21,7 +21,9 @@ pub struct Options<'a> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[non_exhaustive]
 pub enum Model<'a> {
+    GeneralEnhanced,
     General,
     Meeting,
     Phonecall,
@@ -319,6 +321,7 @@ impl AsRef<str> for Model<'_> {
         use Model::*;
 
         match self {
+            GeneralEnhanced => "general-enhanced",
             General => "general",
             Meeting => "meeting",
             Phonecall => "phonecall",
