@@ -12,6 +12,8 @@ pub use response::{CallbackResponse, PrerecordedResponse};
 use audio_source::AudioSource;
 use options::SerializableOptions;
 
+static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
+
 impl<K: AsRef<str>> Deepgram<K> {
     pub async fn prerecorded_request(
         &self,
@@ -88,7 +90,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ) -> RequestBuilder {
         let request_builder = self
             .client
-            .post("https://api.deepgram.com/v1/listen")
+            .post(DEEPGRAM_API_URL_LISTEN)
             .header("Authorization", format!("Token {}", self.api_key.as_ref()))
             .query(&SerializableOptions(options));
         let request_builder = source.fill_body(request_builder);
