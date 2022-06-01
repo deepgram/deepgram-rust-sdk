@@ -93,9 +93,8 @@ impl<K: AsRef<str>> Deepgram<K> {
             .post(DEEPGRAM_API_URL_LISTEN)
             .header("Authorization", format!("Token {}", self.api_key.as_ref()))
             .query(&SerializableOptions(options));
-        let request_builder = source.fill_body(request_builder);
 
-        request_builder
+        source.fill_body(request_builder)
     }
 
     /// Similar to [`Deepgram::make_prerecorded_request_builder`],

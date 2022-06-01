@@ -460,7 +460,7 @@ impl AsRef<str> for Redact<'_> {
     }
 }
 
-fn models_to_string<'a>(models: &[Model]) -> String {
+fn models_to_string(models: &[Model]) -> String {
     models
         .iter()
         .map(|m| m.as_ref())
