@@ -1,4 +1,5 @@
 use serde::{ser::SerializeSeq, Serialize};
+use std::borrow::Cow;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options<'a> {
@@ -14,7 +15,7 @@ pub struct Options<'a> {
     alternatives: Option<usize>,
     numerals: Option<bool>,
     search: Vec<&'a str>,
-    keywords: Vec<&'a str>,
+    keywords: Vec<Keyword<'a>>,
     utterances: Option<Utterances>,
     tags: Vec<&'a str>,
 }
@@ -86,6 +87,12 @@ pub enum Redact<'a> {
 pub enum Utterances {
     Disabled,
     Enabled { utt_split: Option<f64> },
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct Keyword<'a> {
+    pub keyword: &'a str,
+    pub intensifier: Option<f64>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -182,6 +189,19 @@ impl<'a> OptionsBuilder<'a> {
     }
 
     pub fn keywords(mut self, keywords: impl IntoIterator<Item = &'a str>) -> Self {
+        let iter = keywords.into_iter().map(|keyword| Keyword {
+            keyword,
+            intensifier: None,
+        });
+
+        self.0.keywords.extend(iter);
+        self
+    }
+
+    pub fn keywords_with_intensifiers(
+        mut self,
+        keywords: impl IntoIterator<Item = Keyword<'a>>,
+    ) -> Self {
         self.0.keywords.extend(keywords);
         self
     }
@@ -282,7 +302,13 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         for element in keywords {
-            seq.serialize_element(&("keywords", element))?;
+            let value: Cow<str> = if let Some(intensifier) = element.intensifier {
+                Cow::from(format!("{}:{}", element.keyword, intensifier))
+            } else {
+                Cow::from(element.keyword)
+            };
+
+            seq.serialize_element(&("keywords", value))?;
         }
 
         match utterances {
@@ -376,6 +402,7 @@ impl AsRef<str> for Redact<'_> {
 #[cfg(test)]
 mod serialize_options_tests {
     use super::*;
+    use std::cmp;
 
     fn check_serialization(options: &Options, expected: &str) {
         let actual = {
@@ -391,25 +418,21 @@ mod serialize_options_tests {
         assert_eq!(actual, expected);
     }
 
-    fn generate_alphabet_test(key: &str) -> ([&str; 25], String) {
+    fn generate_alphabet_test(key: &str, length: usize) -> (Vec<&str>, String) {
         let letters = [
             "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q",
-            "R", "S", "T", "U", "V", "W", "X", "Y",
+            "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
         ];
 
-        let expected = {
-            let mut expected = String::new();
-            for letter in letters {
-                expected.push_str(key);
-                expected.push_str("=");
-                expected.push_str(letter);
-                expected.push_str("&");
-            }
-            expected.pop(); // Pop the extra & off the end
-            expected
-        };
+        let limited_letters = Vec::from(&letters[..cmp::min(length, letters.len())]);
 
-        (letters, expected)
+        let expected = limited_letters
+            .iter()
+            .map(|letter| format!("{}={}", key, letter))
+            .collect::<Vec<String>>()
+            .join("&");
+
+        (limited_letters, expected)
     }
 
     #[test]
@@ -427,14 +450,18 @@ mod serialize_options_tests {
             .alternatives(4)
             .numerals(true)
             .search(["Rust", "Deepgram"])
-            .keywords(["Ferris", "Cargo"])
+            .keywords(["Ferris"])
+            .keywords_with_intensifiers([Keyword {
+                keyword: "Cargo",
+                intensifier: Some(-1.5),
+            }])
             .utterances(Utterances::Enabled {
                 utt_split: Some(0.9),
             })
             .tag(["SDK Test"])
             .build();
 
-        check_serialization(&options, "model=general&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&keywords=Ferris&keywords=Cargo&utterances=true&utt_split=0.9&tag=SDK+Test");
+        check_serialization(&options, "model=general&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=SDK+Test");
     }
 
     #[test]
@@ -587,7 +614,7 @@ mod serialize_options_tests {
         );
 
         {
-            let (input, expected) = generate_alphabet_test("search");
+            let (input, expected) = generate_alphabet_test("search", 25);
             check_serialization(&Options::builder().search(input).build(), &expected);
         }
     }
@@ -607,8 +634,43 @@ mod serialize_options_tests {
         );
 
         {
-            let (input, expected) = generate_alphabet_test("keywords");
+            let (input, expected) = generate_alphabet_test("keywords", 200);
+
             check_serialization(&Options::builder().keywords(input).build(), &expected);
+        }
+
+        {
+            let keywords = [Keyword {
+                keyword: "Ferris",
+                intensifier: Some(0.5),
+            }];
+
+            check_serialization(
+                &Options::builder()
+                    .keywords_with_intensifiers(keywords)
+                    .build(),
+                "keywords=Ferris%3A0.5",
+            );
+        }
+
+        {
+            let keywords = [
+                Keyword {
+                    keyword: "Ferris",
+                    intensifier: Some(0.5),
+                },
+                Keyword {
+                    keyword: "Cargo",
+                    intensifier: Some(-1.5),
+                },
+            ];
+
+            check_serialization(
+                &Options::builder()
+                    .keywords_with_intensifiers(keywords)
+                    .build(),
+                "keywords=Ferris%3A0.5&keywords=Cargo%3A-1.5",
+            );
         }
     }
 
