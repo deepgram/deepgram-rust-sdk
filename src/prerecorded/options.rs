@@ -1,5 +1,4 @@
 use serde::{ser::SerializeSeq, Serialize};
-use std::borrow::Cow;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options<'a> {
@@ -11,7 +10,7 @@ pub struct Options<'a> {
     redact: Vec<Redact<'a>>,
     diarize: Option<bool>,
     ner: Option<bool>,
-    multichannel: Option<bool>,
+    multichannel: Option<Multichannel<'a>>,
     alternatives: Option<usize>,
     numerals: Option<bool>,
     search: Vec<&'a str>,
@@ -84,15 +83,21 @@ pub enum Redact<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
-pub enum Utterances {
+pub struct Keyword<'a> {
+    pub keyword: &'a str,
+    pub intensifier: Option<f64>,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum Utterances {
     Disabled,
     Enabled { utt_split: Option<f64> },
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Keyword<'a> {
-    pub keyword: &'a str,
-    pub intensifier: Option<f64>,
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+enum Multichannel<'a> {
+    Disabled,
+    Enabled { models: Option<Vec<Model<'a>>> },
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -169,7 +174,30 @@ impl<'a> OptionsBuilder<'a> {
     }
 
     pub fn multichannel(mut self, multichannel: bool) -> Self {
-        self.0.multichannel = Some(multichannel);
+        self.0.multichannel = Some(if multichannel {
+            Multichannel::Enabled { models: None }
+        } else {
+            Multichannel::Disabled
+        });
+
+        self
+    }
+
+    pub fn multichannel_with_models(mut self, models: impl IntoIterator<Item = Model<'a>>) -> Self {
+        if let Some(Multichannel::Enabled {
+            models: Some(old_models),
+        }) = &mut self.0.multichannel
+        {
+            // Multichannel with models already enabled
+            // Don't overwrite existing models
+            old_models.extend(models)
+        } else {
+            // Multichannel with models already enabled
+            self.0.multichannel = Some(Multichannel::Enabled {
+                models: Some(models.into_iter().collect()),
+            });
+        }
+
         self
     }
 
@@ -206,8 +234,20 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    pub fn utterances(mut self, utterances: Utterances) -> Self {
-        self.0.utterances = Some(utterances);
+    pub fn utterances(mut self, utterances: bool) -> Self {
+        self.0.utterances = Some(if utterances {
+            Utterances::Enabled { utt_split: None }
+        } else {
+            Utterances::Disabled
+        });
+
+        self
+    }
+
+    pub fn utterances_with_utt_split(mut self, utt_split: f64) -> Self {
+        self.0.utterances = Some(Utterances::Enabled {
+            utt_split: Some(utt_split),
+        });
         self
     }
 
@@ -253,9 +293,23 @@ impl Serialize for SerializableOptions<'_> {
             tags,
         } = self.0;
 
-        if let Some(model) = model {
-            seq.serialize_element(&("model", model.as_ref()))?;
-        }
+        match multichannel {
+            // Multichannels with models is enabled
+            // Ignore self.model field
+            Some(Multichannel::Enabled {
+                models: Some(models),
+            }) => {
+                seq.serialize_element(&("model", models_to_string(models)))?;
+            }
+
+            // Multichannel with models is not enabled
+            // Use self.model field
+            Some(Multichannel::Enabled { models: None }) | Some(Multichannel::Disabled) | None => {
+                if let Some(model) = model {
+                    seq.serialize_element(&("model", model.as_ref()))?;
+                }
+            }
+        };
 
         if let Some(version) = version {
             seq.serialize_element(&("version", version))?;
@@ -285,9 +339,15 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("ner", ner))?;
         }
 
-        if let Some(multichannel) = multichannel {
-            seq.serialize_element(&("multichannel", multichannel))?;
-        }
+        match multichannel {
+            Some(Multichannel::Disabled) => seq.serialize_element(&("multichannel", false))?,
+            Some(Multichannel::Enabled { models: _ }) => {
+                // Multichannel models are serialized above if they exist
+                // This is done instead of serializing the self.model field
+                seq.serialize_element(&("multichannel", true))?
+            }
+            None => (),
+        };
 
         if let Some(alternatives) = alternatives {
             seq.serialize_element(&("alternatives", alternatives))?;
@@ -302,13 +362,14 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         for element in keywords {
-            let value: Cow<str> = if let Some(intensifier) = element.intensifier {
-                Cow::from(format!("{}:{}", element.keyword, intensifier))
+            if let Some(intensifier) = element.intensifier {
+                seq.serialize_element(&(
+                    "keywords",
+                    format!("{}:{}", element.keyword, intensifier),
+                ))?;
             } else {
-                Cow::from(element.keyword)
-            };
-
-            seq.serialize_element(&("keywords", value))?;
+                seq.serialize_element(&("keywords", element.keyword))?;
+            }
         }
 
         match utterances {
@@ -399,6 +460,45 @@ impl AsRef<str> for Redact<'_> {
     }
 }
 
+fn models_to_string<'a>(models: &[Model]) -> String {
+    models
+        .iter()
+        .map(|m| m.as_ref())
+        .collect::<Vec<&str>>()
+        .join(":")
+}
+
+#[cfg(test)]
+mod models_to_string_tests {
+    use super::{Model::*, *};
+
+    #[test]
+    fn empty() {
+        assert_eq!(models_to_string(&[]), "");
+    }
+
+    #[test]
+    fn one() {
+        assert_eq!(models_to_string(&[General]), "general");
+    }
+
+    #[test]
+    fn many() {
+        assert_eq!(
+            models_to_string(&[Phonecall, Meeting, Voicemail]),
+            "phonecall:meeting:voicemail"
+        );
+    }
+
+    #[test]
+    fn custom() {
+        assert_eq!(
+            models_to_string(&[Finance, CustomId("extra_crispy"), Conversationalai]),
+            "finance:extra_crispy:conversationalai"
+        );
+    }
+}
+
 #[cfg(test)]
 mod serialize_options_tests {
     use super::*;
@@ -446,7 +546,11 @@ mod serialize_options_tests {
             .redact([Redact::Pci, Redact::Ssn])
             .diarize(true)
             .ner(true)
-            .multichannel(true)
+            .multichannel_with_models([
+                Model::Finance,
+                Model::CustomId("extra_crispy"),
+                Model::Conversationalai,
+            ])
             .alternatives(4)
             .numerals(true)
             .search(["Rust", "Deepgram"])
@@ -455,13 +559,11 @@ mod serialize_options_tests {
                 keyword: "Cargo",
                 intensifier: Some(-1.5),
             }])
-            .utterances(Utterances::Enabled {
-                utt_split: Some(0.9),
-            })
-            .tag(["SDK Test"])
+            .utterances_with_utt_split(0.9)
+            .tag(["Tag 1"])
             .build();
 
-        check_serialization(&options, "model=general&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=SDK+Test");
+        check_serialization(&options, "model=finance%3Aextra_crispy%3Aconversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1");
     }
 
     #[test]
@@ -582,6 +684,17 @@ mod serialize_options_tests {
             &Options::builder().multichannel(false).build(),
             "multichannel=false",
         );
+
+        check_serialization(
+            &Options::builder()
+                .multichannel_with_models([
+                    Model::Finance,
+                    Model::CustomId("extra_crispy"),
+                    Model::Conversationalai,
+                ])
+                .build(),
+            "model=finance%3Aextra_crispy%3Aconversationalai&multichannel=true",
+        );
     }
 
     #[test]
@@ -677,23 +790,17 @@ mod serialize_options_tests {
     #[test]
     fn utterances() {
         check_serialization(
-            &Options::builder().utterances(Utterances::Disabled).build(),
+            &Options::builder().utterances(false).build(),
             "utterances=false",
         );
 
         check_serialization(
-            &Options::builder()
-                .utterances(Utterances::Enabled { utt_split: None })
-                .build(),
+            &Options::builder().utterances(true).build(),
             "utterances=true",
         );
 
         check_serialization(
-            &Options::builder()
-                .utterances(Utterances::Enabled {
-                    utt_split: Some(0.9),
-                })
-                .build(),
+            &Options::builder().utterances_with_utt_split(0.9).build(),
             "utterances=true&utt_split=0.9",
         );
     }

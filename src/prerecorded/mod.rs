@@ -6,7 +6,7 @@ mod options;
 mod response;
 
 pub use audio_source::{BufferSource, UrlSource};
-pub use options::{Keyword, Language, Model, Options, OptionsBuilder, Redact, Utterances};
+pub use options::{Keyword, Language, Model, Options, OptionsBuilder, Redact};
 pub use response::{CallbackResponse, PrerecordedResponse};
 
 use audio_source::AudioSource;
