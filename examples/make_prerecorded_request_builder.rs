@@ -1,5 +1,5 @@
 use deepgram::{
-    prerecorded::{Language, Options, PrerecordedResponse, UrlSource},
+    prerecorded::{Language, Options, Response, UrlSource},
     Deepgram,
 };
 use std::env;
@@ -29,7 +29,7 @@ async fn main() -> reqwest::Result<()> {
 
     // It is necessary to annotate the type of response here
     // That way it knows what type to deserialize the JSON into
-    let response: PrerecordedResponse = customized_request_builder.send().await?.json().await?;
+    let response: Response = customized_request_builder.send().await?.json().await?;
 
     let transcript = &response.results.channels[0].alternatives[0].transcript;
     println!("{}", transcript);

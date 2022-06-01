@@ -7,7 +7,7 @@ mod response;
 
 pub use audio_source::{BufferSource, UrlSource};
 pub use options::{Keyword, Language, Model, Options, OptionsBuilder, Redact};
-pub use response::{CallbackResponse, PrerecordedResponse};
+pub use response::{CallbackResponse, Response};
 
 use audio_source::AudioSource;
 use options::SerializableOptions;
@@ -19,7 +19,7 @@ impl<K: AsRef<str>> Deepgram<K> {
         &self,
         source: impl AudioSource,
         options: &Options<'_>,
-    ) -> Result<PrerecordedResponse> {
+    ) -> Result<Response> {
         let request_builder = self.make_prerecorded_request_builder(source, options);
 
         Ok(request_builder.send().await?.json().await?)
@@ -47,7 +47,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     prerecorded::{Language, Options, PrerecordedResponse, UrlSource},
+    /// #     prerecorded::{Language, Options, Response, UrlSource},
     /// #     Deepgram,
     /// # };
     /// # use std::env;
@@ -78,7 +78,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// // It is necessary to annotate the type of response here
     /// // That way it knows what type to deserialize the JSON into
-    /// let response: PrerecordedResponse = customized_request_builder.send().await?.json().await?;
+    /// let response: Response = customized_request_builder.send().await?.json().await?;
     /// #
     /// # Ok(())
     /// # }

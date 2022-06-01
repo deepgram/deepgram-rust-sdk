@@ -2,7 +2,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Clone, Deserialize)]
-pub struct PrerecordedResponse {
+pub struct Response {
     pub metadata: ListenMetadata,
     pub results: ListenResults,
 }
@@ -53,14 +53,6 @@ pub struct SearchResults {
 }
 
 #[derive(Debug, PartialEq, Clone, Deserialize)]
-pub struct Hit {
-    pub confidence: f64,
-    pub start: f64,
-    pub end: f64,
-    pub snippet: String,
-}
-
-#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct ResultAlternative {
     pub transcript: String,
     pub confidence: f64,
@@ -75,4 +67,12 @@ pub struct Word {
     pub confidence: f64,
     pub speaker: Option<usize>,
     pub punctuated_word: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Clone, Deserialize)]
+pub struct Hit {
+    pub confidence: f64,
+    pub start: f64,
+    pub end: f64,
+    pub snippet: String,
 }
