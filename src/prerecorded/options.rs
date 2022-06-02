@@ -135,6 +135,11 @@ impl<'a> OptionsBuilder<'a> {
 
     pub fn model(mut self, model: Model<'a>) -> Self {
         self.0.model = Some(model);
+
+        if let Some(Multichannel::Enabled { models }) = &mut self.0.multichannel {
+            *models = None;
+        }
+
         self
     }
 
