@@ -255,6 +255,8 @@ impl<'a> OptionsBuilder<'a> {
 
     /// Set the Profanity Filter feature.
     ///
+    /// Not necessarily available for all languages.
+    ///
     /// See the [Deepgram Profanity Filter feature](https://developers.deepgram.com/documentation/features/profanity-filter/) docs for more info.
     ///
     /// # Examples
@@ -272,6 +274,8 @@ impl<'a> OptionsBuilder<'a> {
     }
 
     /// Set the Redact feature.
+    ///
+    /// Not necessarily available for all languages.
     ///
     /// Calling this when already set will append to the existing redact items, not overwrite them.
     ///
@@ -325,6 +329,8 @@ impl<'a> OptionsBuilder<'a> {
     }
 
     /// Set the Named-Entity Recognition feature.
+    ///
+    /// Not necessarily available for all languages.
     ///
     /// See the [Deepgram Named-Entity Recognition feature](https://developers.deepgram.com/documentation/features/named-entity-recognition/) docs for more info.
     ///
@@ -515,6 +521,8 @@ impl<'a> OptionsBuilder<'a> {
     }
 
     /// Set the Numerals feature.
+    ///
+    /// Not necessarily available for all languages.
     ///
     /// See the [Deepgram Numerals feature](https://developers.deepgram.com/documentation/features/numerals/) docs for more info.
     ///
