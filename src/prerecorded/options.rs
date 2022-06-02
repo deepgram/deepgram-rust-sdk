@@ -16,6 +16,7 @@ pub struct Options<'a> {
     numerals: Option<bool>,
     search: Vec<&'a str>,
     keywords: Vec<Keyword<'a>>,
+    keyword_boost_legacy: bool,
     utterances: Option<Utterances>,
     tags: Vec<&'a str>,
 }
@@ -149,6 +150,7 @@ impl<'a> OptionsBuilder<'a> {
             numerals: None,
             search: Vec::new(),
             keywords: Vec::new(),
+            keyword_boost_legacy: false,
             utterances: None,
             tags: Vec::new(),
         })
@@ -686,6 +688,25 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
+    /// Use legacy keyword boosting.
+    ///
+    /// See the [Deepgram Keywords feature](https://developers.deepgram.com/documentation/features/keywords/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .keywords(["hello", "world"])
+    ///     .keyword_boost_legacy()
+    ///     .build();
+    /// ```
+    pub fn keyword_boost_legacy(mut self) -> Self {
+        self.0.keyword_boost_legacy = true;
+        self
+    }
+
     /// Set the Utterances feature.
     ///
     /// To set the Utterance Split feature, use [`OptionsBuilder::utterances_with_utt_split`] instead.
@@ -803,6 +824,7 @@ impl Serialize for SerializableOptions<'_> {
             numerals,
             search,
             keywords,
+            keyword_boost_legacy,
             utterances,
             tags,
         } = self.0;
@@ -884,6 +906,10 @@ impl Serialize for SerializableOptions<'_> {
             } else {
                 seq.serialize_element(&("keywords", element.keyword))?;
             }
+        }
+
+        if *keyword_boost_legacy {
+            seq.serialize_element(&("keyword_boost", "legacy"))?;
         }
 
         match utterances {
@@ -1299,6 +1325,14 @@ mod serialize_options_tests {
                 "keywords=Ferris%3A0.5&keywords=Cargo%3A-1.5",
             );
         }
+
+        check_serialization(
+            &Options::builder()
+                .keywords(["Ferris"])
+                .keyword_boost_legacy()
+                .build(),
+            "keywords=Ferris&keyword_boost=legacy",
+        );
     }
 
     #[test]
