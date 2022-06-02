@@ -485,7 +485,7 @@ impl<'a> OptionsBuilder<'a> {
         {
             // Multichannel with models already enabled
             // Don't overwrite existing models
-            old_models.extend(models)
+            old_models.extend(models);
         } else {
             // Multichannel with models already enabled
             self.0.multichannel = Some(Multichannel::Enabled {
@@ -810,7 +810,7 @@ impl Serialize for SerializableOptions<'_> {
 
             // Multichannel with models is not enabled
             // Use self.model field
-            Some(Multichannel::Enabled { models: None }) | Some(Multichannel::Disabled) | None => {
+            Some(Multichannel::Enabled { models: None } | Multichannel::Disabled) | None => {
                 if let Some(model) = model {
                     seq.serialize_element(&("model", model.as_ref()))?;
                 }
@@ -850,7 +850,7 @@ impl Serialize for SerializableOptions<'_> {
             Some(Multichannel::Enabled { models: _ }) => {
                 // Multichannel models are serialized above if they exist
                 // This is done instead of serializing the self.model field
-                seq.serialize_element(&("multichannel", true))?
+                seq.serialize_element(&("multichannel", true))?;
             }
             None => (),
         };
@@ -969,7 +969,7 @@ impl AsRef<str> for Redact<'_> {
 fn models_to_string(models: &[Model]) -> String {
     models
         .iter()
-        .map(|m| m.as_ref())
+        .map(AsRef::<str>::as_ref)
         .collect::<Vec<&str>>()
         .join(":")
 }
