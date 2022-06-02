@@ -1,3 +1,7 @@
+#![warn(missing_docs)]
+
+//! This module provides various types that are used for pre-recorded requests to Deepgram.
+
 use super::{Deepgram, Result};
 use reqwest::RequestBuilder;
 
@@ -7,7 +11,10 @@ mod response;
 
 pub use audio_source::{BufferSource, UrlSource};
 pub use options::{Keyword, Language, Model, Options, OptionsBuilder, Redact};
-pub use response::{CallbackResponse, Response};
+pub use response::{
+    CallbackResponse, ChannelResult, Hit, ListenMetadata, ListenResults, Response,
+    ResultAlternative, SearchResults, Utterance, Word,
+};
 
 use audio_source::AudioSource;
 use options::SerializableOptions;
@@ -15,6 +22,43 @@ use options::SerializableOptions;
 static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
 
 impl<K: AsRef<str>> Deepgram<K> {
+    /// Sends a request to Deepgram to transcribe pre-recorded audio.
+    /// If you wish to use the Callback feature, you should use [`Deepgram::callback_request`] instead.
+    ///
+    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
+    ///
+    /// See the [Deepgram API Reference](https://developers.deepgram.com/api-reference/#transcription-prerecorded) for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use deepgram::{
+    /// #     prerecorded::{Language, Options, UrlSource},
+    /// #     Deepgram, DeepgramError,
+    /// # };
+    /// # use std::env;
+    /// #
+    /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), DeepgramError> {
+    /// # let deepgram_api_key =
+    /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+    /// #
+    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    ///
+    /// let source = UrlSource { url: AUDIO_URL };
+    ///
+    /// let options = Options::builder()
+    ///     .punctuate(true)
+    ///     .language(Language::en_US)
+    ///     .build();
+    ///
+    /// let response = dg_client.prerecorded_request(&source, &options).await?;
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn prerecorded_request(
         &self,
         source: impl AudioSource,
@@ -25,6 +69,48 @@ impl<K: AsRef<str>> Deepgram<K> {
         Ok(request_builder.send().await?.json().await?)
     }
 
+    /// Sends a request to Deepgram to transcribe pre-recorded audio using the Callback feature.
+    /// Otherwise behaves similarly to [`Deepgram::prerecorded_request`].
+    ///
+    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
+    ///
+    /// See the [Deepgram Callback feature](https://developers.deepgram.com/documentation/features/callback/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use deepgram::{
+    /// #     prerecorded::{Language, Options, UrlSource},
+    /// #     Deepgram, DeepgramError,
+    /// # };
+    /// # use std::env;
+    /// #
+    /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), DeepgramError> {
+    /// # let deepgram_api_key =
+    /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+    /// #
+    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    ///
+    /// let source = UrlSource { url: AUDIO_URL };
+    ///
+    /// let options = Options::builder()
+    ///     .punctuate(true)
+    ///     .language(Language::en_US)
+    ///     .build();
+    ///
+    /// # let callback_url =
+    /// #     env::var("DEEPGRAM_CALLBACK_URL").expect("DEEPGRAM_CALLBACK_URL environmental variable");
+    /// #
+    /// let response = dg_client
+    ///     .callback_request(&source, &options, &callback_url)
+    ///     .await?;
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn callback_request(
         &self,
         source: impl AudioSource,
@@ -42,6 +128,8 @@ impl<K: AsRef<str>> Deepgram<K> {
     /// Avoid using this where possible.
     /// By customizing the request, there is less of a guarentee that it will conform to the Deepgram API.
     /// Prefer using [`Deepgram::prerecorded_request`].
+    ///
+    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
     /// # Examples
     ///
@@ -101,6 +189,52 @@ impl<K: AsRef<str>> Deepgram<K> {
     /// but for the purposes of a [callback request](https://developers.deepgram.com/documentation/features/callback/).
     ///
     /// You should avoid using this where possible too, preferring [`Deepgram::callback_request`].
+    ///
+    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use deepgram::{
+    /// #     prerecorded::{CallbackResponse, Language, Options, UrlSource},
+    /// #     Deepgram,
+    /// # };
+    /// # use std::env;
+    /// #
+    /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> reqwest::Result<()> {
+    /// #
+    /// # let deepgram_api_key =
+    /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+    /// #
+    /// # let dg_client = Deepgram::new(&deepgram_api_key);
+    /// #
+    /// # let source = UrlSource { url: AUDIO_URL };
+    /// #
+    /// # let options = Options::builder()
+    /// #     .punctuate(true)
+    /// #     .language(Language::en_US)
+    /// #     .build();
+    /// #
+    /// # let callback_url =
+    /// #     env::var("DEEPGRAM_CALLBACK_URL").expect("DEEPGRAM_CALLBACK_URL environmental variable");
+    /// #
+    /// let request_builder = dg_client.make_callback_request_builder(&source, &options, &callback_url);
+    ///
+    /// // Customize the RequestBuilder here
+    /// let customized_request_builder = request_builder
+    ///     .query(&[("custom_query_key", "custom_query_value")])
+    ///     .header("custom_header_key", "custom_header_value");
+    ///
+    /// // It is necessary to annotate the type of response here
+    /// // That way it knows what type to deserialize the JSON into
+    /// let response: CallbackResponse = customized_request_builder.send().await?.json().await?;
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn make_callback_request_builder(
         &self,
         source: impl AudioSource,

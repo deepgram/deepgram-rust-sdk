@@ -1,5 +1,6 @@
 use serde::{ser::SerializeSeq, Serialize};
 
+/// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options<'a> {
     model: Option<Model<'a>>,
@@ -19,6 +20,10 @@ pub struct Options<'a> {
     tags: Vec<&'a str>,
 }
 
+/// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
+///
+/// See the [Deepgram Model feature](https://developers.deepgram.com/documentation/features/model/) docs for more info.
+#[allow(missing_docs)] // Unnecessary to document every variant
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 pub enum Model<'a> {
@@ -33,9 +38,11 @@ pub enum Model<'a> {
     CustomId(&'a str),
 }
 
+/// Used as a parameter for [`OptionsBuilder::language`].
+#[allow(missing_docs)] // Unnecessary to document every variant
+#[allow(non_camel_case_types)] // Variants should look like their BCP-47 tag
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
-#[allow(non_camel_case_types)]
 pub enum Language<'a> {
     zh,
     zh_CN,
@@ -66,10 +73,12 @@ pub enum Language<'a> {
     uk,
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new languages that Deepgram supports without being forced to update your version of the SDK.
-    /// Please consult the [Deepgram Language Documentation](https://developers.deepgram.com/documentation/features/language/) for the most up-to-date list of supported languages.
+    /// See the [Deepgram Language feature](https://developers.deepgram.com/documentation/features/language/) docs for the most up-to-date list of supported languages.
     Other(&'a str),
 }
 
+/// Used as a parameter for [`OptionsBuilder::redact`].
+#[allow(missing_docs)] // Unnecessary to document every variant
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 pub enum Redact<'a> {
@@ -78,13 +87,19 @@ pub enum Redact<'a> {
     Ssn,
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new redactable items that Deepgram supports without being forced to update your version of the SDK.
-    /// Please consult the [Deepgram Redact Documentation](https://developers.deepgram.com/documentation/features/redact/) for the most up-to-date list of redactable items.
+    /// See the [Deepgram Redact feature](https://developers.deepgram.com/documentation/features/redact/) docs for the most up-to-date list of redactable items.
     Other(&'a str),
 }
 
+/// Used as a parameter for [`OptionsBuilder::keywords_with_intensifiers`].
+///
+/// See the [Deepgram Keywords feature](https://developers.deepgram.com/documentation/features/keywords/) docs for more info.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Keyword<'a> {
+    /// The keyword to boost.
     pub keyword: &'a str,
+
+    /// Optionally specify how much to boost it.
     pub intensifier: Option<f64>,
 }
 
@@ -100,6 +115,10 @@ enum Multichannel<'a> {
     Enabled { models: Option<Vec<Model<'a>>> },
 }
 
+/// Builds an [`Options`] object using [the Builder pattern](https://rust-unofficial.github.io/patterns/patterns/creational/builder.html).
+///
+/// Use it to set of Deepgram's features, excluding the Callback feature.
+/// The Callback feature can be set when making the request by calling [`Deepgram::callback_request`](crate::Deepgram::callback_request).
 #[derive(Debug, PartialEq, Clone)]
 pub struct OptionsBuilder<'a>(Options<'a>);
 
@@ -107,12 +126,14 @@ pub struct OptionsBuilder<'a>(Options<'a>);
 pub(super) struct SerializableOptions<'a>(pub &'a Options<'a>);
 
 impl<'a> Options<'a> {
+    /// Construct a new [`OptionsBuilder`].
     pub fn builder() -> OptionsBuilder<'a> {
         OptionsBuilder::new()
     }
 }
 
 impl<'a> OptionsBuilder<'a> {
+    /// Construct a new [`OptionsBuilder`].
     pub fn new() -> Self {
         Self(Options {
             model: None,
@@ -133,6 +154,41 @@ impl<'a> OptionsBuilder<'a> {
         })
     }
 
+    /// Set the Model feature.
+    ///
+    /// Not all models are supported for all languages. For a list of languages and their supported models, see
+    /// the [Deepgram Language feature](https://developers.deepgram.com/documentation/features/language/) docs.
+    ///
+    /// If you previously set some models using [`OptionsBuilder::multichannel_with_models`],
+    /// calling this will overwrite the models you set there, but won't disable the Multichannel feature.
+    ///
+    /// See the [Deepgram Model feature](https://developers.deepgram.com/documentation/features/model/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Model, Options};
+    /// #
+    /// let options = Options::builder()
+    ///     .model(Model::General)
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Model, Options};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .model(Model::General)
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .multichannel(true)
+    ///     .model(Model::General)
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
     pub fn model(mut self, model: Model<'a>) -> Self {
         self.0.model = Some(model);
 
@@ -143,41 +199,183 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
+    /// Set the Version feature.
+    ///
+    /// See the [Deepgram Version feature](https://developers.deepgram.com/documentation/features/version/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .version("12345678-1234-1234-1234-1234567890ab")
+    ///     .build();
+    /// ```
     pub fn version(mut self, version: &'a str) -> Self {
         self.0.version = Some(version);
         self
     }
 
+    /// Set the Language feature.
+    ///
+    /// See the [Deepgram Language feature](https://developers.deepgram.com/documentation/features/language/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Language, Options};
+    /// #
+    /// let options = Options::builder()
+    ///     .language(Language::en_US)
+    ///     .build();
+    /// ```
     pub fn language(mut self, language: Language<'a>) -> Self {
         self.0.language = Some(language);
         self
     }
 
+    /// Set the Punctuation feature.
+    ///
+    /// See the [Deepgram Punctuation feature](https://developers.deepgram.com/documentation/features/punctuate/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .punctuate(true)
+    ///     .build();
+    /// ```
     pub fn punctuate(mut self, punctuate: bool) -> Self {
         self.0.punctuate = Some(punctuate);
         self
     }
 
+    /// Set the Profanity Filter feature.
+    ///
+    /// See the [Deepgram Profanity Filter feature](https://developers.deepgram.com/documentation/features/profanity-filter/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .profanity_filter(true)
+    ///     .build();
+    /// ```
     pub fn profanity_filter(mut self, profanity_filter: bool) -> Self {
         self.0.profanity_filter = Some(profanity_filter);
         self
     }
 
+    /// Set the Redact feature.
+    ///
+    /// Calling this when already set will append to the existing redact items, not overwrite them.
+    ///
+    /// See the [Deepgram Redact feature](https://developers.deepgram.com/documentation/features/redact/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Options, Redact};
+    /// #
+    /// let options = Options::builder()
+    ///     .redact([Redact::Pci, Redact::Ssn])
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Options, Redact};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .redact([Redact::Pci])
+    ///     .redact([Redact::Ssn])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .redact([Redact::Pci, Redact::Ssn])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
     pub fn redact(mut self, redact: impl IntoIterator<Item = Redact<'a>>) -> Self {
         self.0.redact.extend(redact);
         self
     }
 
+    /// Set the Diarization feature.
+    ///
+    /// See the [Deepgram Diarization feature](https://developers.deepgram.com/documentation/features/diarize/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .diarize(true)
+    ///     .build();
+    /// ```
     pub fn diarize(mut self, diarize: bool) -> Self {
         self.0.diarize = Some(diarize);
         self
     }
 
+    /// Set the Named-Entity Recognition feature.
+    ///
+    /// See the [Deepgram Named-Entity Recognition feature](https://developers.deepgram.com/documentation/features/named-entity-recognition/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .ner(true)
+    ///     .build();
+    /// ```
     pub fn ner(mut self, ner: bool) -> Self {
         self.0.ner = Some(ner);
         self
     }
 
+    /// Set the Multichannel feature.
+    ///
+    /// To specify which model should process each channel, use [`OptionsBuilder::multichannel_with_models`] instead.
+    /// If [`OptionsBuilder::multichannel_with_models`] is currently set, calling [`OptionsBuilder::multichannel`]
+    /// will reset the model to the last call to [`OptionsBuilder::model`].
+    ///
+    /// See the [Deepgram Multichannel feature](https://developers.deepgram.com/documentation/features/multichannel/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .multichannel(true)
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Model, Options};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .model(Model::General)
+    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .multichannel(true)
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .model(Model::General)
+    ///     .multichannel(true)
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
     pub fn multichannel(mut self, multichannel: bool) -> Self {
         self.0.multichannel = Some(if multichannel {
             Multichannel::Enabled { models: None }
@@ -188,6 +386,98 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
+    /// Set the Multichannel feature to true, specifying which model should process each channel.
+    ///
+    /// If you previously set a model using [`OptionsBuilder::model`],
+    /// calling this will overshadow the model you set there, but won't erase it.
+    /// It can be recovered by calling [`OptionsBuilder::multichannel`].
+    ///
+    /// Calling this when multichannel models are already set will append to the existing models, not overwrite them.
+    ///
+    /// See the [Deepgram Multichannel feature](https://developers.deepgram.com/documentation/features/multichannel/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Model, Options};
+    /// #
+    /// let options = Options::builder()
+    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::{
+    /// #     prerecorded::{Model, Options, UrlSource},
+    /// #     Deepgram,
+    /// # };
+    /// # use std::env;
+    /// #
+    /// #
+    /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
+    /// #
+    /// # fn main() -> Result<(), reqwest::Error> {
+    /// # let deepgram_api_key =
+    /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+    /// #
+    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    ///
+    /// # let source = UrlSource { url: AUDIO_URL };
+    /// #
+    /// let options1 = Options::builder()
+    ///     .model(Model::General)
+    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .build();
+    ///
+    /// let request1 = dg_client.make_prerecorded_request_builder(&source, &options1).build()?;
+    /// let request2 = dg_client.make_prerecorded_request_builder(&source, &options2).build()?;
+    ///
+    /// // Both make the same request to Deepgram with the same features
+    /// assert_eq!(request1.url(), request2.url());
+    ///
+    /// // However, they technically aren't "equal"
+    /// // This is because `options1` still remembers the model you set previously
+    /// assert_ne!(options1, options2);
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Model, Options};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .model(Model::General)
+    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .multichannel(true)
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .model(Model::General)
+    ///     .multichannel(true)
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Model, Options};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .multichannel_with_models([Model::Meeting])
+    ///     .multichannel_with_models([Model::Phonecall])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
     pub fn multichannel_with_models(mut self, models: impl IntoIterator<Item = Model<'a>>) -> Self {
         if let Some(Multichannel::Enabled {
             models: Some(old_models),
@@ -206,21 +496,110 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
+    /// Set the maximum number of transcript alternatives to return.
+    ///
+    /// See the [Deepgram API Reference](https://developers.deepgram.com/api-reference/#alternatives-pr) for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .alternatives(3)
+    ///     .build();
+    /// ```
     pub fn alternatives(mut self, alternatives: usize) -> Self {
         self.0.alternatives = Some(alternatives);
         self
     }
 
+    /// Set the Numerals feature.
+    ///
+    /// See the [Deepgram Numerals feature](https://developers.deepgram.com/documentation/features/numerals/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .numerals(true)
+    ///     .build();
+    /// ```
     pub fn numerals(mut self, numerals: bool) -> Self {
         self.0.numerals = Some(numerals);
         self
     }
 
+    /// Set the Search feature.
+    ///
+    /// Calling this when already set will append to the existing items, not overwrite them.
+    ///
+    /// See the [Deepgram Search feature](https://developers.deepgram.com/documentation/features/search/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .search(["hello", "world"])
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options1 = Options::builder()
+    ///     .search(["hello"])
+    ///     .search(["world"])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .search(["hello", "world"])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
     pub fn search(mut self, search: impl IntoIterator<Item = &'a str>) -> Self {
         self.0.search.extend(search);
         self
     }
 
+    /// Set the Keywords feature.
+    ///
+    /// To specify intensifiers, use [`OptionsBuilder::keywords_with_intensifiers`] instead.
+    ///
+    /// Calling this when already set will append to the existing keywords, not overwrite them.
+    /// This includes keywords set by [`OptionsBuilder::keywords_with_intensifiers`].
+    ///
+    /// See the [Deepgram Keywords feature](https://developers.deepgram.com/documentation/features/keywords/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .keywords(["hello", "world"])
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options1 = Options::builder()
+    ///     .keywords(["hello"])
+    ///     .keywords(["world"])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .keywords(["hello", "world"])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
     pub fn keywords(mut self, keywords: impl IntoIterator<Item = &'a str>) -> Self {
         let iter = keywords.into_iter().map(|keyword| Keyword {
             keyword,
@@ -231,6 +610,66 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
+    /// Set the Keywords feature, specifying intensifiers.
+    ///
+    /// If you do not need to specify intensifiers, you can use [`OptionsBuilder::keywords`] instead.
+    ///
+    /// Calling this when already set will append to the existing keywords, not overwrite them.
+    ///
+    /// See the [Deepgram Keywords feature](https://developers.deepgram.com/documentation/features/keywords/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Keyword, Options};
+    /// #
+    /// let options = Options::builder()
+    ///     .keywords_with_intensifiers([
+    ///         Keyword {
+    ///             keyword: "hello",
+    ///             intensifier: Some(-1.5),
+    ///         },
+    ///         Keyword {
+    ///             keyword: "world",
+    ///             intensifier: None,
+    ///         },
+    ///     ])
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::{Keyword, Options};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .keywords_with_intensifiers([
+    ///         Keyword {
+    ///             keyword: "hello",
+    ///             intensifier: Some(-1.5),
+    ///         },
+    ///     ])
+    ///     .keywords_with_intensifiers([
+    ///         Keyword {
+    ///             keyword: "world",
+    ///             intensifier: None,
+    ///         },
+    ///     ])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .keywords_with_intensifiers([
+    ///         Keyword {
+    ///             keyword: "hello",
+    ///             intensifier: Some(-1.5),
+    ///         },
+    ///         Keyword {
+    ///             keyword: "world",
+    ///             intensifier: None,
+    ///         },
+    ///     ])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
     pub fn keywords_with_intensifiers(
         mut self,
         keywords: impl IntoIterator<Item = Keyword<'a>>,
@@ -239,6 +678,21 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
+    /// Set the Utterances feature.
+    ///
+    /// To set the Utterance Split feature, use [`OptionsBuilder::utterances_with_utt_split`] instead.
+    ///
+    /// See the [Deepgram Utterances feature](https://developers.deepgram.com/documentation/features/utterances/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .utterances(true)
+    ///     .build();
+    /// ```
     pub fn utterances(mut self, utterances: bool) -> Self {
         self.0.utterances = Some(if utterances {
             Utterances::Enabled { utt_split: None }
@@ -249,6 +703,22 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
+    /// Set the Utterances feature and the Utterance Split feature.
+    ///
+    /// If you do not want to set the Utterance Split feature, use [`OptionsBuilder::utterances_with_utt_split`] instead.
+    ///
+    /// See the [Deepgram Utterances feature](https://developers.deepgram.com/documentation/features/utterances/) docs
+    /// and the [Deepgram Utterance Split feature](https://developers.deepgram.com/documentation/features/utterance-split/) for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .utterances_with_utt_split(0.9)
+    ///     .build();
+    /// ```
     pub fn utterances_with_utt_split(mut self, utt_split: f64) -> Self {
         self.0.utterances = Some(Utterances::Enabled {
             utt_split: Some(utt_split),
@@ -256,11 +726,42 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
+    /// Set the Tag feature.
+    ///
+    /// Calling this when already set will append to the existing tags, not overwrite them.
+    ///
+    /// See the [Deepgram Tag feature](https://developers.deepgram.com/documentation/features/tag/) docs for more info.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .tag(["Tag 1", "Tag 2"])
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::prerecorded::Options;
+    /// #
+    /// let options1 = Options::builder()
+    ///     .tag(["Tag 1"])
+    ///     .tag(["Tag 2"])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .tag(["Tag 1", "Tag 2"])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
     pub fn tag(mut self, tag: impl IntoIterator<Item = &'a str>) -> Self {
         self.0.tags.extend(tag);
         self
     }
 
+    /// Finish building the [`Options`] object.
     pub fn build(self) -> Options<'a> {
         self.0
     }
