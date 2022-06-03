@@ -151,10 +151,28 @@ impl<K> Deepgram<K>
 where
     K: AsRef<str>,
 {
+    /// Construct a new Deepgram client.
+    ///
+    /// Create your first API key on the [Deepgram Console](https://console.deepgram.com/).
+    ///
+    /// # Panics
+    ///
+    /// Panics under the same conditions as [`reqwest::Client::new`].
     pub fn new(api_key: K) -> Self {
+        static USER_AGENT: &str = concat!(
+            env!("CARGO_PKG_NAME"),
+            "/",
+            env!("CARGO_PKG_VERSION"),
+            " rust",
+        );
+
         Deepgram {
             api_key,
-            client: reqwest::Client::new(),
+            client: reqwest::Client::builder()
+                .user_agent(USER_AGENT)
+                .build()
+                // Even though `reqwest::Client::new` is not used here, it will always panic under the same conditions
+                .expect("See reqwest::Client::new docs for cause of panic"),
         }
     }
 
