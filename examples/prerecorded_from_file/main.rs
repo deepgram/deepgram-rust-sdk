@@ -5,7 +5,7 @@ use deepgram::{
 use std::env;
 use tokio::fs::File;
 
-static PATH_TO_FILE: &str = "examples/prerecorded_from_file/Bueller-Life-moves-pretty-fast.wav";
+static PATH_TO_FILE: &str = "examples/prerecorded_from_file/Bueller-Life-moves-pretty-fast.mp3";
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
@@ -18,7 +18,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let source = BufferSource {
         buffer: file,
-        mimetype: Some("audio/wav"),
+        mimetype: Some("audio/mpeg3"),
     };
 
     let options = Options::builder()
