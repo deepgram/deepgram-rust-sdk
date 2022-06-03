@@ -803,7 +803,7 @@ impl<'a> Default for OptionsBuilder<'a> {
 }
 
 impl Serialize for SerializableOptions<'_> {
-    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {

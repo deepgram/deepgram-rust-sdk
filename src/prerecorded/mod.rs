@@ -2,7 +2,7 @@
 
 //! This module provides various types that are used for pre-recorded requests to Deepgram.
 
-use super::{Deepgram, Result};
+use crate::Deepgram;
 use reqwest::RequestBuilder;
 
 mod audio_source;
@@ -63,7 +63,7 @@ impl<K: AsRef<str>> Deepgram<K> {
         &self,
         source: impl AudioSource,
         options: &Options<'_>,
-    ) -> Result<Response> {
+    ) -> crate::Result<Response> {
         let request_builder = self.make_prerecorded_request_builder(source, options);
 
         Ok(request_builder.send().await?.json().await?)
@@ -116,7 +116,7 @@ impl<K: AsRef<str>> Deepgram<K> {
         source: impl AudioSource,
         options: &Options<'_>,
         callback: &str,
-    ) -> Result<CallbackResponse> {
+    ) -> crate::Result<CallbackResponse> {
         let request_builder = self.make_callback_request_builder(source, options, callback);
 
         Ok(request_builder.send().await?.json().await?)
