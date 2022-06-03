@@ -2,7 +2,7 @@
 
 //! This module provides various types that are used for pre-recorded requests to Deepgram.
 
-use crate::Deepgram;
+use crate::{Deepgram, DeepgramError};
 use reqwest::RequestBuilder;
 
 mod audio_source;
@@ -18,6 +18,7 @@ pub use response::{
 
 use audio_source::AudioSource;
 use options::SerializableOptions;
+use serde::de::DeserializeOwned;
 
 static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
 
@@ -66,7 +67,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ) -> crate::Result<Response> {
         let request_builder = self.make_prerecorded_request_builder(source, options);
 
-        Ok(request_builder.send().await?.json().await?)
+        send_and_translate_response(request_builder).await
     }
 
     /// Sends a request to Deepgram to transcribe pre-recorded audio using the Callback feature.
@@ -119,7 +120,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ) -> crate::Result<CallbackResponse> {
         let request_builder = self.make_callback_request_builder(source, options, callback);
 
-        Ok(request_builder.send().await?.json().await?)
+        send_and_translate_response(request_builder).await
     }
 
     /// Makes a [`reqwest::RequestBuilder`] without actually sending the request.
@@ -243,5 +244,19 @@ impl<K: AsRef<str>> Deepgram<K> {
     ) -> RequestBuilder {
         self.make_prerecorded_request_builder(source, options)
             .query(&[("callback", callback)])
+    }
+}
+
+async fn send_and_translate_response<R: DeserializeOwned>(
+    request_builder: RequestBuilder,
+) -> crate::Result<R> {
+    let response = request_builder.send().await?;
+
+    match response.error_for_status_ref() {
+        Ok(_) => Ok(response.json().await?),
+        Err(err) => Err(DeepgramError::TranscriptionError {
+            body: response.text().await?,
+            err,
+        }),
     }
 }

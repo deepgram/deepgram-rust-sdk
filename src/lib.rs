@@ -34,6 +34,8 @@ where
 pub enum DeepgramError {
     #[error("No source was provided to the request builder.")]
     NoSource,
+    #[error("Something went wrong during transcription.")]
+    TranscriptionError { body: String, err: reqwest::Error },
     #[error("Something went wrong when generating the http request: {0}")]
     HttpError(#[from] http::Error),
     #[error("Something went wrong when making the HTTP request: {0}")]
