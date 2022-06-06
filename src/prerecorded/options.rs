@@ -846,7 +846,7 @@ impl<'a> OptionsBuilder<'a> {
     }
 }
 
-impl<'a> Default for OptionsBuilder<'a> {
+impl Default for OptionsBuilder<'_> {
     fn default() -> Self {
         Self::new()
     }

@@ -1,6 +1,5 @@
 use reqwest::{header::CONTENT_TYPE, RequestBuilder};
 use serde::Serialize;
-use std::borrow::Borrow;
 
 pub trait AudioSource {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
@@ -33,9 +32,9 @@ pub struct BufferSource<'a, B: Into<reqwest::Body>> {
     pub mimetype: Option<&'a str>,
 }
 
-impl<'a, B: Borrow<UrlSource<'a>>> AudioSource for B {
+impl AudioSource for &UrlSource<'_> {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
-        request_builder.json(self.borrow())
+        request_builder.json(self)
     }
 }
 
