@@ -15,18 +15,18 @@ categories = ["api-bindings", "multimedia::audio"]
 # TODO Investigate which of these dependencies can go behind features.
 bytes = "1.1.0"
 futures = "0.3.21"
-http = "0.2.6"
+http = "0.2.7"
 pin-project = "1.0.10"
 reqwest = { version = "0.11.10", features = ["json"] }
-serde = { version = "1.0.136", features = [ "derive" ] }
-serde_json = "1.0.79"
-thiserror = "1.0.30"
-tokio = { version = "1.17.0", features = [ "full" ] }
+serde = { version = "1.0.137", features = [ "derive" ] }
+serde_json = "1.0.81"
+thiserror = "1.0.31"
+tokio = { version = "1.19.2", features = [ "full" ] }
 tokio-tungstenite = { version = "0.17.1", features = [ "native-tls" ] }
-tokio-util = { version = "0.7.1", features = [ "codec", "io" ] }
+tokio-util = { version = "0.7.3", features = [ "codec", "io" ] }
 tungstenite = "0.17.2"
 url = "2.2.2"
-uuid = { version = "1.0.0", features = ["serde"] }
+uuid = { version = "1.1.1", features = ["serde"] }
 
 [dev-dependencies]
 cpal = "0.13.5"
