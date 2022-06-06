@@ -4,7 +4,7 @@
 If you would like a stable way to access all that Deepgram has to offer, please use the
 [Deepgram API](https://developers.deepgram.com/api-reference/) directly until this SDK has been stabilized.*
 
-Community Rust SDK for Deepgram's automated speech recognition APIs.
+Official Rust SDK for Deepgram's automated speech recognition APIs.
 
 To access the API you will need a Deepgram account. Sign up for free at [console.deepgram.com](https://console.deepgram.com/signup?utm_medium=github&utm_source=DEVREL&utm_content=deepgram-rust-sdk).
 

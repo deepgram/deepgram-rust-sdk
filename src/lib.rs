@@ -1,3 +1,7 @@
+#![forbid(unsafe_code)]
+// #![warn(clippy::cargo)]
+#![allow(clippy::multiple_crate_versions)]
+
 use std::io;
 use std::path::Path;
 use std::pin::Pin;
