@@ -27,8 +27,9 @@ pub struct BufferSource<'a, B: Into<reqwest::Body>> {
     /// for a list of types that already implement it.
     pub buffer: B,
 
-    /// Optionally specify the [MIME type](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types#audio_and_video_types)
-    /// of the raw binary audio data.
+    /// Optionally specify the [MIME type][mime] of the raw binary audio data.
+    ///
+    /// [mime]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types#audio_and_video_types
     pub mimetype: Option<&'a str>,
 }
 

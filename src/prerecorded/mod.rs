@@ -28,7 +28,9 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
-    /// See the [Deepgram API Reference](https://developers.deepgram.com/api-reference/#transcription-prerecorded) for more info.
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
     ///
     /// # Examples
     ///
@@ -75,7 +77,9 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
-    /// See the [Deepgram Callback feature](https://developers.deepgram.com/documentation/features/callback/) docs for more info.
+    /// See the [Deepgram Callback feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/callback/
     ///
     /// # Examples
     ///
@@ -187,11 +191,13 @@ impl<K: AsRef<str>> Deepgram<K> {
     }
 
     /// Similar to [`Deepgram::make_prerecorded_request_builder`],
-    /// but for the purposes of a [callback request](https://developers.deepgram.com/documentation/features/callback/).
+    /// but for the purposes of a [callback request][callback].
     ///
     /// You should avoid using this where possible too, preferring [`Deepgram::callback_request`].
     ///
     /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
+    ///
+    /// [callback]: https://developers.deepgram.com/documentation/features/callback/
     ///
     /// # Examples
     ///

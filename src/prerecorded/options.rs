@@ -23,7 +23,9 @@ pub struct Options<'a> {
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
 ///
-/// See the [Deepgram Model feature](https://developers.deepgram.com/documentation/features/model/) docs for more info.
+/// See the [Deepgram Model feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/documentation/features/model/
 #[allow(missing_docs)] // Unnecessary to document every variant
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
@@ -74,7 +76,9 @@ pub enum Language<'a> {
     uk,
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new languages that Deepgram supports without being forced to update your version of the SDK.
-    /// See the [Deepgram Language feature](https://developers.deepgram.com/documentation/features/language/) docs for the most up-to-date list of supported languages.
+    /// See the [Deepgram Language feature docs][docs] for the most up-to-date list of supported languages.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/language/
     Other(&'a str),
 }
 
@@ -88,13 +92,17 @@ pub enum Redact<'a> {
     Ssn,
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new redactable items that Deepgram supports without being forced to update your version of the SDK.
-    /// See the [Deepgram Redact feature](https://developers.deepgram.com/documentation/features/redact/) docs for the most up-to-date list of redactable items.
+    /// See the [Deepgram Redact feature docs][docs] for the most up-to-date list of redactable items.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/redact/
     Other(&'a str),
 }
 
 /// Used as a parameter for [`OptionsBuilder::keywords_with_intensifiers`].
 ///
-/// See the [Deepgram Keywords feature](https://developers.deepgram.com/documentation/features/keywords/) docs for more info.
+/// See the [Deepgram Keywords feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/documentation/features/keywords/
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct Keyword<'a> {
     /// The keyword to boost.
@@ -116,10 +124,12 @@ enum Multichannel<'a> {
     Enabled { models: Option<Vec<Model<'a>>> },
 }
 
-/// Builds an [`Options`] object using [the Builder pattern](https://rust-unofficial.github.io/patterns/patterns/creational/builder.html).
+/// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// Use it to set of Deepgram's features, excluding the Callback feature.
 /// The Callback feature can be set when making the request by calling [`Deepgram::callback_request`](crate::Deepgram::callback_request).
+///
+/// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
 pub struct OptionsBuilder<'a>(Options<'a>);
 
@@ -159,12 +169,15 @@ impl<'a> OptionsBuilder<'a> {
     /// Set the Model feature.
     ///
     /// Not all models are supported for all languages. For a list of languages and their supported models, see
-    /// the [Deepgram Language feature](https://developers.deepgram.com/documentation/features/language/) docs.
+    /// the [Deepgram Language feature][language] docs.
     ///
     /// If you previously set some models using [`OptionsBuilder::multichannel_with_models`],
     /// calling this will overwrite the models you set there, but won't disable the Multichannel feature.
     ///
-    /// See the [Deepgram Model feature](https://developers.deepgram.com/documentation/features/model/) docs for more info.
+    /// See the [Deepgram Model feature docs][docs] for more info.
+    ///
+    /// [language]: https://developers.deepgram.com/documentation/features/language/
+    /// [docs]: https://developers.deepgram.com/documentation/features/model/
     ///
     /// # Examples
     ///
@@ -203,7 +216,9 @@ impl<'a> OptionsBuilder<'a> {
 
     /// Set the Version feature.
     ///
-    /// See the [Deepgram Version feature](https://developers.deepgram.com/documentation/features/version/) docs for more info.
+    /// See the [Deepgram Version feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/version/
     ///
     /// # Examples
     ///
@@ -221,7 +236,9 @@ impl<'a> OptionsBuilder<'a> {
 
     /// Set the Language feature.
     ///
-    /// See the [Deepgram Language feature](https://developers.deepgram.com/documentation/features/language/) docs for more info.
+    /// See the [Deepgram Language feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/language/
     ///
     /// # Examples
     ///
@@ -239,7 +256,9 @@ impl<'a> OptionsBuilder<'a> {
 
     /// Set the Punctuation feature.
     ///
-    /// See the [Deepgram Punctuation feature](https://developers.deepgram.com/documentation/features/punctuate/) docs for more info.
+    /// See the [Deepgram Punctuation feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/punctuate/
     ///
     /// # Examples
     ///
@@ -259,7 +278,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// Not necessarily available for all languages.
     ///
-    /// See the [Deepgram Profanity Filter feature](https://developers.deepgram.com/documentation/features/profanity-filter/) docs for more info.
+    /// See the [Deepgram Profanity Filter feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/profanity-filter/
     ///
     /// # Examples
     ///
@@ -275,13 +296,15 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    /// Set the Redact feature.
+    /// Set the Redaction feature.
     ///
     /// Not necessarily available for all languages.
     ///
     /// Calling this when already set will append to the existing redact items, not overwrite them.
     ///
-    /// See the [Deepgram Redact feature](https://developers.deepgram.com/documentation/features/redact/) docs for more info.
+    /// See the [Deepgram Redaction feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/redact/
     ///
     /// # Examples
     ///
@@ -314,7 +337,9 @@ impl<'a> OptionsBuilder<'a> {
 
     /// Set the Diarization feature.
     ///
-    /// See the [Deepgram Diarization feature](https://developers.deepgram.com/documentation/features/diarize/) docs for more info.
+    /// See the [Deepgram Diarization feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/diarize/
     ///
     /// # Examples
     ///
@@ -334,7 +359,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// Not necessarily available for all languages.
     ///
-    /// See the [Deepgram Named-Entity Recognition feature](https://developers.deepgram.com/documentation/features/named-entity-recognition/) docs for more info.
+    /// See the [Deepgram Named-Entity Recognition feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/named-entity-recognition/
     ///
     /// # Examples
     ///
@@ -356,7 +383,9 @@ impl<'a> OptionsBuilder<'a> {
     /// If [`OptionsBuilder::multichannel_with_models`] is currently set, calling [`OptionsBuilder::multichannel`]
     /// will reset the model to the last call to [`OptionsBuilder::model`].
     ///
-    /// See the [Deepgram Multichannel feature](https://developers.deepgram.com/documentation/features/multichannel/) docs for more info.
+    /// See the [Deepgram Multichannel feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/multichannel/
     ///
     /// # Examples
     ///
@@ -402,7 +431,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// Calling this when multichannel models are already set will append to the existing models, not overwrite them.
     ///
-    /// See the [Deepgram Multichannel feature](https://developers.deepgram.com/documentation/features/multichannel/) docs for more info.
+    /// See the [Deepgram Multichannel feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/multichannel/
     ///
     /// # Examples
     ///
@@ -506,7 +537,9 @@ impl<'a> OptionsBuilder<'a> {
 
     /// Set the maximum number of transcript alternatives to return.
     ///
-    /// See the [Deepgram API Reference](https://developers.deepgram.com/api-reference/#alternatives-pr) for more info.
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/api-reference/#alternatives-pr
     ///
     /// # Examples
     ///
@@ -526,7 +559,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// Not necessarily available for all languages.
     ///
-    /// See the [Deepgram Numerals feature](https://developers.deepgram.com/documentation/features/numerals/) docs for more info.
+    /// See the [Deepgram Numerals feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/numerals/
     ///
     /// # Examples
     ///
@@ -546,7 +581,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// Calling this when already set will append to the existing items, not overwrite them.
     ///
-    /// See the [Deepgram Search feature](https://developers.deepgram.com/documentation/features/search/) docs for more info.
+    /// See the [Deepgram Search feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/search/
     ///
     /// # Examples
     ///
@@ -584,7 +621,9 @@ impl<'a> OptionsBuilder<'a> {
     /// Calling this when already set will append to the existing keywords, not overwrite them.
     /// This includes keywords set by [`OptionsBuilder::keywords_with_intensifiers`].
     ///
-    /// See the [Deepgram Keywords feature](https://developers.deepgram.com/documentation/features/keywords/) docs for more info.
+    /// See the [Deepgram Keywords feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/keywords/
     ///
     /// # Examples
     ///
@@ -626,7 +665,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// Calling this when already set will append to the existing keywords, not overwrite them.
     ///
-    /// See the [Deepgram Keywords feature](https://developers.deepgram.com/documentation/features/keywords/) docs for more info.
+    /// See the [Deepgram Keywords feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/keywords/
     ///
     /// # Examples
     ///
@@ -690,7 +731,9 @@ impl<'a> OptionsBuilder<'a> {
 
     /// Use legacy keyword boosting.
     ///
-    /// See the [Deepgram Keywords feature](https://developers.deepgram.com/documentation/features/keywords/) docs for more info.
+    /// See the [Deepgram Keywords feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/keywords/
     ///
     /// # Examples
     ///
@@ -711,7 +754,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// To set the Utterance Split feature, use [`OptionsBuilder::utterances_with_utt_split`] instead.
     ///
-    /// See the [Deepgram Utterances feature](https://developers.deepgram.com/documentation/features/utterances/) docs for more info.
+    /// See the [Deepgram Utterances feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/utterances/
     ///
     /// # Examples
     ///
@@ -736,8 +781,11 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// If you do not want to set the Utterance Split feature, use [`OptionsBuilder::utterances_with_utt_split`] instead.
     ///
-    /// See the [Deepgram Utterances feature](https://developers.deepgram.com/documentation/features/utterances/) docs
-    /// and the [Deepgram Utterance Split feature](https://developers.deepgram.com/documentation/features/utterance-split/) for more info.
+    /// See the [Deepgram Utterances feature docs][utterances-docs]
+    /// and the [Deepgram Utterance Split feature docs][utt_split-docs] for more info.
+    ///
+    /// [utterances-docs]: https://developers.deepgram.com/documentation/features/utterances/
+    /// [utt_split-docs]: https://developers.deepgram.com/documentation/features/utterance-split/
     ///
     /// # Examples
     ///
@@ -759,7 +807,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// Calling this when already set will append to the existing tags, not overwrite them.
     ///
-    /// See the [Deepgram Tag feature](https://developers.deepgram.com/documentation/features/tag/) docs for more info.
+    /// See the [Deepgram Tag feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/tag/
     ///
     /// # Examples
     ///

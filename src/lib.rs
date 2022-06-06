@@ -153,7 +153,9 @@ where
 {
     /// Construct a new Deepgram client.
     ///
-    /// Create your first API key on the [Deepgram Console](https://console.deepgram.com/).
+    /// Create your first API key on the [Deepgram Console][console].
+    ///
+    /// [console]: https://console.deepgram.com/
     ///
     /// # Panics
     ///
