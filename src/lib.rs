@@ -18,12 +18,15 @@ use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
 
+pub mod prerecorded;
+
 #[derive(Debug)]
 pub struct Deepgram<K>
 where
     K: AsRef<str>,
 {
     api_key: K,
+    client: reqwest::Client,
 }
 
 // TODO sub-errors for the different types?
@@ -31,8 +34,12 @@ where
 pub enum DeepgramError {
     #[error("No source was provided to the request builder.")]
     NoSource,
+    #[error("Something went wrong during transcription.")]
+    TranscriptionError { body: String, err: reqwest::Error },
     #[error("Something went wrong when generating the http request: {0}")]
     HttpError(#[from] http::Error),
+    #[error("Something went wrong when making the HTTP request: {0}")]
+    ReqwestError(#[from] reqwest::Error),
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
     #[error("Something went wrong with WS: {0}")]
@@ -144,8 +151,31 @@ impl<K> Deepgram<K>
 where
     K: AsRef<str>,
 {
+    /// Construct a new Deepgram client.
+    ///
+    /// Create your first API key on the [Deepgram Console][console].
+    ///
+    /// [console]: https://console.deepgram.com/
+    ///
+    /// # Panics
+    ///
+    /// Panics under the same conditions as [`reqwest::Client::new`].
     pub fn new(api_key: K) -> Self {
-        Deepgram { api_key }
+        static USER_AGENT: &str = concat!(
+            env!("CARGO_PKG_NAME"),
+            "/",
+            env!("CARGO_PKG_VERSION"),
+            " rust",
+        );
+
+        Deepgram {
+            api_key,
+            client: reqwest::Client::builder()
+                .user_agent(USER_AGENT)
+                .build()
+                // Even though `reqwest::Client::new` is not used here, it will always panic under the same conditions
+                .expect("See reqwest::Client::new docs for cause of panic"),
+        }
     }
 
     pub fn stream_request<E, S: Stream<Item = std::result::Result<Bytes, E>>>(
