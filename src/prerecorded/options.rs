@@ -1042,18 +1042,21 @@ mod models_to_string_tests {
 #[cfg(test)]
 mod serialize_options_tests {
     use super::*;
+    use crate::{prerecorded::UrlSource, Deepgram};
     use std::cmp;
+    use std::env;
 
     fn check_serialization(options: &Options, expected: &str) {
-        let actual = {
-            let mut serializer = form_urlencoded::Serializer::new(String::new());
+        let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
 
-            SerializableOptions(options)
-                .serialize(serde_urlencoded::Serializer::new(&mut serializer))
-                .unwrap();
+        let dg_client = Deepgram::new(deepgram_api_key);
 
-            serializer.finish()
-        };
+        let request = dg_client
+            .make_prerecorded_request_builder(&UrlSource { url: "" }, &options)
+            .build()
+            .unwrap();
+
+        let actual = request.url().query().unwrap_or("");
 
         assert_eq!(actual, expected);
     }
