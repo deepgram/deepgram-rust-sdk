@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-// #![warn(clippy::cargo)]
+#![warn(clippy::cargo)]
 #![allow(clippy::multiple_crate_versions)]
 
 use std::io;
