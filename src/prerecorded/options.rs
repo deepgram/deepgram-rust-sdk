@@ -456,8 +456,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
     /// # fn main() -> Result<(), reqwest::Error> {
-    /// # let deepgram_api_key =
-    /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+    /// # let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
     /// #
     /// let dg_client = Deepgram::new(&deepgram_api_key);
     ///

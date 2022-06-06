@@ -1,0 +1,20 @@
+on: [push, pull_request]
+
+name: cargo-checkmate Continuous Integration
+
+jobs:
+  cargo-checkmate:
+    name: cargo-checkmate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: cargo install cargo-checkmate
+      - run: |
+          sudo apt-get update
+          sudo apt-get install libasound2-dev
+      - run: cargo-checkmate
