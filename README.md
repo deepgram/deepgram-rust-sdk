@@ -12,6 +12,14 @@ To access the API you will need a Deepgram account. Sign up for free at [console
 
 You can learn more about the full Deepgram API at [developers.deepgram.com](https://developers.deepgram.com).
 
+## Install
+
+Add the following line to the `dependencies` table in your `Cargo.toml` file:
+
+```
+deepgram = "0.1.0"
+```
+
 ## Development and Contributing
 
 Interested in contributing? We ❤️ pull requests!
