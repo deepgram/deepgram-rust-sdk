@@ -1101,7 +1101,7 @@ mod serialize_options_tests {
         let dg_client = Deepgram::new(deepgram_api_key);
 
         let request = dg_client
-            .make_prerecorded_request_builder(&UrlSource { url: "" }, &options)
+            .make_prerecorded_request_builder(&UrlSource { url: "" }, options)
             .build()
             .unwrap();
 
