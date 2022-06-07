@@ -1,6 +1,6 @@
 # Deepgram Rust SDK
 
-[![cargo-checkmate Continuous Integration](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/cargo-checkmate.yaml/badge.svg)](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/cargo-checkmate.yaml)
+[![Rust Checks](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/rust-checks.yaml/badge.svg)](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/rust-checks.yaml)
 
 **NOTICE**: *This SDK is still very much work-in-progress. The interface is subject to rapid change.
 If you would like a stable way to access all that Deepgram has to offer, please use the
