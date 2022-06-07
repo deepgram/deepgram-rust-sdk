@@ -11,40 +11,61 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - run: |
+    - name: Install libasound2-dev
+      run: |
         sudo apt-get update
         sudo apt-get install libasound2-dev
-        cargo build --all-targets --all-features
+    - name: Cargo Build
+      run: cargo build --all-targets --all-features
   Clippy:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - run: |
+    - name: Install libasound2-dev
+      run: |
         sudo apt-get update
         sudo apt-get install libasound2-dev
-        cargo clippy --all-targets --all-features
+    - name: Cargo Clippy
+      run: cargo clippy --all-targets --all-features
   Test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - run: |
+    - name: Install libasound2-dev
+      run: |
         sudo apt-get update
         sudo apt-get install libasound2-dev
-        cargo test --all --all-features
+    - name: Cargo Test
+      run: cargo test --all --all-features
   Format:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - run: cargo fmt --check --all
+    - name: Cargo Fmt
+      run: cargo fmt --check --all
   Documentation:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - run: cargo doc --workspace --all-features
+    - name: Cargo Doc
+      run: cargo doc --workspace --all-features
   Audit:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - run: |
-        cargo install cargo-audit
-        cargo audit
+    - name: Install Cargo Audit
+      run: cargo install cargo-audit
+    - name: Cargo Audit
+      run: cargo audit
+  Build-Minimal-Versions:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install libasound2-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install libasound2-dev
+    - name: Install Rust Nightly
+      run: rustup toolchain install nightly
+    - name: Cargo Build
+      run: rustup run nightly cargo build --all-targets --all-features -Z minimal-versions
