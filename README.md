@@ -37,7 +37,7 @@ To make sure our community is safe for all, be sure to review and agree to our
 We love to hear from you so if you have questions, comments or find a bug in the
 project, let us know! You can either:
 
-- [Open an issue](https://github.com/deepgram/[reponame]/issues/new) on this repository
+- [Open an issue](https://github.com/deepgram-devs/deepgram-rust-sdk/issues/new) on this repository
 - Tweet at us! We're [@DeepgramDevs on Twitter](https://twitter.com/DeepgramDevs)
 
 ## Further Reading

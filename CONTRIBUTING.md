@@ -19,13 +19,8 @@ Here are a few types of contributions that we would be interested in hearing abo
   * If you think the test coverage could be improved, the documentation could be clearer, you've got an alternative
     implementation of something that may have more advantages, or any other change we would still be glad hear about
     it.
-    * If its a trivial change, go ahead and send a Pull Request with the changes you have in mind
+    * If it's a trivial change, go ahead and send a Pull Request with the changes you have in mind
     * If not, open a Github Issue to discuss the idea first.
-* Snippets
-  * To add snippets:
-    * Add a directory in the `snippets` folder with the name of the language.
-    * Add one or more files in the language directory with snippets.
-    * Update the `package.json` to include the snippets you added.
 
 We also welcome anyone to work on any existing issues with the `good first issue` tag.
 
@@ -37,7 +32,7 @@ For a contribution to be accepted:
 * Code must follow existing styling conventions
 * Commit messages must be descriptive. Related issues should be mentioned by number.
 
-If the contribution doesn't meet these criteria, a maintainer will discuss it with you on the Issue. You can still
+If the contribution doesn't meet these criteria, a maintainer will discuss it with you. You can still
 continue to add more commits to the branch you have sent the Pull Request from.
 
 ## How To

@@ -21,12 +21,11 @@ assignees: ''
 
 ## Please tell us about your environment
 
-> We want to make sure the problem isn't specific to your operating system or programming language.
+> We want to make sure the problem isn't specific to your operating system.
   
-- **Operating System/Version:** Windows 10
-- **Language:** [all | TypeScript | Python | PHP | etc]
-- **Browser:** Chrome
+- **Operating System/Version:** 
+- **Browser:** 
 
 ## Other information
 
-> Anything else we should know? (e.g. detailed explanation, stack-traces, related issues, suggestions how to fix, links for us to have context, eg. stack overflow, codepen, etc)
+> Anything else we should know? (e.g. detailed explanation, stack-traces, related issues, suggestions how to fix, links for us to have context, e.g. stack overflow, codepen, etc)

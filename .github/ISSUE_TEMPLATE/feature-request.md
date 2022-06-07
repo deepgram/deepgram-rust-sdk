@@ -21,4 +21,4 @@ assignees: ''
 
 ## Other information
 
-> Anything else we should know? (e.g. detailed explanation, related issues, links for us to have context, eg. stack overflow, codepen, etc)
+> Anything else we should know? (e.g. detailed explanation, related issues, links for us to have context, e.g. stack overflow, codepen, etc)
