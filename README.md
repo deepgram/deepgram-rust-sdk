@@ -1,6 +1,10 @@
 # Deepgram Rust SDK
 
-[![Rust Checks](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/rust-checks.yaml/badge.svg)](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/rust-checks.yaml)
+[![CI](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/ci.yaml/badge.svg)](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/ci.yaml)
+[![crates.io](https://img.shields.io/crates/v/deepgram)](https://crates.io/crates/deepgram)
+[![dowloads](https://img.shields.io/crates/d/deepgram)](https://crates.io/crates/deepgram)
+[![docs](https://img.shields.io/docsrs/deepgram)](https://docs.rs/deepgram)
+[![license](https://img.shields.io/crates/l/deepgram)](./LICENSE)
 
 **NOTICE**: *This SDK is still very much work-in-progress. The interface is subject to rapid change.
 If you would like a stable way to access all that Deepgram has to offer, please use the
