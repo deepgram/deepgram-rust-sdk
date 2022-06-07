@@ -1,28 +1,34 @@
 [package]
 name = "deepgram"
-version = "0.0.1"
+version = "0.1.0"
+authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
+description = "Official Rust SDK for Deepgram's automated speech recognition APIs."
+license = "MIT"
+repository = "https://github.com/deepgram-devs/deepgram-rust-sdk"
+keywords = ["deepgram", "asr", "transcription", "ai"]
+categories = ["api-bindings", "multimedia::audio"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 # TODO Investigate which of these dependencies can go behind features.
-bytes = "1.1.0"
-futures = "0.3.21"
-http = "0.2.6"
-pin-project = "1.0.10"
-reqwest = { version = "0.11.10", features = ["json"] }
-serde = { version = "1.0.136", features = [ "derive" ] }
-serde_json = "1.0.79"
-thiserror = "1.0.30"
-tokio = { version = "1.17.0", features = [ "full" ] }
-tokio-tungstenite = { version = "0.17.1", features = [ "native-tls" ] }
+bytes = "1"
+futures = "0.3"
+http = "0.2"
+pin-project = "1"
+reqwest = { version = "0.11.7", features = ["json"] }
+serde = { version = "1", features = [ "derive" ] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = [ "full" ] }
+tokio-tungstenite = { version = "0.17", features = [ "native-tls" ] }
 tokio-util = { version = "0.7.1", features = [ "codec", "io" ] }
-tungstenite = "0.17.2"
-url = "2.2.2"
-uuid = { version = "1.0.0", features = ["serde"] }
+tungstenite = "0.17"
+url = "2"
+uuid = { version = "1", features = ["serde"] }
 
 [dev-dependencies]
-cpal = "0.13.5"
-crossbeam = "0.8.1"
-reqwest = { version = "0.11.10", features = ["stream"] }
+cpal = "0.13"
+crossbeam = "0.8"
+reqwest = { version = "0.11.7", features = ["stream"] }
