@@ -131,7 +131,7 @@ impl Stream for FileChunker {
                 Poll::Ready(next) => match next.transpose() {
                     Err(e) => return Poll::Ready(Some(Err(DeepgramError::from(e)))),
                     Ok(None) => {
-                        if this.buf.len() == 0 {
+                        if this.buf.is_empty() {
                             return Poll::Ready(None);
                         } else {
                             return Poll::Ready(Some(Ok(this
@@ -326,15 +326,12 @@ where
                 match read.next().await {
                     None => break,
                     Some(Ok(msg)) => {
-                        match msg {
-                            Message::Text(txt) => {
-                                let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
-                                tx.send(resp)
-                                    .await
-                                    // This unwrap is probably not safe.
-                                    .unwrap();
-                            }
-                            _ => {}
+                        if let Message::Text(txt) = msg {
+                            let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
+                            tx.send(resp)
+                                .await
+                                // This unwrap is probably not safe.
+                                .unwrap();
                         }
                     }
                     Some(e) => {
