@@ -155,9 +155,11 @@ pub struct Word {
 
 /// Search result.
 ///
-/// See the [Deepgram API Reference][api] for more info.
+/// See the [Deepgram API Reference][api]
+/// and the [Deepgram Search feature docs][docs] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+/// [docs]: https://developers.deepgram.com/documentation/features/search/
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
 pub struct Hit {
