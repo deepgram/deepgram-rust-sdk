@@ -57,7 +57,7 @@ jobs:
       run: cargo install cargo-audit
     - name: Cargo Audit
       run: cargo audit
-  Build-Minimal-Versions:
+  Minimal-Versions:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -69,3 +69,5 @@ jobs:
       run: rustup toolchain install nightly
     - name: Cargo Build
       run: rustup run nightly cargo build --all-targets --all-features -Z minimal-versions
+    - name: Cargo Test
+      run: rustup run nightly cargo test --all --all-features -Z minimal-versions
