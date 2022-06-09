@@ -3,6 +3,10 @@
 # Usage: version <bump>
 #   bump: [possible values: major, minor, patch, release, rc, beta, alpha]
 
+# Don't proceed on errors
+# See: https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
+set -Eeuo pipefail
+
 # Depends
 if ! (command -v cargo-set-version > /dev/null &&
       command -v jq > /dev/null &&
