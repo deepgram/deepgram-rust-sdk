@@ -10,7 +10,7 @@ set -Eeuo pipefail
 # Depends
 if ! (command -v cargo-set-version > /dev/null &&
       command -v jq > /dev/null &&
-      command -V yq > /dev/null)
+      command -v yq > /dev/null)
 then
   echo "Depends: cargo-edit jq yq"
   exit
