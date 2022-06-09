@@ -1,5 +1,9 @@
 #![forbid(unsafe_code)]
-#![warn(clippy::cargo)]
+#![warn(
+    missing_copy_implementations,
+    missing_debug_implementations,
+    clippy::cargo
+)]
 #![allow(clippy::multiple_crate_versions)]
 
 use std::io;
@@ -24,7 +28,7 @@ use url::Url;
 
 pub mod prerecorded;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Deepgram<K>
 where
     K: AsRef<str>,
@@ -52,6 +56,7 @@ pub enum DeepgramError {
     SerdeError(#[from] serde_json::Error),
 }
 
+#[derive(Debug)]
 pub struct StreamRequestBuilder<'a, S, K, E>
 where
     S: Stream<Item = std::result::Result<Bytes, E>>,
