@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/ci.yaml/badge.svg)](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/ci.yaml)
 [![crates.io](https://img.shields.io/crates/v/deepgram)](https://crates.io/crates/deepgram)
-[![dowloads](https://img.shields.io/crates/d/deepgram)](https://crates.io/crates/deepgram)
+[![downloads](https://img.shields.io/crates/d/deepgram)](https://crates.io/crates/deepgram)
 [![docs](https://img.shields.io/docsrs/deepgram)](https://docs.rs/deepgram)
 [![license](https://img.shields.io/crates/l/deepgram)](./LICENSE)
 

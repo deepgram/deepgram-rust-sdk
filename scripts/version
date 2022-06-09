@@ -1,0 +1,18 @@
+#! /usr/bin/env bash
+
+# Usage: version <bump>
+#   bump: [possible values: major, minor, patch, release, rc, beta, alpha]
+
+# Depends
+if ! (command -v cargo-set-version > /dev/null &&
+      command -v jq > /dev/null &&
+      command -V yq > /dev/null)
+then
+  echo "Depends: cargo-edit jq yq"
+  exit
+fi
+
+old_version=$(tomlq -r '.package.version' Cargo.toml)
+cargo set-version --bump $1
+new_version=$(tomlq -r '.package.version' Cargo.toml)
+sed -i "s/$old_version/$new_version/g" README.md
