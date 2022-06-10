@@ -8,6 +8,7 @@ use uuid::Uuid;
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct Response {
     pub metadata: ListenMetadata,
     pub results: ListenResults,
@@ -20,6 +21,7 @@ pub struct Response {
 /// [docs]: https://developers.deepgram.com/documentation/features/callback/
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Deserialize)]
+#[non_exhaustive]
 pub struct CallbackResponse {
     pub request_id: Uuid,
 }
@@ -31,6 +33,7 @@ pub struct CallbackResponse {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct ListenMetadata {
     pub request_id: Uuid,
     pub transaction_key: String,
@@ -47,6 +50,7 @@ pub struct ListenMetadata {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct ListenResults {
     pub channels: Vec<ChannelResult>,
 
@@ -66,6 +70,7 @@ pub struct ListenResults {
 /// [docs]: https://developers.deepgram.com/documentation/features/multichannel/
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct ChannelResult {
     /// [`None`] unless the [Search feature][docs] is set.
     /// Features can be set using an [`OptionsBuilder`](`super::OptionsBuilder`).
@@ -83,6 +88,7 @@ pub struct ChannelResult {
 /// [docs]: https://developers.deepgram.com/documentation/features/utterances/
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct Utterance {
     pub start: f64,
     pub end: f64,
@@ -109,6 +115,7 @@ pub struct Utterance {
 /// [docs]: https://developers.deepgram.com/documentation/features/search/
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct SearchResults {
     pub query: String,
     pub hits: Vec<Hit>,
@@ -121,6 +128,7 @@ pub struct SearchResults {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct ResultAlternative {
     pub transcript: String,
     pub confidence: f64,
@@ -134,6 +142,7 @@ pub struct ResultAlternative {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct Word {
     pub word: String,
     pub start: f64,
@@ -162,6 +171,7 @@ pub struct Word {
 /// [docs]: https://developers.deepgram.com/documentation/features/search/
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct Hit {
     pub confidence: f64,
     pub start: f64,
