@@ -24,7 +24,8 @@ async fn main() -> Result<(), DeepgramError> {
         env::var("DEEPGRAM_CALLBACK_URL").expect("DEEPGRAM_CALLBACK_URL environmental variable");
 
     let response = dg_client
-        .callback_request(&source, &options, &callback_url)
+        .transcription()
+        .callback(&source, &options, &callback_url)
         .await?;
 
     println!("{}", response.request_id);

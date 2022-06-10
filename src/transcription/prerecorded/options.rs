@@ -1,6 +1,6 @@
 use serde::{ser::SerializeSeq, Serialize};
 
-/// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
+/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options<'a> {
     model: Option<Model<'a>>,
@@ -127,7 +127,7 @@ enum Multichannel<'a> {
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// Use it to set of Deepgram's features, excluding the Callback feature.
-/// The Callback feature can be set when making the request by calling [`Deepgram::callback_request`](crate::Deepgram::callback_request).
+/// The Callback feature can be set when making the request by calling [`Transcription::callback`](crate::transcription::Transcription::callback).
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
@@ -459,6 +459,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
     /// #
     /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_transcription = dg_client.transcription();
     ///
     /// # let source = UrlSource { url: AUDIO_URL };
     /// #
@@ -471,8 +472,13 @@ impl<'a> OptionsBuilder<'a> {
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
     ///     .build();
     ///
-    /// let request1 = dg_client.make_prerecorded_request_builder(&source, &options1).build()?;
-    /// let request2 = dg_client.make_prerecorded_request_builder(&source, &options2).build()?;
+    /// let request1 = dg_transcription
+    ///     .make_prerecorded_request_builder(&source, &options1)
+    ///     .build()?;
+    ///
+    /// let request2 = dg_transcription
+    ///     .make_prerecorded_request_builder(&source, &options2)
+    ///     .build()?;
     ///
     /// // Both make the same request to Deepgram with the same features
     /// assert_eq!(request1.url(), request2.url());
@@ -1101,6 +1107,7 @@ mod serialize_options_tests {
         let dg_client = Deepgram::new(deepgram_api_key);
 
         let request = dg_client
+            .transcription()
             .make_prerecorded_request_builder(&UrlSource { url: "" }, options)
             .build()
             .unwrap();

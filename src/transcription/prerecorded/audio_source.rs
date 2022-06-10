@@ -5,7 +5,7 @@ pub trait AudioSource {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
 }
 
-/// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
+/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 ///
 /// Instructs Deepgram to download the audio from the specified URL.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
@@ -14,7 +14,7 @@ pub struct UrlSource<'a> {
     pub url: &'a str,
 }
 
-/// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
+/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 ///
 /// Uploads the raw binary audio data to Deepgram as part of the request.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
