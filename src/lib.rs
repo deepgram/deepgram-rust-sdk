@@ -22,7 +22,7 @@ use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
 
-pub mod prerecorded;
+pub mod transcription;
 
 #[derive(Debug, Clone)]
 pub struct Deepgram<K>

@@ -1,5 +1,5 @@
 use deepgram::{
-    prerecorded::{Language, Options, UrlSource},
+    transcription::prerecorded::{Language, Options, UrlSource},
     Deepgram, DeepgramError,
 };
 use std::env;

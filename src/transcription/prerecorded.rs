@@ -36,7 +36,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     prerecorded::{Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{Language, Options, UrlSource},
     /// #     Deepgram, DeepgramError,
     /// # };
     /// # use std::env;
@@ -85,7 +85,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     prerecorded::{Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{Language, Options, UrlSource},
     /// #     Deepgram, DeepgramError,
     /// # };
     /// # use std::env;
@@ -140,7 +140,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     prerecorded::{Language, Options, Response, UrlSource},
+    /// #     transcription::prerecorded::{Language, Options, Response, UrlSource},
     /// #     Deepgram,
     /// # };
     /// # use std::env;
@@ -203,7 +203,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     prerecorded::{CallbackResponse, Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{CallbackResponse, Language, Options, UrlSource},
     /// #     Deepgram,
     /// # };
     /// # use std::env;

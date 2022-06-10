@@ -1,5 +1,5 @@
 use deepgram::{
-    prerecorded::{BufferSource, Language, Options},
+    transcription::prerecorded::{BufferSource, Language, Options},
     Deepgram, DeepgramError,
 };
 use std::env;
