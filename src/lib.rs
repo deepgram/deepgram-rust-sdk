@@ -1,9 +1,5 @@
 #![forbid(unsafe_code)]
-#![warn(
-    missing_copy_implementations,
-    missing_debug_implementations,
-    clippy::cargo
-)]
+#![warn(missing_debug_implementations, clippy::cargo)]
 #![allow(clippy::multiple_crate_versions)]
 
 use std::io;
