@@ -23,7 +23,7 @@ static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
 
 impl<K: AsRef<str>> Transcription<'_, K> {
     /// Sends a request to Deepgram to transcribe pre-recorded audio.
-    /// If you wish to use the Callback feature, you should use [`Transcription::callback`] instead.
+    /// If you wish to use the Callback feature, you should use [`Transcription::prerecorded_callback`] instead.
     ///
     /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
@@ -113,19 +113,20 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let response = dg_client
     ///     .transcription()
-    ///     .callback(&source, &options, &callback_url)
+    ///     .prerecorded_callback(&source, &options, &callback_url)
     ///     .await?;
     /// #
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn callback(
+    pub async fn prerecorded_callback(
         &self,
         source: impl AudioSource,
         options: &Options<'_>,
         callback: &str,
     ) -> crate::Result<CallbackResponse> {
-        let request_builder = self.make_callback_request_builder(source, options, callback);
+        let request_builder =
+            self.make_prerecorded_callback_request_builder(source, options, callback);
 
         send_and_translate_response(request_builder).await
     }
@@ -200,7 +201,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// Similar to [`Transcription::make_prerecorded_request_builder`],
     /// but for the purposes of a [callback request][callback].
     ///
-    /// You should avoid using this where possible too, preferring [`Transcription::callback`].
+    /// You should avoid using this where possible too, preferring [`Transcription::prerecorded_callback`].
     ///
     /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
@@ -237,7 +238,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let request_builder = dg_client
     ///     .transcription()
-    ///     .make_callback_request_builder(&source, &options, &callback_url);
+    ///     .make_prerecorded_callback_request_builder(&source, &options, &callback_url);
     ///
     /// // Customize the RequestBuilder here
     /// let customized_request_builder = request_builder
@@ -251,7 +252,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn make_callback_request_builder(
+    pub fn make_prerecorded_callback_request_builder(
         &self,
         source: impl AudioSource,
         options: &Options<'_>,

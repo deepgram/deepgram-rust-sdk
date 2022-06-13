@@ -25,7 +25,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let response = dg_client
         .transcription()
-        .callback(&source, &options, &callback_url)
+        .prerecorded_callback(&source, &options, &callback_url)
         .await?;
 
     println!("{}", response.request_id);

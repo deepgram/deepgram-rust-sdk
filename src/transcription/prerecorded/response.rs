@@ -14,7 +14,7 @@ pub struct Response {
     pub results: ListenResults,
 }
 
-/// Returned by [`Transcription::callback`](crate::transcription::Transcription::callback).
+/// Returned by [`Transcription::prerecorded_callback`](crate::transcription::Transcription::prerecorded_callback).
 ///
 /// See the [Deepgram Callback feature docs][docs] for more info.
 ///
