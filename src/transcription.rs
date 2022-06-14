@@ -1,9 +1,8 @@
-#![warn(missing_docs)]
-
-//! This module provides various types that are used for transcription requests to Deepgram.
+//! Provides various types that are used for transcription requests to Deepgram.
 
 use crate::Deepgram;
 
+pub mod live;
 pub mod prerecorded;
 
 /// Transcribe audio using Deepgram's automated speech recognition.

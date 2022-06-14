@@ -1,4 +1,4 @@
-//! This module provides various types that are used for pre-recorded transcription requests to Deepgram.
+//! Provides various types that are used for pre-recorded transcription requests to Deepgram.
 
 use super::Transcription;
 use crate::DeepgramError;
