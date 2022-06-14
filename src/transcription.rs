@@ -23,9 +23,9 @@ impl<'a, K: AsRef<str>> Deepgram<K> {
     }
 }
 
-impl<K: AsRef<str>> From<&Deepgram<K>> for Transcription<'_, K> {
+impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Transcription<'a, K> {
     /// Construct a new [`Transcription`] from a [`Deepgram`].
-    fn from(_: &Deepgram<K>) -> Self {
-        todo!()
+    fn from(deepgram: &'a Deepgram<K>) -> Self {
+        deepgram.transcription()
     }
 }
