@@ -20,7 +20,7 @@ pub struct Response {
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/callback/
 #[allow(missing_docs)] // Struct fields are documented in the API reference
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 #[non_exhaustive]
 pub struct CallbackResponse {
     pub request_id: Uuid,
