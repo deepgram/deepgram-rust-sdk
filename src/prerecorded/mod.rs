@@ -9,14 +9,13 @@ mod audio_source;
 mod options;
 mod response;
 
-pub use audio_source::{BufferSource, UrlSource};
+pub use audio_source::{AudioSource, BufferSource, UrlSource};
 pub use options::{Keyword, Language, Model, Options, OptionsBuilder, Redact};
 pub use response::{
     CallbackResponse, ChannelResult, Hit, ListenMetadata, ListenResults, Response,
     ResultAlternative, SearchResults, Utterance, Word,
 };
 
-use audio_source::AudioSource;
 use options::SerializableOptions;
 use serde::de::DeserializeOwned;
 
@@ -25,8 +24,6 @@ static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
 impl<K: AsRef<str>> Deepgram<K> {
     /// Sends a request to Deepgram to transcribe pre-recorded audio.
     /// If you wish to use the Callback feature, you should use [`Deepgram::callback_request`] instead.
-    ///
-    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
@@ -74,8 +71,6 @@ impl<K: AsRef<str>> Deepgram<K> {
 
     /// Sends a request to Deepgram to transcribe pre-recorded audio using the Callback feature.
     /// Otherwise behaves similarly to [`Deepgram::prerecorded_request`].
-    ///
-    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
     /// See the [Deepgram Callback feature docs][docs] for more info.
     ///
@@ -133,8 +128,6 @@ impl<K: AsRef<str>> Deepgram<K> {
     /// Avoid using this where possible.
     /// By customizing the request, there is less of a guarentee that it will conform to the Deepgram API.
     /// Prefer using [`Deepgram::prerecorded_request`].
-    ///
-    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
     /// # Examples
     ///
@@ -194,8 +187,6 @@ impl<K: AsRef<str>> Deepgram<K> {
     /// but for the purposes of a [callback request][callback].
     ///
     /// You should avoid using this where possible too, preferring [`Deepgram::callback_request`].
-    ///
-    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
     /// [callback]: https://developers.deepgram.com/documentation/features/callback/
     ///
