@@ -3,7 +3,7 @@ use serde::Serialize;
 
 /// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
 ///
-/// This trait is [sealed], and thus cannot be implemented by anything that doesn't already implement it.
+/// This trait is [sealed], and thus cannot be implemented by anything new.
 ///
 /// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
 pub trait AudioSource: private::Sealed {
