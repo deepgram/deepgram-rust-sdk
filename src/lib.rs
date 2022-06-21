@@ -10,7 +10,14 @@ use std::io;
 
 use thiserror::Error;
 
+pub mod billing;
+pub mod invitations;
+pub mod keys;
+pub mod members;
+pub mod projects;
+pub mod scopes;
 pub mod transcription;
+pub mod usage;
 
 /// A client for the Deepgram API.
 ///

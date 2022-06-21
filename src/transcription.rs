@@ -1,4 +1,8 @@
-//! Provides various types that are used for transcription requests to Deepgram.
+//! Transcribe audio using Deepgram's automated speech recognition.
+//!
+//! See the [Deepgram API Reference][api] for more info.
+//!
+//! [api]: https://developers.deepgram.com/api-reference/#transcription
 
 use crate::Deepgram;
 
