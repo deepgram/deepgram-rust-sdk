@@ -83,7 +83,7 @@ pub struct ChannelResult {
 
 /// Transcription results for a single utterance.
 ///
-/// See the [Deepgram Utternace feature docs][docs] for more info.
+/// See the [Deepgram Utterance feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/utterances/
 #[allow(missing_docs)] // Struct fields are documented in the API reference
