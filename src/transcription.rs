@@ -22,13 +22,13 @@ pub struct Transcription<'a, K: AsRef<str>>(&'a Deepgram<K>);
 impl<'a, K: AsRef<str>> Deepgram<K> {
     /// Construct a new [`Transcription`] from a [`Deepgram`].
     pub fn transcription(&'a self) -> Transcription<'a, K> {
-        Transcription(self)
+        self.into()
     }
 }
 
 impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Transcription<'a, K> {
     /// Construct a new [`Transcription`] from a [`Deepgram`].
     fn from(deepgram: &'a Deepgram<K>) -> Self {
-        deepgram.transcription()
+        Self(deepgram)
     }
 }

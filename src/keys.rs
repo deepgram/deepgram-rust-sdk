@@ -19,13 +19,13 @@ pub struct Keys<'a, K: AsRef<str>>(&'a Deepgram<K>);
 impl<'a, K: AsRef<str>> Deepgram<K> {
     /// Construct a new [`Keys`] from a [`Deepgram`].
     pub fn keys(&'a self) -> Keys<'a, K> {
-        Keys(self)
+        self.into()
     }
 }
 
 impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Keys<'a, K> {
     /// Construct a new [`Keys`] from a [`Deepgram`].
     fn from(deepgram: &'a Deepgram<K>) -> Self {
-        deepgram.keys()
+        Self(deepgram)
     }
 }

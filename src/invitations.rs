@@ -19,13 +19,13 @@ pub struct Invitations<'a, K: AsRef<str>>(&'a Deepgram<K>);
 impl<'a, K: AsRef<str>> Deepgram<K> {
     /// Construct a new [`Invitations`] from a [`Deepgram`].
     pub fn invitations(&'a self) -> Invitations<'a, K> {
-        Invitations(self)
+        self.into()
     }
 }
 
 impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Invitations<'a, K> {
     /// Construct a new [`Invitations`] from a [`Deepgram`].
     fn from(deepgram: &'a Deepgram<K>) -> Self {
-        deepgram.invitations()
+        Self(deepgram)
     }
 }

@@ -19,13 +19,13 @@ pub struct Scopes<'a, K: AsRef<str>>(&'a Deepgram<K>);
 impl<'a, K: AsRef<str>> Deepgram<K> {
     /// Construct a new [`Scopes`] from a [`Deepgram`].
     pub fn scopes(&'a self) -> Scopes<'a, K> {
-        Scopes(self)
+        self.into()
     }
 }
 
 impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Scopes<'a, K> {
     /// Construct a new [`Scopes`] from a [`Deepgram`].
     fn from(deepgram: &'a Deepgram<K>) -> Self {
-        deepgram.scopes()
+        Self(deepgram)
     }
 }
