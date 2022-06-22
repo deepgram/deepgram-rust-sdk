@@ -189,10 +189,6 @@ impl<K: AsRef<str>> Transcription<'_, K> {
             .0
             .client
             .post(DEEPGRAM_API_URL_LISTEN)
-            .header(
-                "Authorization",
-                format!("Token {}", self.0.api_key.as_ref()),
-            )
             .query(&SerializableOptions(options));
 
         source.fill_body(request_builder)

@@ -8,6 +8,7 @@
 
 use std::io;
 
+use reqwest::header::{HeaderMap, HeaderValue};
 use thiserror::Error;
 
 pub mod billing;
@@ -93,10 +94,21 @@ where
             " rust",
         );
 
+        let authorization_header = {
+            let mut header = HeaderMap::new();
+            header.insert(
+                "Authorization",
+                HeaderValue::from_str(&format!("Token {}", api_key.as_ref()))
+                    .expect("Invalid API key"),
+            );
+            header
+        };
+
         Deepgram {
             api_key,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
+                .default_headers(authorization_header)
                 .build()
                 // Even though `reqwest::Client::new` is not used here, it will always panic under the same conditions
                 .expect("See reqwest::Client::new docs for cause of panic"),
