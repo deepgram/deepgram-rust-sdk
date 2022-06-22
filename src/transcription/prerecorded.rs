@@ -1,8 +1,9 @@
 //! Provides various types that are used for pre-recorded transcription requests to Deepgram.
 
-use super::Transcription;
-use crate::DeepgramError;
 use reqwest::RequestBuilder;
+
+use super::Transcription;
+use crate::send_and_translate_response;
 
 mod audio_source;
 mod options;
@@ -17,7 +18,6 @@ pub use response::{
 
 use audio_source::AudioSource;
 use options::SerializableOptions;
-use serde::de::DeserializeOwned;
 
 static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
 
@@ -256,19 +256,5 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     ) -> RequestBuilder {
         self.make_prerecorded_request_builder(source, options)
             .query(&[("callback", callback)])
-    }
-}
-
-async fn send_and_translate_response<R: DeserializeOwned>(
-    request_builder: RequestBuilder,
-) -> crate::Result<R> {
-    let response = request_builder.send().await?;
-
-    match response.error_for_status_ref() {
-        Ok(_) => Ok(response.json().await?),
-        Err(err) => Err(DeepgramError::TranscriptionError {
-            body: response.text().await?,
-            err,
-        }),
     }
 }
