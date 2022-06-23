@@ -54,7 +54,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install Cargo Audit
-      run: cargo install cargo-audit
+      run: cargo install --locked cargo-audit
     - name: Cargo Audit
       run: cargo audit
   Minimal-Versions:
@@ -71,3 +71,11 @@ jobs:
       run: rustup run nightly cargo build --all-targets --all-features -Z minimal-versions
     - name: Cargo Test
       run: rustup run nightly cargo test --all --all-features -Z minimal-versions
+    - name: Remove Dev Dependencies
+      run: |
+        cargo install --locked cargo-hack
+        cargo hack --remove-dev-deps
+        rustup run nightly cargo generate-lockfile -Z minimal-versions
+    - name: Cargo Build Without Dev Dependencies
+      run: rustup run nightly cargo build --all-features -Z minimal-versions
+
