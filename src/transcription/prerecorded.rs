@@ -137,7 +137,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// This allows you to modify the request before it is sent.
     ///
     /// Avoid using this where possible.
-    /// By customizing the request, there is less of a guarentee that it will conform to the Deepgram API.
+    /// By customizing the request, there is less of a guarantee that it will conform to the Deepgram API.
     /// Prefer using [`Transcription::prerecorded`].
     ///
     /// # Examples
