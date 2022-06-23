@@ -1,8 +1,31 @@
+//! Sources of audio that can be transcribed.
+//!
+//! See the [Deepgram API Reference][api] for more info.
+//!
+//! [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+
 use reqwest::{header::CONTENT_TYPE, RequestBuilder};
 use serde::Serialize;
 
-pub trait AudioSource {
+/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
+///
+/// This trait is [sealed], and thus cannot be implemented by anything new.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait AudioSource: private::Sealed {
+    #[doc(hidden)]
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
+}
+
+// Used to prevent other crates from implementing AudioSource
+// See https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+mod private {
+    use super::{BufferSource, UrlSource};
+
+    pub trait Sealed {}
+
+    impl Sealed for &UrlSource<'_> {}
+    impl<B: Into<reqwest::Body>> Sealed for BufferSource<'_, B> {}
 }
 
 /// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.

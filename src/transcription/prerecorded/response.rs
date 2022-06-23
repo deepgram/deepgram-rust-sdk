@@ -1,3 +1,9 @@
+//! Deepgram pre-recorded transcription API response types.
+//!
+//! See the [Deepgram API Reference][api] for more info.
+//!
+//! [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded-responses
+
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -55,7 +61,7 @@ pub struct ListenResults {
     pub channels: Vec<ChannelResult>,
 
     /// [`None`] unless the [Utterances feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`super::OptionsBuilder`).
+    /// Features can be set using an [`OptionsBuilder`](`super::options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/utterances/
     pub utterances: Option<Vec<Utterance>>,
@@ -73,7 +79,7 @@ pub struct ListenResults {
 #[non_exhaustive]
 pub struct ChannelResult {
     /// [`None`] unless the [Search feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`super::OptionsBuilder`).
+    /// Features can be set using an [`OptionsBuilder`](`super::options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/search/
     pub search: Option<Vec<SearchResults>>,
@@ -98,7 +104,7 @@ pub struct Utterance {
     pub words: Vec<Word>,
 
     /// [`None`] unless the [Diarization feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`super::OptionsBuilder`).
+    /// Features can be set using an [`OptionsBuilder`](`super::options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/diarize/
     pub speaker: Option<usize>,
@@ -150,13 +156,13 @@ pub struct Word {
     pub confidence: f64,
 
     /// [`None`] unless the [Diarization feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`super::OptionsBuilder`).
+    /// Features can be set using an [`OptionsBuilder`](`super::options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/diarize/
     pub speaker: Option<usize>,
 
     /// [`None`] unless the [Punctuation feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`super::OptionsBuilder`).
+    /// Features can be set using an [`OptionsBuilder`](`super::options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/punctuate/
     pub punctuated_word: Option<String>,

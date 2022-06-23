@@ -1,31 +1,27 @@
-//! Provides various types that are used for pre-recorded transcription requests to Deepgram.
+//! Types used for pre-recorded audio transcription.
+//!
+//! See the [Deepgram API Reference][api] for more info.
+//!
+//! [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 
 use reqwest::RequestBuilder;
 
 use super::Transcription;
 use crate::send_and_translate_response;
 
-mod audio_source;
-mod options;
-mod response;
-
-pub use audio_source::{BufferSource, UrlSource};
-pub use options::{Keyword, Language, Model, Options, OptionsBuilder, Redact};
-pub use response::{
-    CallbackResponse, ChannelResult, Hit, ListenMetadata, ListenResults, Response,
-    ResultAlternative, SearchResults, Utterance, Word,
-};
+pub mod audio_source;
+pub mod options;
+pub mod response;
 
 use audio_source::AudioSource;
-use options::SerializableOptions;
+use options::{Options, SerializableOptions};
+use response::{CallbackResponse, Response};
 
 static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
 
 impl<K: AsRef<str>> Transcription<'_, K> {
     /// Sends a request to Deepgram to transcribe pre-recorded audio.
     /// If you wish to use the Callback feature, you should use [`Transcription::prerecorded_callback`] instead.
-    ///
-    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
@@ -34,11 +30,15 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// # Examples
     ///
     /// ```no_run
+    /// # use std::env;
+    /// #
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{
+    /// #         audio_source::UrlSource,
+    /// #         options::{Language, Options},
+    /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
-    /// # use std::env;
     /// #
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
@@ -77,8 +77,6 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// Sends a request to Deepgram to transcribe pre-recorded audio using the Callback feature.
     /// Otherwise behaves similarly to [`Transcription::prerecorded`].
     ///
-    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
-    ///
     /// See the [Deepgram Callback feature docs][docs] for more info.
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/callback/
@@ -86,11 +84,15 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// # Examples
     ///
     /// ```no_run
+    /// # use std::env;
+    /// #
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{
+    /// #         audio_source::UrlSource,
+    /// #         options::{Language, Options},
+    /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
-    /// # use std::env;
     /// #
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
@@ -138,16 +140,19 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// By customizing the request, there is less of a guarentee that it will conform to the Deepgram API.
     /// Prefer using [`Transcription::prerecorded`].
     ///
-    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
-    ///
     /// # Examples
     ///
     /// ```no_run
-    /// # use deepgram::{
-    /// #     transcription::prerecorded::{Language, Options, Response, UrlSource},
-    /// #     Deepgram,
-    /// # };
     /// # use std::env;
+    /// #
+    /// # use deepgram::{
+    /// #     transcription::prerecorded::{
+    /// #         audio_source::UrlSource,
+    /// #         options::{Language, Options},
+    /// #         response::Response,
+    /// #     },
+    /// #     Deepgram, DeepgramError,
+    /// # };
     /// #
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
@@ -199,18 +204,21 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     ///
     /// You should avoid using this where possible too, preferring [`Transcription::prerecorded_callback`].
     ///
-    /// The `source` parameter is either a [`BufferSource`] or a [`UrlSource`].
-    ///
     /// [callback]: https://developers.deepgram.com/documentation/features/callback/
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// # use deepgram::{
-    /// #     transcription::prerecorded::{CallbackResponse, Language, Options, UrlSource},
-    /// #     Deepgram,
-    /// # };
     /// # use std::env;
+    /// #
+    /// # use deepgram::{
+    /// #     transcription::prerecorded::{
+    /// #         audio_source::UrlSource,
+    /// #         options::{Language, Options},
+    /// #         response::CallbackResponse,
+    /// #     },
+    /// #     Deepgram, DeepgramError,
+    /// # };
     /// #
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #

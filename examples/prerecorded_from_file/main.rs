@@ -1,8 +1,12 @@
+use std::env;
+
 use deepgram::{
-    transcription::prerecorded::{BufferSource, Language, Options},
+    transcription::prerecorded::{
+        audio_source::BufferSource,
+        options::{Language, Options},
+    },
     Deepgram, DeepgramError,
 };
-use std::env;
 use tokio::fs::File;
 
 static PATH_TO_FILE: &str = "examples/prerecorded_from_file/Bueller-Life-moves-pretty-fast.mp3";
