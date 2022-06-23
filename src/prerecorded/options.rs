@@ -26,54 +26,123 @@ pub struct Options<'a> {
 /// See the [Deepgram Model feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/model/
-#[allow(missing_docs)] // Unnecessary to document every variant
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 pub enum Model<'a> {
+    #[allow(missing_docs)]
     GeneralEnhanced,
+
+    #[allow(missing_docs)]
     General,
+
+    #[allow(missing_docs)]
     Meeting,
+
+    #[allow(missing_docs)]
     Phonecall,
+
+    #[allow(missing_docs)]
     Voicemail,
+
+    #[allow(missing_docs)]
     Finance,
+
+    #[allow(missing_docs)]
     Conversationalai,
+
+    #[allow(missing_docs)]
     Video,
+
+    #[allow(missing_docs)]
     CustomId(&'a str),
 }
 
 /// Used as a parameter for [`OptionsBuilder::language`].
-#[allow(missing_docs)] // Unnecessary to document every variant
 #[allow(non_camel_case_types)] // Variants should look like their BCP-47 tag
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 pub enum Language<'a> {
+    #[allow(missing_docs)]
     zh,
+
+    #[allow(missing_docs)]
     zh_CN,
+
+    #[allow(missing_docs)]
     zh_TW,
+
+    #[allow(missing_docs)]
     nl,
+
+    #[allow(missing_docs)]
     en,
+
+    #[allow(missing_docs)]
     en_AU,
+
+    #[allow(missing_docs)]
     en_GB,
+
+    #[allow(missing_docs)]
     en_IN,
+
+    #[allow(missing_docs)]
     en_NZ,
+
+    #[allow(missing_docs)]
     en_US,
+
+    #[allow(missing_docs)]
     fr,
+
+    #[allow(missing_docs)]
     fr_CA,
+
+    #[allow(missing_docs)]
     de,
+
+    #[allow(missing_docs)]
     hi,
+
+    #[allow(missing_docs)]
     hi_Latn,
+
+    #[allow(missing_docs)]
     id,
+
+    #[allow(missing_docs)]
     it,
+
+    #[allow(missing_docs)]
     ja,
+
+    #[allow(missing_docs)]
     ko,
+
+    #[allow(missing_docs)]
     pt,
+
+    #[allow(missing_docs)]
     pt_BR,
+
+    #[allow(missing_docs)]
     ru,
+
+    #[allow(missing_docs)]
     es,
+
+    #[allow(missing_docs)]
     es_419,
+
+    #[allow(missing_docs)]
     sv,
+
+    #[allow(missing_docs)]
     tr,
+
+    #[allow(missing_docs)]
     uk,
+
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new languages that Deepgram supports without being forced to update your version of the SDK.
     /// See the [Deepgram Language feature docs][docs] for the most up-to-date list of supported languages.
@@ -83,12 +152,16 @@ pub enum Language<'a> {
 }
 
 /// Used as a parameter for [`OptionsBuilder::redact`].
-#[allow(missing_docs)] // Unnecessary to document every variant
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 pub enum Redact<'a> {
+    #[allow(missing_docs)]
     Pci,
+
+    #[allow(missing_docs)]
     Numbers,
+
+    #[allow(missing_docs)]
     Ssn,
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new redactable items that Deepgram supports without being forced to update your version of the SDK.
