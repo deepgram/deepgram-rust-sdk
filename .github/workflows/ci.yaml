@@ -55,6 +55,11 @@ jobs:
     - uses: actions/checkout@v3
     - name: Install Cargo Audit
       run: cargo install --locked cargo-audit
+    - name: Remove Dev Dependencies
+      run: |
+        cargo install --locked cargo-hack
+        cargo hack --remove-dev-deps
+        cargo generate-lockfile
     - name: Cargo Audit
       run: cargo audit
   Minimal-Versions:
