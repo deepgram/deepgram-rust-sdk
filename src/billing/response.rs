@@ -9,9 +9,10 @@ use uuid::Uuid;
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#billing
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct Balances {
     #[allow(missing_docs)]
-    balances: Vec<Balance>,
+    pub balances: Vec<Balance>,
 }
 
 /// Information about a specific balance.
@@ -21,6 +22,7 @@ pub struct Balances {
 /// [api]: https://developers.deepgram.com/api-reference/#billing
 #[allow(missing_docs)] // Struct fields are documented in the API reference
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
 pub struct Balance {
     #[allow(missing_docs)]
     pub balance_id: Uuid,
@@ -41,6 +43,7 @@ pub struct Balance {
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#billing
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Deserialize)]
+#[non_exhaustive]
 pub enum BillingUnits {
     #[allow(missing_docs)]
     #[serde(rename = "usd")]
