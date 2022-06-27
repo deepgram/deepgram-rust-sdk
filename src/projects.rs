@@ -4,13 +4,13 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#projects
 
-use crate::{response::Message, send_and_translate_response, Deepgram};
+use crate::{send_and_translate_response, Deepgram};
 
 pub mod options;
 pub mod response;
 
 use options::{Options, SerializableOptions};
-use response::Project;
+use response::{Message, Project};
 
 /// Manage Deepgram Projects.
 ///

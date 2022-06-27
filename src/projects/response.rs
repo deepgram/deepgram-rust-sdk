@@ -3,6 +3,8 @@
 use serde::Deserialize;
 use uuid::Uuid;
 
+pub use crate::response::Message;
+
 /// Returned by [`Projects::list`](super::Projects::list).
 ///
 /// See the [Deepgram API Reference][api] for more info.
