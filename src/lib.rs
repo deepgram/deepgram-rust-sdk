@@ -24,6 +24,8 @@ pub mod scopes;
 pub mod transcription;
 pub mod usage;
 
+mod response;
+
 /// A client for the Deepgram API.
 ///
 /// Make transcriptions requests using [`Deepgram::transcription`].
