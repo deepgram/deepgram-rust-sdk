@@ -4,7 +4,13 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#scopes
 
-use crate::Deepgram;
+use serde::Serialize;
+
+use crate::{send_and_translate_response, Deepgram};
+
+pub mod response;
+
+use response::Message;
 
 /// Manage the permissions of a Deepgram Project.
 ///
@@ -27,5 +33,108 @@ impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Scopes<'a, K> {
     /// Construct a new [`Scopes`] from a [`Deepgram`].
     fn from(deepgram: &'a Deepgram<K>) -> Self {
         Self(deepgram)
+    }
+}
+
+impl<K: AsRef<str>> Scopes<'_, K> {
+    /// Get the specified project scopes assigned to the specified member.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/api-reference/#scopes-get
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use std::env;
+    /// #
+    /// # use deepgram::{Deepgram, DeepgramError};
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), DeepgramError> {
+    /// # let deepgram_api_key =
+    /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+    /// #
+    /// # let project_id =
+    /// #     env::var("DEEPGRAM_PROJECT_ID").expect("DEEPGRAM_PROJECT_ID environmental variable");
+    /// #
+    /// # let member_id =
+    /// #     env::var("DEEPGRAM_MEMBER_ID").expect("DEEPGRAM_MEMBER_ID environmental variable");
+    /// #
+    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    ///
+    /// let scopes = dg_client
+    ///     .scopes()
+    ///     .get_scope(&project_id, &member_id)
+    ///     .await?;
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn get_scope(
+        &self,
+        project_id: &str,
+        member_id: &str,
+    ) -> crate::Result<response::Scopes> {
+        let url = format!(
+            "https://api.deepgram.com/v1/projects/{}/members/{}/scopes ",
+            project_id, member_id
+        );
+
+        send_and_translate_response(self.0.client.get(url)).await
+    }
+
+    /// Update the specified project scopes assigned to the specified member.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/api-reference/#scopes-update
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use std::env;
+    /// #
+    /// # use deepgram::{Deepgram, DeepgramError};
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), DeepgramError> {
+    /// # let deepgram_api_key =
+    /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+    /// #
+    /// # let project_id =
+    /// #     env::var("DEEPGRAM_PROJECT_ID").expect("DEEPGRAM_PROJECT_ID environmental variable");
+    /// #
+    /// # let member_id =
+    /// #     env::var("DEEPGRAM_MEMBER_ID").expect("DEEPGRAM_MEMBER_ID environmental variable");
+    /// #
+    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    ///
+    /// dg_client
+    ///     .scopes()
+    ///     .update_scope(&project_id, &member_id, "member")
+    ///     .await?;
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn update_scope(
+        &self,
+        project_id: &str,
+        member_id: &str,
+        scope: &str,
+    ) -> crate::Result<Message> {
+        #[derive(Serialize)]
+        struct Scope<'a> {
+            scope: &'a str,
+        }
+
+        let url = format!(
+            "https://api.deepgram.com/v1/projects/{}/members/{}/scopes",
+            project_id, member_id
+        );
+        let request = self.0.client.put(url).json(&Scope { scope });
+
+        send_and_translate_response(request).await
     }
 }
