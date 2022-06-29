@@ -27,7 +27,7 @@ pub struct Response {
 /// See the [Deepgram Callback feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/callback/
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 #[non_exhaustive]
 pub struct CallbackResponse {
     #[allow(missing_docs)]

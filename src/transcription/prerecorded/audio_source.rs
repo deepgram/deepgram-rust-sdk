@@ -17,8 +17,8 @@ pub trait AudioSource: private::Sealed {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
 }
 
-// Used to prevent other crates from implementing AudioSource
-// See https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+/// Used to prevent other crates from implementing AudioSource
+/// See <https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed>
 mod private {
     use super::{BufferSource, UrlSource};
 
