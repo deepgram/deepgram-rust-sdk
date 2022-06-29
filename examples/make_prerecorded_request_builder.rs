@@ -1,5 +1,5 @@
 use deepgram::{
-    prerecorded::{Language, Options, Response, UrlSource},
+    transcription::prerecorded::{Language, Options, Response, UrlSource},
     Deepgram,
 };
 use std::env;
@@ -20,7 +20,9 @@ async fn main() -> reqwest::Result<()> {
         .language(Language::en_US)
         .build();
 
-    let request_builder = dg_client.make_prerecorded_request_builder(&source, &options);
+    let request_builder = dg_client
+        .transcription()
+        .make_prerecorded_request_builder(&source, &options);
 
     // Customize the RequestBuilder here
     let customized_request_builder = request_builder

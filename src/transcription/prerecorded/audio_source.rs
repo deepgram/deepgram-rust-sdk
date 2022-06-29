@@ -1,7 +1,7 @@
 use reqwest::{header::CONTENT_TYPE, RequestBuilder};
 use serde::Serialize;
 
-/// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
+/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 ///
 /// This trait is [sealed], and thus cannot be implemented by anything new.
 ///
@@ -11,8 +11,8 @@ pub trait AudioSource: private::Sealed {
     fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
 }
 
-// Used to prevent other crates from implementing AudioSource
-// See https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+/// Used to prevent other crates from implementing AudioSource
+/// See <https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed>
 mod private {
     use super::{BufferSource, UrlSource};
 
@@ -22,7 +22,7 @@ mod private {
     impl<B: Into<reqwest::Body>> Sealed for BufferSource<'_, B> {}
 }
 
-/// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
+/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 ///
 /// Instructs Deepgram to download the audio from the specified URL.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
@@ -31,7 +31,7 @@ pub struct UrlSource<'a> {
     pub url: &'a str,
 }
 
-/// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
+/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 ///
 /// Uploads the raw binary audio data to Deepgram as part of the request.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]

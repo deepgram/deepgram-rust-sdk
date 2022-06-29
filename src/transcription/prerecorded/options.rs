@@ -1,6 +1,6 @@
 use serde::{ser::SerializeSeq, Serialize};
 
-/// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
+/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options<'a> {
     model: Option<Model<'a>>,
@@ -200,7 +200,7 @@ enum Multichannel<'a> {
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// Use it to set of Deepgram's features, excluding the Callback feature.
-/// The Callback feature can be set when making the request by calling [`Deepgram::callback_request`](crate::Deepgram::callback_request).
+/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::transcription::Transcription::prerecorded_callback).
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
@@ -255,7 +255,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::{Model, Options};
     /// #
     /// let options = Options::builder()
     ///     .model(Model::General)
@@ -263,7 +263,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
@@ -296,7 +296,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .version("12345678-1234-1234-1234-1234567890ab")
@@ -316,7 +316,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Language, Options};
+    /// # use deepgram::transcription::prerecorded::{Language, Options};
     /// #
     /// let options = Options::builder()
     ///     .language(Language::en_US)
@@ -336,7 +336,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .punctuate(true)
@@ -358,7 +358,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .profanity_filter(true)
@@ -382,7 +382,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Options, Redact};
+    /// # use deepgram::transcription::prerecorded::{Options, Redact};
     /// #
     /// let options = Options::builder()
     ///     .redact([Redact::Pci, Redact::Ssn])
@@ -390,7 +390,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Options, Redact};
+    /// # use deepgram::transcription::prerecorded::{Options, Redact};
     /// #
     /// let options1 = Options::builder()
     ///     .redact([Redact::Pci])
@@ -417,7 +417,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .diarize(true)
@@ -439,7 +439,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .ner(true)
@@ -463,7 +463,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .multichannel(true)
@@ -471,7 +471,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .model(Model::General)
@@ -511,7 +511,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::{Model, Options};
     /// #
     /// let options = Options::builder()
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
@@ -520,7 +520,7 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// ```
     /// # use deepgram::{
-    /// #     prerecorded::{Model, Options, UrlSource},
+    /// #     transcription::prerecorded::{Model, Options, UrlSource},
     /// #     Deepgram,
     /// # };
     /// # use std::env;
@@ -532,6 +532,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
     /// #
     /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_transcription = dg_client.transcription();
     ///
     /// # let source = UrlSource { url: AUDIO_URL };
     /// #
@@ -544,8 +545,13 @@ impl<'a> OptionsBuilder<'a> {
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
     ///     .build();
     ///
-    /// let request1 = dg_client.make_prerecorded_request_builder(&source, &options1).build()?;
-    /// let request2 = dg_client.make_prerecorded_request_builder(&source, &options2).build()?;
+    /// let request1 = dg_transcription
+    ///     .make_prerecorded_request_builder(&source, &options1)
+    ///     .build()?;
+    ///
+    /// let request2 = dg_transcription
+    ///     .make_prerecorded_request_builder(&source, &options2)
+    ///     .build()?;
     ///
     /// // Both make the same request to Deepgram with the same features
     /// assert_eq!(request1.url(), request2.url());
@@ -559,7 +565,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .model(Model::General)
@@ -576,7 +582,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .multichannel_with_models([Model::Meeting])
@@ -616,7 +622,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .alternatives(3)
@@ -638,7 +644,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .numerals(true)
@@ -660,7 +666,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .search(["hello", "world"])
@@ -668,7 +674,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .search(["hello"])
@@ -700,7 +706,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .keywords(["hello", "world"])
@@ -708,7 +714,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .keywords(["hello"])
@@ -744,7 +750,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Keyword, Options};
+    /// # use deepgram::transcription::prerecorded::{Keyword, Options};
     /// #
     /// let options = Options::builder()
     ///     .keywords_with_intensifiers([
@@ -761,7 +767,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Keyword, Options};
+    /// # use deepgram::transcription::prerecorded::{Keyword, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .keywords_with_intensifiers([
@@ -810,7 +816,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .keywords(["hello", "world"])
@@ -833,7 +839,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .utterances(true)
@@ -862,7 +868,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .utterances_with_utt_split(0.9)
@@ -886,7 +892,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options = Options::builder()
     ///     .tag(["Tag 1", "Tag 2"])
@@ -894,7 +900,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .tag(["Tag 1"])
@@ -1164,7 +1170,7 @@ mod models_to_string_tests {
 #[cfg(test)]
 mod serialize_options_tests {
     use super::*;
-    use crate::{prerecorded::UrlSource, Deepgram};
+    use crate::{transcription::prerecorded::UrlSource, Deepgram};
     use std::cmp;
     use std::env;
 
@@ -1174,6 +1180,7 @@ mod serialize_options_tests {
         let dg_client = Deepgram::new(deepgram_api_key);
 
         let request = dg_client
+            .transcription()
             .make_prerecorded_request_builder(&UrlSource { url: "" }, options)
             .build()
             .unwrap();

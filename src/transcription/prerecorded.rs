@@ -1,8 +1,7 @@
-#![warn(missing_docs)]
+//! Provides various types that are used for pre-recorded transcription requests to Deepgram.
 
-//! This module provides various types that are used for pre-recorded requests to Deepgram.
-
-use crate::{Deepgram, DeepgramError};
+use super::Transcription;
+use crate::DeepgramError;
 use reqwest::RequestBuilder;
 
 mod audio_source;
@@ -21,9 +20,9 @@ use serde::de::DeserializeOwned;
 
 static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
 
-impl<K: AsRef<str>> Deepgram<K> {
+impl<K: AsRef<str>> Transcription<'_, K> {
     /// Sends a request to Deepgram to transcribe pre-recorded audio.
-    /// If you wish to use the Callback feature, you should use [`Deepgram::callback_request`] instead.
+    /// If you wish to use the Callback feature, you should use [`Transcription::prerecorded_callback`] instead.
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
@@ -33,7 +32,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     prerecorded::{Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{Language, Options, UrlSource},
     /// #     Deepgram, DeepgramError,
     /// # };
     /// # use std::env;
@@ -54,12 +53,15 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///     .language(Language::en_US)
     ///     .build();
     ///
-    /// let response = dg_client.prerecorded_request(&source, &options).await?;
+    /// let response = dg_client
+    ///     .transcription()
+    ///     .prerecorded(&source, &options)
+    ///     .await?;
     /// #
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn prerecorded_request(
+    pub async fn prerecorded(
         &self,
         source: impl AudioSource,
         options: &Options<'_>,
@@ -70,7 +72,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     }
 
     /// Sends a request to Deepgram to transcribe pre-recorded audio using the Callback feature.
-    /// Otherwise behaves similarly to [`Deepgram::prerecorded_request`].
+    /// Otherwise behaves similarly to [`Transcription::prerecorded`].
     ///
     /// See the [Deepgram Callback feature docs][docs] for more info.
     ///
@@ -80,7 +82,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     prerecorded::{Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{Language, Options, UrlSource},
     /// #     Deepgram, DeepgramError,
     /// # };
     /// # use std::env;
@@ -105,19 +107,21 @@ impl<K: AsRef<str>> Deepgram<K> {
     /// #     env::var("DEEPGRAM_CALLBACK_URL").expect("DEEPGRAM_CALLBACK_URL environmental variable");
     /// #
     /// let response = dg_client
-    ///     .callback_request(&source, &options, &callback_url)
+    ///     .transcription()
+    ///     .prerecorded_callback(&source, &options, &callback_url)
     ///     .await?;
     /// #
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn callback_request(
+    pub async fn prerecorded_callback(
         &self,
         source: impl AudioSource,
         options: &Options<'_>,
         callback: &str,
     ) -> crate::Result<CallbackResponse> {
-        let request_builder = self.make_callback_request_builder(source, options, callback);
+        let request_builder =
+            self.make_prerecorded_callback_request_builder(source, options, callback);
 
         send_and_translate_response(request_builder).await
     }
@@ -127,13 +131,13 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// Avoid using this where possible.
     /// By customizing the request, there is less of a guarantee that it will conform to the Deepgram API.
-    /// Prefer using [`Deepgram::prerecorded_request`].
+    /// Prefer using [`Transcription::prerecorded`].
     ///
     /// # Examples
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     prerecorded::{Language, Options, Response, UrlSource},
+    /// #     transcription::prerecorded::{Language, Options, Response, UrlSource},
     /// #     Deepgram,
     /// # };
     /// # use std::env;
@@ -155,7 +159,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     /// #     .language(Language::en_US)
     /// #     .build();
     /// #
-    /// let request_builder = dg_client.make_prerecorded_request_builder(&source, &options);
+    /// let request_builder = dg_client.transcription().make_prerecorded_request_builder(&source, &options);
     ///
     /// // Customize the RequestBuilder here
     /// let customized_request_builder = request_builder
@@ -175,18 +179,22 @@ impl<K: AsRef<str>> Deepgram<K> {
         options: &Options<'_>,
     ) -> RequestBuilder {
         let request_builder = self
+            .0
             .client
             .post(DEEPGRAM_API_URL_LISTEN)
-            .header("Authorization", format!("Token {}", self.api_key.as_ref()))
+            .header(
+                "Authorization",
+                format!("Token {}", self.0.api_key.as_ref()),
+            )
             .query(&SerializableOptions(options));
 
         source.fill_body(request_builder)
     }
 
-    /// Similar to [`Deepgram::make_prerecorded_request_builder`],
+    /// Similar to [`Transcription::make_prerecorded_request_builder`],
     /// but for the purposes of a [callback request][callback].
     ///
-    /// You should avoid using this where possible too, preferring [`Deepgram::callback_request`].
+    /// You should avoid using this where possible too, preferring [`Transcription::prerecorded_callback`].
     ///
     /// [callback]: https://developers.deepgram.com/documentation/features/callback/
     ///
@@ -194,7 +202,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     prerecorded::{CallbackResponse, Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{CallbackResponse, Language, Options, UrlSource},
     /// #     Deepgram,
     /// # };
     /// # use std::env;
@@ -219,7 +227,9 @@ impl<K: AsRef<str>> Deepgram<K> {
     /// # let callback_url =
     /// #     env::var("DEEPGRAM_CALLBACK_URL").expect("DEEPGRAM_CALLBACK_URL environmental variable");
     /// #
-    /// let request_builder = dg_client.make_callback_request_builder(&source, &options, &callback_url);
+    /// let request_builder = dg_client
+    ///     .transcription()
+    ///     .make_prerecorded_callback_request_builder(&source, &options, &callback_url);
     ///
     /// // Customize the RequestBuilder here
     /// let customized_request_builder = request_builder
@@ -233,7 +243,7 @@ impl<K: AsRef<str>> Deepgram<K> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn make_callback_request_builder(
+    pub fn make_prerecorded_callback_request_builder(
         &self,
         source: impl AudioSource,
         options: &Options<'_>,

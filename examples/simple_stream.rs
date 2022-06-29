@@ -10,6 +10,7 @@ async fn main() -> Result<(), DeepgramError> {
     let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap());
 
     let mut results = dg
+        .transcription()
         .stream_request()
         .file(
             env::var("FILENAME").unwrap(),
