@@ -21,7 +21,7 @@ You can learn more about the full Deepgram API at [developers.deepgram.com](http
 Add the following line to the `dependencies` table in your `Cargo.toml` file:
 
 ```
-deepgram = "0.2.0-alpha.1"
+deepgram = "0.2.0-alpha.2"
 ```
 
 ## Development and Contributing
