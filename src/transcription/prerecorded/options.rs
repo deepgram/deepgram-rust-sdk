@@ -613,7 +613,7 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    /// Set the maximum number of transcript alternatives to return.
+    /// Set the Alternatives feature.
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
