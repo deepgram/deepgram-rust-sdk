@@ -101,7 +101,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # use deepgram::keys::options::Options;
     /// #
     /// let options = Options::builder("New Key", ["member"])
-    ///     .tags(["Tag 1", "Tag 2"])
+    ///     .tag(["Tag 1", "Tag 2"])
     ///     .build();
     /// ```
     ///
@@ -109,17 +109,17 @@ impl<'a> OptionsBuilder<'a> {
     /// # use deepgram::keys::options::Options;
     /// #
     /// let options1 = Options::builder("New Key", ["member"])
-    ///     .tags(["Tag 1"])
-    ///     .tags(["Tag 2"])
+    ///     .tag(["Tag 1"])
+    ///     .tag(["Tag 2"])
     ///     .build();
     ///
     /// let options2 = Options::builder("New Key", ["member"])
-    ///     .tags(["Tag 1", "Tag 2"])
+    ///     .tag(["Tag 1", "Tag 2"])
     ///     .build();
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn tags(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
+    pub fn tag(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
         self.0.tags.extend(tags);
         self
     }
