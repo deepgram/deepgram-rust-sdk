@@ -18,11 +18,21 @@ You can learn more about the full Deepgram API at [developers.deepgram.com](http
 
 ## Install
 
-Add the following line to the `dependencies` table in your `Cargo.toml` file:
+From within your Cargo package folder, run the following command:
 
+```sh
+cargo add deepgram
 ```
-deepgram = "0.2.0-alpha.3"
+
+You will also probably need to install [`tokio`](https://crates.io/crates/tokio):
+
+```sh
+cargo add tokio --features full
 ```
+
+## Documentation and Examples
+
+Documentation and examples can be found on our [Docs.rs page](https://docs.rs/deepgram/latest/deepgram/).
 
 ## Development and Contributing
 
@@ -30,7 +40,7 @@ Interested in contributing? We ❤️ pull requests!
 
 To make sure our community is safe for all, be sure to review and agree to our
 [Code of Conduct](./CODE_OF_CONDUCT.md). Then see the
-[Contribution](./CONTRIBUTING.md) guidelines for more information.
+[Contributing Guidelines](./CONTRIBUTING.md) for more information.
 
 ## Getting Help
 
