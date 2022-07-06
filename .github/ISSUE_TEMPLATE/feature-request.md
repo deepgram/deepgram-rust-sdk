@@ -2,7 +2,7 @@
 name: Feature Request
 about: I think X would be a cool addition or change.
 title: ''
-labels: "✨ enhancement"
+labels: "enhancement"
 assignees: ''
 
 ---
