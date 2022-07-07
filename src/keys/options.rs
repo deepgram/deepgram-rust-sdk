@@ -231,7 +231,7 @@ impl<'a> From<&'a Options<'a>> for SerializableOptions<'a> {
         let mut serializable_options = Self {
             comment: options.comment,
             tags: &options.tags,
-            scopes: &options.tags,
+            scopes: &options.scopes,
             expiration_date: None,
             time_to_live_in_seconds: None,
         };
