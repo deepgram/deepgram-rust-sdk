@@ -32,7 +32,7 @@ pub struct Member {
     pub first_name: Option<String>,
 
     #[allow(missing_docs)]
-    pub last_name: Option<Uuid>,
+    pub last_name: Option<String>,
 
     #[allow(missing_docs)]
     pub scopes: Vec<String>,
