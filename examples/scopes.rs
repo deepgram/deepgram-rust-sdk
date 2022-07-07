@@ -19,7 +19,7 @@ async fn main() -> Result<(), DeepgramError> {
         .scopes()
         .get_scope(&project_id, &member_id)
         .await?;
-    println!("{:?}", scopes);
+    println!("{:#?}", scopes);
 
     let message = dg_client
         .scopes()
