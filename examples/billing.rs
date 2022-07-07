@@ -15,13 +15,13 @@ async fn main() -> Result<(), DeepgramError> {
     let dg_client = Deepgram::new(&deepgram_api_key);
 
     let all_balances = dg_client.billing().list_balance(&project_id).await?;
-    println!("{:?}", all_balances);
+    println!("{:#?}", all_balances);
 
     let specific_balance = dg_client
         .billing()
         .get_balance(&project_id, &balance_id)
         .await?;
-    println!("{:?}", specific_balance);
+    println!("{:#?}", specific_balance);
 
     Ok(())
 }
