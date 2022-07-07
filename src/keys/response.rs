@@ -3,8 +3,6 @@
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::members::response::Member;
-
 pub use crate::response::Message;
 
 /// Returned by [`Keys::list`](super::Keys::list).
@@ -34,6 +32,27 @@ pub struct MemberAndApiKey {
     pub api_key: ApiKey,
 }
 
+/// Details of a single member.
+///
+/// See the [Deepgram API Reference][api] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#keys-get-key
+#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
+pub struct Member {
+    #[allow(missing_docs)]
+    pub member_id: Uuid,
+
+    #[allow(missing_docs)]
+    pub first_name: Option<String>,
+
+    #[allow(missing_docs)]
+    pub last_name: Option<String>,
+
+    #[allow(missing_docs)]
+    pub email: String,
+}
+
 /// Details of a single API key.
 ///
 /// See the [Deepgram API Reference][api] for more info.
@@ -52,7 +71,7 @@ pub struct ApiKey {
     pub scopes: Vec<String>,
 
     #[allow(missing_docs)]
-    pub tags: Vec<String>,
+    pub tags: Option<Vec<String>>,
 
     #[allow(missing_docs)]
     pub created: String,
@@ -82,7 +101,7 @@ pub struct NewApiKey {
     pub scopes: Vec<String>,
 
     #[allow(missing_docs)]
-    pub tags: Vec<String>,
+    pub tags: Option<Vec<String>>,
 
     #[allow(missing_docs)]
     pub created: String,
