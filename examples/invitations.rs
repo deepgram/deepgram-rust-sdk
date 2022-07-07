@@ -13,7 +13,7 @@ async fn main() -> Result<(), DeepgramError> {
     let dg_client = Deepgram::new(&deepgram_api_key);
 
     let message = dg_client.invitations().leave_project(&project_id).await?;
-    println!("{:?}", message);
+    println!("{:#?}", message);
 
     Ok(())
 }
