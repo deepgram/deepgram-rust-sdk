@@ -9,7 +9,7 @@ mod options;
 mod response;
 
 pub use audio_source::{AudioSource, BufferSource, UrlSource};
-pub use options::{Keyword, Language, Model, Options, OptionsBuilder, Redact};
+pub use options::{Keyword, Language, Model, Options, OptionsBuilder, Redact, Tier};
 pub use response::{
     CallbackResponse, ChannelResult, Hit, ListenMetadata, ListenResults, Response,
     ResultAlternative, SearchResults, Utterance, Word,
