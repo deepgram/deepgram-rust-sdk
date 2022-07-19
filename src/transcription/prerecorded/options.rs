@@ -857,7 +857,7 @@ impl<'a> OptionsBuilder<'a> {
 
     /// Set the Utterances feature and the Utterance Split feature.
     ///
-    /// If you do not want to set the Utterance Split feature, use [`OptionsBuilder::utterances_with_utt_split`] instead.
+    /// If you do not want to set the Utterance Split feature, use [`OptionsBuilder::utterances`] instead.
     ///
     /// See the [Deepgram Utterances feature docs][utterances-docs]
     /// and the [Deepgram Utterance Split feature docs][utt_split-docs] for more info.
