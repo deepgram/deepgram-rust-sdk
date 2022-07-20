@@ -58,6 +58,10 @@ pub enum Model<'a> {
 }
 
 /// Used as a parameter for [`OptionsBuilder::language`].
+///
+/// See the [Deepgram Language feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/documentation/features/language/
 #[allow(non_camel_case_types)] // Variants should look like their BCP-47 tag
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
@@ -152,6 +156,10 @@ pub enum Language<'a> {
 }
 
 /// Used as a parameter for [`OptionsBuilder::redact`].
+///
+/// See the [Deepgram Redaction feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/documentation/features/redact/
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 pub enum Redact<'a> {
@@ -163,6 +171,7 @@ pub enum Redact<'a> {
 
     #[allow(missing_docs)]
     Ssn,
+
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new redactable items that Deepgram supports without being forced to update your version of the SDK.
     /// See the [Deepgram Redact feature docs][docs] for the most up-to-date list of redactable items.
