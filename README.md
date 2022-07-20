@@ -7,7 +7,7 @@
 [![license](https://img.shields.io/crates/l/deepgram)](./LICENSE)
 
 **NOTICE**: *This SDK is still very much work-in-progress. The interface is subject to rapid change.
-If you would like a stable way to access all that Deepgram has to offer, please use the
+If you would like a stable way to access all that Deepgram has to offer, you can use the
 [Deepgram API](https://developers.deepgram.com/api-reference/) directly until this SDK has been stabilized.*
 
 Official Rust SDK for Deepgram's automated speech recognition APIs.
@@ -18,7 +18,7 @@ You can learn more about the full Deepgram API at [developers.deepgram.com](http
 
 ## Install
 
-From within your Cargo package folder, run the following command:
+From within your Cargo project directory, run the following command:
 
 ```sh
 cargo add deepgram
