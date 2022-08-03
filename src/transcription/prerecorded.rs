@@ -1,14 +1,16 @@
 //! Provides various types that are used for pre-recorded transcription requests to Deepgram.
 
+use reqwest::RequestBuilder;
+use serde::de::DeserializeOwned;
+
 use super::Transcription;
 use crate::DeepgramError;
-use reqwest::RequestBuilder;
 
 mod audio_source;
 mod options;
 mod response;
 
-pub use audio_source::{AudioSource, BufferSource, UrlSource};
+pub use audio_source::AudioSource;
 pub use options::{Keyword, Language, Model, Options, OptionsBuilder, Redact};
 pub use response::{
     CallbackResponse, ChannelResult, Hit, ListenMetadata, ListenResults, Response,
@@ -16,7 +18,6 @@ pub use response::{
 };
 
 use options::SerializableOptions;
-use serde::de::DeserializeOwned;
 
 static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
 
@@ -32,7 +33,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{AudioSource, Language, Options},
     /// #     Deepgram, DeepgramError,
     /// # };
     /// # use std::env;
@@ -46,7 +47,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let dg_client = Deepgram::new(&deepgram_api_key);
     ///
-    /// let source = UrlSource { url: AUDIO_URL };
+    /// let source = AudioSource::from_url(AUDIO_URL);
     ///
     /// let options = Options::builder()
     ///     .punctuate(true)
@@ -55,7 +56,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     ///
     /// let response = dg_client
     ///     .transcription()
-    ///     .prerecorded(&source, &options)
+    ///     .prerecorded(source, &options)
     ///     .await?;
     /// #
     /// # Ok(())
@@ -63,7 +64,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// ```
     pub async fn prerecorded(
         &self,
-        source: impl AudioSource,
+        source: AudioSource,
         options: &Options<'_>,
     ) -> crate::Result<Response> {
         let request_builder = self.make_prerecorded_request_builder(source, options);
@@ -82,7 +83,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{AudioSource, Language, Options},
     /// #     Deepgram, DeepgramError,
     /// # };
     /// # use std::env;
@@ -96,7 +97,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let dg_client = Deepgram::new(&deepgram_api_key);
     ///
-    /// let source = UrlSource { url: AUDIO_URL };
+    /// let source = AudioSource::from_url(AUDIO_URL);
     ///
     /// let options = Options::builder()
     ///     .punctuate(true)
@@ -108,7 +109,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let response = dg_client
     ///     .transcription()
-    ///     .prerecorded_callback(&source, &options, &callback_url)
+    ///     .prerecorded_callback(source, &options, &callback_url)
     ///     .await?;
     /// #
     /// # Ok(())
@@ -116,7 +117,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// ```
     pub async fn prerecorded_callback(
         &self,
-        source: impl AudioSource,
+        source: AudioSource,
         options: &Options<'_>,
         callback: &str,
     ) -> crate::Result<CallbackResponse> {
@@ -137,7 +138,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{Language, Options, Response, UrlSource},
+    /// #     transcription::prerecorded::{AudioSource, Language, Options, Response},
     /// #     Deepgram,
     /// # };
     /// # use std::env;
@@ -152,14 +153,16 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// # let dg_client = Deepgram::new(&deepgram_api_key);
     /// #
-    /// # let source = UrlSource { url: AUDIO_URL };
+    /// # let source = AudioSource::from_url(AUDIO_URL);
     /// #
     /// # let options = Options::builder()
     /// #     .punctuate(true)
     /// #     .language(Language::en_US)
     /// #     .build();
     /// #
-    /// let request_builder = dg_client.transcription().make_prerecorded_request_builder(&source, &options);
+    /// let request_builder = dg_client
+    ///     .transcription()
+    ///     .make_prerecorded_request_builder(source, &options);
     ///
     /// // Customize the RequestBuilder here
     /// let customized_request_builder = request_builder
@@ -175,7 +178,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// ```
     pub fn make_prerecorded_request_builder(
         &self,
-        source: impl AudioSource,
+        source: AudioSource,
         options: &Options<'_>,
     ) -> RequestBuilder {
         let request_builder = self
@@ -202,7 +205,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     ///
     /// ```no_run
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{CallbackResponse, Language, Options, UrlSource},
+    /// #     transcription::prerecorded::{AudioSource, CallbackResponse, Language, Options},
     /// #     Deepgram,
     /// # };
     /// # use std::env;
@@ -217,7 +220,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// # let dg_client = Deepgram::new(&deepgram_api_key);
     /// #
-    /// # let source = UrlSource { url: AUDIO_URL };
+    /// # let source = AudioSource::from_url(AUDIO_URL);
     /// #
     /// # let options = Options::builder()
     /// #     .punctuate(true)
@@ -229,7 +232,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let request_builder = dg_client
     ///     .transcription()
-    ///     .make_prerecorded_callback_request_builder(&source, &options, &callback_url);
+    ///     .make_prerecorded_callback_request_builder(source, &options, &callback_url);
     ///
     /// // Customize the RequestBuilder here
     /// let customized_request_builder = request_builder
@@ -245,7 +248,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// ```
     pub fn make_prerecorded_callback_request_builder(
         &self,
-        source: impl AudioSource,
+        source: AudioSource,
         options: &Options<'_>,
         callback: &str,
     ) -> RequestBuilder {
