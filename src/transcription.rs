@@ -2,7 +2,7 @@
 
 use crate::Deepgram;
 
-pub mod live;
+pub mod old_live;
 pub mod prerecorded;
 
 /// Transcribe audio using Deepgram's automated speech recognition.
