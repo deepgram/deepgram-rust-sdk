@@ -2,6 +2,7 @@
 
 use crate::Deepgram;
 
+pub mod live;
 pub mod old_live;
 pub mod prerecorded;
 
