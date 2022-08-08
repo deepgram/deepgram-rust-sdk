@@ -175,7 +175,7 @@ impl<'a, K: AsRef<str>> Usage<'_, K> {
     pub async fn get_usage(
         &self,
         project_id: &str,
-        options: &get_usage_options::Options<'a>,
+        options: &get_usage_options::Options,
     ) -> crate::Result<UsageSummary> {
         let url = format!("https://api.deepgram.com/v1/projects/{}/usage", project_id);
         let request = self
