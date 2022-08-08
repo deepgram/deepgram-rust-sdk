@@ -16,8 +16,8 @@ enum InternalAudioSource {
 
 impl AudioSource {
     /// Constructs an [`AudioSource`] that will instruct Deepgram to download the audio from the specified URL.
-    pub fn from_url(url: &str) -> Self {
-        Self(InternalAudioSource::Url(String::from(url)))
+    pub fn from_url(url: impl Into<String>) -> Self {
+        Self(InternalAudioSource::Url(url.into()))
     }
 
     /// Constructs an [`AudioSource`] that will upload the raw binary audio data to Deepgram as part of the request.
@@ -39,10 +39,13 @@ impl AudioSource {
     /// Same as [`AudioSource::from_buffer`], but allows you to specify a [MIME type][mime].
     ///
     /// [mime]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types#audio_and_video_types
-    pub fn from_buffer_with_mime_type(buffer: impl Into<reqwest::Body>, mime_type: &str) -> Self {
+    pub fn from_buffer_with_mime_type(
+        buffer: impl Into<reqwest::Body>,
+        mime_type: impl Into<String>,
+    ) -> Self {
         Self(InternalAudioSource::Buffer {
             buffer: buffer.into(),
-            mime_type: Some(String::from(mime_type)),
+            mime_type: Some(mime_type.into()),
         })
     }
 
