@@ -228,15 +228,23 @@ impl OptionsBuilder {
 
 impl<'a> From<&'a Options> for SerializableOptions<'a> {
     fn from(options: &'a Options) -> Self {
+        // Destructuring it makes sure that we don't forget to use any of it
+        let Options {
+            comment,
+            tags,
+            scopes,
+            expiration,
+        } = options;
+
         let mut serializable_options = Self {
-            comment: &options.comment,
-            tags: &options.tags,
-            scopes: &options.scopes,
+            comment,
+            tags,
+            scopes,
             expiration_date: None,
             time_to_live_in_seconds: None,
         };
 
-        match &options.expiration {
+        match expiration {
             Some(Expiration::ExpirationDate(expiration_date)) => {
                 serializable_options.expiration_date = Some(expiration_date);
             }

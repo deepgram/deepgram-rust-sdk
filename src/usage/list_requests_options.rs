@@ -147,11 +147,19 @@ impl Default for OptionsBuilder {
 
 impl<'a> From<&'a Options> for SerializableOptions<'a> {
     fn from(options: &'a Options) -> Self {
+        // Destructuring it makes sure that we don't forget to use any of it
+        let Options {
+            start,
+            end,
+            limit,
+            status,
+        } = options;
+
         Self {
-            start: &options.start,
-            end: &options.end,
-            limit: options.limit,
-            status: match options.status {
+            start,
+            end,
+            limit: *limit,
+            status: match status {
                 Some(Status::Succeeded) => Some("succeeded"),
                 Some(Status::Failed) => Some("failed"),
                 None => None,

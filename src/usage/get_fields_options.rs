@@ -94,9 +94,9 @@ impl Default for OptionsBuilder {
 
 impl<'a> From<&'a Options> for SerializableOptions<'a> {
     fn from(options: &'a Options) -> Self {
-        Self {
-            start: &options.start,
-            end: &options.end,
-        }
+        // Destructuring it makes sure that we don't forget to use any of it
+        let Options { start, end } = options;
+
+        Self { start, end }
     }
 }
