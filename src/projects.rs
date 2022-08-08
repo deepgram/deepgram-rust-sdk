@@ -147,7 +147,7 @@ impl<'a, K: AsRef<str>> Projects<'_, K> {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn update(&self, project_id: &str, options: &Options<'a>) -> crate::Result<Message> {
+    pub async fn update(&self, project_id: &str, options: &Options) -> crate::Result<Message> {
         let url = format!("https://api.deepgram.com/v1/projects/{}", project_id);
         let request = self
             .0

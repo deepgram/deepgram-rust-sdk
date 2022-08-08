@@ -11,35 +11,35 @@ use serde::Serialize;
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#projects-update
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct Options<'a> {
-    name: Option<&'a str>,
-    company: Option<&'a str>,
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct Options {
+    name: Option<String>,
+    company: Option<String>,
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
-pub struct OptionsBuilder<'a>(Options<'a>);
+pub struct OptionsBuilder(Options);
 
 #[derive(Serialize)]
 pub(super) struct SerializableOptions<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) name: &'a Option<&'a str>,
+    pub(super) name: &'a Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub(super) company: &'a Option<&'a str>,
+    pub(super) company: &'a Option<String>,
 }
 
-impl<'a> Options<'a> {
+impl Options {
     /// Construct a new [`OptionsBuilder`].
-    pub fn builder() -> OptionsBuilder<'a> {
+    pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
 }
 
-impl<'a> OptionsBuilder<'a> {
+impl OptionsBuilder {
     /// Construct a new [`OptionsBuilder`].
     pub fn new() -> Self {
         Self(Options {
@@ -59,8 +59,8 @@ impl<'a> OptionsBuilder<'a> {
     ///     .name("The Transcribinator")
     ///     .build();
     /// ```
-    pub fn name(mut self, name: &'a str) -> Self {
-        self.0.name = Some(name);
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.0.name = Some(name.into());
         self
     }
 
@@ -75,25 +75,25 @@ impl<'a> OptionsBuilder<'a> {
     ///     .company("Doofenshmirtz Evil Incorporated")
     ///     .build();
     /// ```
-    pub fn company(mut self, company: &'a str) -> Self {
-        self.0.company = Some(company);
+    pub fn company(mut self, company: impl Into<String>) -> Self {
+        self.0.company = Some(company.into());
         self
     }
 
     /// Finish building the [`Options`] object.
-    pub fn build(self) -> Options<'a> {
+    pub fn build(self) -> Options {
         self.0
     }
 }
 
-impl<'a> Default for OptionsBuilder<'a> {
+impl Default for OptionsBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> From<&'a Options<'a>> for SerializableOptions<'a> {
-    fn from(options: &'a Options<'a>) -> Self {
+impl<'a> From<&'a Options> for SerializableOptions<'a> {
+    fn from(options: &'a Options) -> Self {
         Self {
             name: &options.name,
             company: &options.company,
