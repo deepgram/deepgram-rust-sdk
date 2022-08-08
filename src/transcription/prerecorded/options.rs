@@ -22,6 +22,7 @@ pub struct Options<'a> {
     alternatives: Option<usize>,
     numerals: Option<bool>,
     search: Vec<&'a str>,
+    replace: Vec<Replace<'a>>,
     keywords: Vec<Keyword<'a>>,
     keyword_boost_legacy: bool,
     utterances: Option<Utterances>,
@@ -199,6 +200,21 @@ pub enum Redact<'a> {
     Other(&'a str),
 }
 
+/// Used as a parameter for [`OptionsBuilder::replace`].
+///
+/// See the [Deepgram Find and Replace feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/documentation/features/replace/
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+pub struct Replace<'a> {
+    /// The term or phrase to find.
+    pub find: &'a str,
+
+    /// The term or phrase to replace [`find`](Replace::find) with.
+    /// If set to [`None`], [`find`](Replace::find) will be removed from the transcript without being replaced by anything.
+    pub replace: Option<&'a str>,
+}
+
 /// Used as a parameter for [`OptionsBuilder::keywords_with_intensifiers`].
 ///
 /// See the [Deepgram Keywords feature docs][docs] for more info.
@@ -261,6 +277,7 @@ impl<'a> OptionsBuilder<'a> {
             alternatives: None,
             numerals: None,
             search: Vec::new(),
+            replace: Vec::new(),
             keywords: Vec::new(),
             keyword_boost_legacy: false,
             utterances: None,
@@ -748,6 +765,67 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
+    /// Set the Find and Replace feature.
+    ///
+    /// Calling this when already set will append to the existing replacements, not overwrite them.
+    ///
+    /// See the [Deepgram Find and Replace feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/replace/
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::{Options, Replace};
+    /// #
+    /// let options = Options::builder()
+    ///     .replace([
+    ///         Replace {
+    ///             find: "Aaron",
+    ///             replace: Some("Erin"),
+    ///         },
+    ///         Replace {
+    ///             find: "Voldemort",
+    ///             replace: None,
+    ///         },
+    ///     ])
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::{Options, Replace};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .replace([Replace {
+    ///         find: "Aaron",
+    ///         replace: Some("Erin"),
+    ///     }])
+    ///     .replace([Replace {
+    ///         find: "Voldemort",
+    ///         replace: None,
+    ///     }])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .replace([
+    ///         Replace {
+    ///             find: "Aaron",
+    ///             replace: Some("Erin"),
+    ///         },
+    ///         Replace {
+    ///             find: "Voldemort",
+    ///             replace: None,
+    ///         },
+    ///     ])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
+    pub fn replace(mut self, replace: impl IntoIterator<Item = Replace<'a>>) -> Self {
+        self.0.replace.extend(replace);
+        self
+    }
+
     /// Set the Keywords feature.
     ///
     /// To specify intensifiers, use [`OptionsBuilder::keywords_with_intensifiers`] instead.
@@ -1008,6 +1086,7 @@ impl Serialize for SerializableOptions<'_> {
             alternatives,
             numerals,
             search,
+            replace,
             keywords,
             keyword_boost_legacy,
             utterances,
@@ -1084,6 +1163,14 @@ impl Serialize for SerializableOptions<'_> {
 
         for element in search {
             seq.serialize_element(&("search", element))?;
+        }
+
+        for element in replace {
+            if let Some(replace) = element.replace {
+                seq.serialize_element(&("replace", format!("{}:{}", element.find, replace)))?;
+            } else {
+                seq.serialize_element(&("replace", element.find))?;
+            }
         }
 
         for element in keywords {
@@ -1299,6 +1386,10 @@ mod serialize_options_tests {
             .alternatives(4)
             .numerals(true)
             .search(["Rust", "Deepgram"])
+            .replace([Replace {
+                find: "Aaron",
+                replace: Some("Erin"),
+            }])
             .keywords(["Ferris"])
             .keywords_with_intensifiers([Keyword {
                 keyword: "Cargo",
@@ -1308,7 +1399,7 @@ mod serialize_options_tests {
             .tag(["Tag 1"])
             .build();
 
-        check_serialization(&options, "tier=enhanced&model=finance%3Aextra_crispy%3Aconversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1");
+        check_serialization(&options, "tier=enhanced&model=finance%3Aextra_crispy%3Aconversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1");
     }
 
     #[test]
@@ -1485,6 +1576,57 @@ mod serialize_options_tests {
             let (input, expected) = generate_alphabet_test("search", 25);
             check_serialization(&Options::builder().search(input).build(), &expected);
         }
+    }
+
+    #[test]
+    fn replace() {
+        check_serialization(&Options::builder().replace([]).build(), "");
+
+        check_serialization(
+            &Options::builder()
+                .replace([Replace {
+                    find: "Aaron",
+                    replace: Some("Erin"),
+                }])
+                .build(),
+            "replace=Aaron%3AErin",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .replace([Replace {
+                    find: "Voldemort",
+                    replace: None,
+                }])
+                .build(),
+            "replace=Voldemort",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .replace([
+                    Replace {
+                        find: "Aaron",
+                        replace: Some("Erin"),
+                    },
+                    Replace {
+                        find: "Voldemort",
+                        replace: None,
+                    },
+                ])
+                .build(),
+            "replace=Aaron%3AErin&replace=Voldemort",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .replace([Replace {
+                    find: "this too",
+                    replace: Some("that too"),
+                }])
+                .build(),
+            "replace=this+too%3Athat+too",
+        );
     }
 
     #[test]
