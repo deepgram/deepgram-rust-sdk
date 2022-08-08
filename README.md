@@ -7,7 +7,7 @@
 [![license](https://img.shields.io/crates/l/deepgram)](./LICENSE)
 
 **NOTICE**: *This SDK is still very much work-in-progress. The interface is subject to rapid change.
-If you would like a stable way to access all that Deepgram has to offer, please use the
+If you would like a stable way to access all that Deepgram has to offer, you can use the
 [Deepgram API](https://developers.deepgram.com/api-reference/) directly until this SDK has been stabilized.*
 
 Official Rust SDK for Deepgram's automated speech recognition APIs.
@@ -18,11 +18,21 @@ You can learn more about the full Deepgram API at [developers.deepgram.com](http
 
 ## Install
 
-Add the following line to the `dependencies` table in your `Cargo.toml` file:
+From within your Cargo project directory, run the following command:
 
+```sh
+cargo add deepgram
 ```
-deepgram = "0.2.0-alpha.3"
+
+You will also probably need to install [`tokio`](https://crates.io/crates/tokio):
+
+```sh
+cargo add tokio --features full
 ```
+
+## Documentation and Examples
+
+Documentation and examples can be found on our [Docs.rs page](https://docs.rs/deepgram/latest/deepgram/).
 
 ## Development and Contributing
 
@@ -30,7 +40,7 @@ Interested in contributing? We ❤️ pull requests!
 
 To make sure our community is safe for all, be sure to review and agree to our
 [Code of Conduct](./CODE_OF_CONDUCT.md). Then see the
-[Contribution](./CONTRIBUTING.md) guidelines for more information.
+[Contributing Guidelines](./CONTRIBUTING.md) for more information.
 
 ## Getting Help
 
