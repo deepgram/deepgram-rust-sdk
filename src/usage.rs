@@ -76,7 +76,7 @@ impl<'a, K: AsRef<str>> Usage<'_, K> {
     pub async fn list_requests(
         &self,
         project_id: &str,
-        options: &list_requests_options::Options<'a>,
+        options: &list_requests_options::Options,
     ) -> crate::Result<Requests> {
         let url = format!(
             "https://api.deepgram.com/v1/projects/{}/requests",
