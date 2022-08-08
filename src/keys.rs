@@ -150,11 +150,7 @@ impl<'a, K: AsRef<str>> Keys<'_, K> {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn create(
-        &self,
-        project_id: &str,
-        options: &Options<'a>,
-    ) -> crate::Result<NewApiKey> {
+    pub async fn create(&self, project_id: &str, options: &Options) -> crate::Result<NewApiKey> {
         let url = format!("https://api.deepgram.com/v1/projects/{}/keys", project_id);
         let request = self
             .0

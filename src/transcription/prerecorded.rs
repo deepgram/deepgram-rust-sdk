@@ -67,7 +67,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     pub async fn prerecorded(
         &self,
         source: AudioSource,
-        options: &Options<'_>,
+        options: &Options,
     ) -> crate::Result<Response> {
         let request_builder = self.make_prerecorded_request_builder(source, options);
 
@@ -124,7 +124,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     pub async fn prerecorded_callback(
         &self,
         source: AudioSource,
-        options: &Options<'_>,
+        options: &Options,
         callback: &str,
     ) -> crate::Result<CallbackResponse> {
         let request_builder =
@@ -190,7 +190,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     pub fn make_prerecorded_request_builder(
         &self,
         source: AudioSource,
-        options: &Options<'_>,
+        options: &Options,
     ) -> RequestBuilder {
         let request_builder = self
             .0
@@ -261,7 +261,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     pub fn make_prerecorded_callback_request_builder(
         &self,
         source: AudioSource,
-        options: &Options<'_>,
+        options: &Options,
         callback: &str,
     ) -> RequestBuilder {
         self.make_prerecorded_request_builder(source, options)

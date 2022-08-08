@@ -8,25 +8,25 @@ use serde::{ser::SerializeSeq, Serialize};
 
 /// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
-pub struct Options<'a> {
+pub struct Options {
     tier: Option<Tier>,
-    model: Option<Model<'a>>,
-    version: Option<&'a str>,
-    language: Option<Language<'a>>,
+    model: Option<Model>,
+    version: Option<String>,
+    language: Option<Language>,
     punctuate: Option<bool>,
     profanity_filter: Option<bool>,
-    redact: Vec<Redact<'a>>,
+    redact: Vec<Redact>,
     diarize: Option<bool>,
     ner: Option<bool>,
-    multichannel: Option<Multichannel<'a>>,
+    multichannel: Option<Multichannel>,
     alternatives: Option<usize>,
     numerals: Option<bool>,
-    search: Vec<&'a str>,
-    replace: Vec<Replace<'a>>,
-    keywords: Vec<Keyword<'a>>,
+    search: Vec<String>,
+    replace: Vec<Replace>,
+    keywords: Vec<Keyword>,
     keyword_boost_legacy: bool,
     utterances: Option<Utterances>,
-    tags: Vec<&'a str>,
+    tags: Vec<String>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::tier`].
@@ -49,9 +49,9 @@ pub enum Tier {
 /// See the [Deepgram Model feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/model/
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
-pub enum Model<'a> {
+pub enum Model {
     #[allow(missing_docs)]
     General,
 
@@ -74,7 +74,7 @@ pub enum Model<'a> {
     Video,
 
     #[allow(missing_docs)]
-    CustomId(&'a str),
+    CustomId(String),
 }
 
 /// Used as a parameter for [`OptionsBuilder::language`].
@@ -83,9 +83,9 @@ pub enum Model<'a> {
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/language/
 #[allow(non_camel_case_types)] // Variants should look like their BCP-47 tag
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
-pub enum Language<'a> {
+pub enum Language {
     #[allow(missing_docs)]
     zh,
 
@@ -172,7 +172,7 @@ pub enum Language<'a> {
     /// See the [Deepgram Language feature docs][docs] for the most up-to-date list of supported languages.
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/language/
-    Other(&'a str),
+    Other(String),
 }
 
 /// Used as a parameter for [`OptionsBuilder::redact`].
@@ -180,9 +180,9 @@ pub enum Language<'a> {
 /// See the [Deepgram Redaction feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/redact/
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
-pub enum Redact<'a> {
+pub enum Redact {
     #[allow(missing_docs)]
     Pci,
 
@@ -197,7 +197,7 @@ pub enum Redact<'a> {
     /// See the [Deepgram Redact feature docs][docs] for the most up-to-date list of redactable items.
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/redact/
-    Other(&'a str),
+    Other(String),
 }
 
 /// Used as a parameter for [`OptionsBuilder::replace`].
@@ -205,14 +205,14 @@ pub enum Redact<'a> {
 /// See the [Deepgram Find and Replace feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/replace/
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct Replace<'a> {
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct Replace {
     /// The term or phrase to find.
-    pub find: &'a str,
+    pub find: String,
 
     /// The term or phrase to replace [`find`](Replace::find) with.
     /// If set to [`None`], [`find`](Replace::find) will be removed from the transcript without being replaced by anything.
-    pub replace: Option<&'a str>,
+    pub replace: Option<String>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::keywords_with_intensifiers`].
@@ -220,10 +220,10 @@ pub struct Replace<'a> {
 /// See the [Deepgram Keywords feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/keywords/
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Keyword<'a> {
+#[derive(Debug, PartialEq, Clone)]
+pub struct Keyword {
     /// The keyword to boost.
-    pub keyword: &'a str,
+    pub keyword: String,
 
     /// Optionally specify how much to boost it.
     pub intensifier: Option<f64>,
@@ -236,9 +236,9 @@ enum Utterances {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-enum Multichannel<'a> {
+enum Multichannel {
     Disabled,
-    Enabled { models: Option<Vec<Model<'a>>> },
+    Enabled { models: Option<Vec<Model>> },
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -248,19 +248,19 @@ enum Multichannel<'a> {
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
-pub struct OptionsBuilder<'a>(Options<'a>);
+pub struct OptionsBuilder(Options);
 
 #[derive(Debug, PartialEq, Clone)]
-pub(super) struct SerializableOptions<'a>(pub(super) &'a Options<'a>);
+pub(super) struct SerializableOptions<'a>(pub(super) &'a Options);
 
-impl<'a> Options<'a> {
+impl Options {
     /// Construct a new [`OptionsBuilder`].
-    pub fn builder() -> OptionsBuilder<'a> {
+    pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
 }
 
-impl<'a> OptionsBuilder<'a> {
+impl OptionsBuilder {
     /// Construct a new [`OptionsBuilder`].
     pub fn new() -> Self {
         Self(Options {
@@ -348,7 +348,7 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn model(mut self, model: Model<'a>) -> Self {
+    pub fn model(mut self, model: Model) -> Self {
         self.0.model = Some(model);
 
         if let Some(Multichannel::Enabled { models }) = &mut self.0.multichannel {
@@ -373,8 +373,8 @@ impl<'a> OptionsBuilder<'a> {
     ///     .version("12345678-1234-1234-1234-1234567890ab")
     ///     .build();
     /// ```
-    pub fn version(mut self, version: &'a str) -> Self {
-        self.0.version = Some(version);
+    pub fn version(mut self, version: &str) -> Self {
+        self.0.version = Some(version.into());
         self
     }
 
@@ -393,7 +393,7 @@ impl<'a> OptionsBuilder<'a> {
     ///     .language(Language::en_US)
     ///     .build();
     /// ```
-    pub fn language(mut self, language: Language<'a>) -> Self {
+    pub fn language(mut self, language: Language) -> Self {
         self.0.language = Some(language);
         self
     }
@@ -474,7 +474,7 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn redact(mut self, redact: impl IntoIterator<Item = Redact<'a>>) -> Self {
+    pub fn redact(mut self, redact: impl IntoIterator<Item = Redact>) -> Self {
         self.0.redact.extend(redact);
         self
     }
@@ -668,7 +668,7 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn multichannel_with_models(mut self, models: impl IntoIterator<Item = Model<'a>>) -> Self {
+    pub fn multichannel_with_models(mut self, models: impl IntoIterator<Item = Model>) -> Self {
         if let Some(Multichannel::Enabled {
             models: Some(old_models),
         }) = &mut self.0.multichannel
@@ -760,8 +760,8 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn search(mut self, search: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.search.extend(search);
+    pub fn search<'a>(mut self, search: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.search.extend(search.into_iter().map(String::from));
         self
     }
 
@@ -781,11 +781,11 @@ impl<'a> OptionsBuilder<'a> {
     /// let options = Options::builder()
     ///     .replace([
     ///         Replace {
-    ///             find: "Aaron",
-    ///             replace: Some("Erin"),
+    ///             find: String::from("Aaron"),
+    ///             replace: Some(String::from("Erin")),
     ///         },
     ///         Replace {
-    ///             find: "Voldemort",
+    ///             find: String::from("Voldemort"),
     ///             replace: None,
     ///         },
     ///     ])
@@ -797,11 +797,11 @@ impl<'a> OptionsBuilder<'a> {
     /// #
     /// let options1 = Options::builder()
     ///     .replace([Replace {
-    ///         find: "Aaron",
-    ///         replace: Some("Erin"),
+    ///         find: String::from("Aaron"),
+    ///         replace: Some(String::from("Erin")),
     ///     }])
     ///     .replace([Replace {
-    ///         find: "Voldemort",
+    ///         find: String::from("Voldemort"),
     ///         replace: None,
     ///     }])
     ///     .build();
@@ -809,11 +809,11 @@ impl<'a> OptionsBuilder<'a> {
     /// let options2 = Options::builder()
     ///     .replace([
     ///         Replace {
-    ///             find: "Aaron",
-    ///             replace: Some("Erin"),
+    ///             find: String::from("Aaron"),
+    ///             replace: Some(String::from("Erin")),
     ///         },
     ///         Replace {
-    ///             find: "Voldemort",
+    ///             find: String::from("Voldemort"),
     ///             replace: None,
     ///         },
     ///     ])
@@ -821,7 +821,7 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn replace(mut self, replace: impl IntoIterator<Item = Replace<'a>>) -> Self {
+    pub fn replace(mut self, replace: impl IntoIterator<Item = Replace>) -> Self {
         self.0.replace.extend(replace);
         self
     }
@@ -861,9 +861,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn keywords(mut self, keywords: impl IntoIterator<Item = &'a str>) -> Self {
+    pub fn keywords<'a>(mut self, keywords: impl IntoIterator<Item = &'a str>) -> Self {
         let iter = keywords.into_iter().map(|keyword| Keyword {
-            keyword,
+            keyword: keyword.into(),
             intensifier: None,
         });
 
@@ -889,11 +889,11 @@ impl<'a> OptionsBuilder<'a> {
     /// let options = Options::builder()
     ///     .keywords_with_intensifiers([
     ///         Keyword {
-    ///             keyword: "hello",
+    ///             keyword: String::from("hello"),
     ///             intensifier: Some(-1.5),
     ///         },
     ///         Keyword {
-    ///             keyword: "world",
+    ///             keyword: String::from("world"),
     ///             intensifier: None,
     ///         },
     ///     ])
@@ -906,13 +906,13 @@ impl<'a> OptionsBuilder<'a> {
     /// let options1 = Options::builder()
     ///     .keywords_with_intensifiers([
     ///         Keyword {
-    ///             keyword: "hello",
+    ///             keyword: String::from("hello"),
     ///             intensifier: Some(-1.5),
     ///         },
     ///     ])
     ///     .keywords_with_intensifiers([
     ///         Keyword {
-    ///             keyword: "world",
+    ///             keyword: String::from("world"),
     ///             intensifier: None,
     ///         },
     ///     ])
@@ -921,11 +921,11 @@ impl<'a> OptionsBuilder<'a> {
     /// let options2 = Options::builder()
     ///     .keywords_with_intensifiers([
     ///         Keyword {
-    ///             keyword: "hello",
+    ///             keyword: String::from("hello"),
     ///             intensifier: Some(-1.5),
     ///         },
     ///         Keyword {
-    ///             keyword: "world",
+    ///             keyword: String::from("world"),
     ///             intensifier: None,
     ///         },
     ///     ])
@@ -935,7 +935,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     pub fn keywords_with_intensifiers(
         mut self,
-        keywords: impl IntoIterator<Item = Keyword<'a>>,
+        keywords: impl IntoIterator<Item = Keyword>,
     ) -> Self {
         self.0.keywords.extend(keywords);
         self
@@ -1047,18 +1047,18 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn tag(mut self, tag: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.tags.extend(tag);
+    pub fn tag<'a>(mut self, tag: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.tags.extend(tag.into_iter().map(String::from));
         self
     }
 
     /// Finish building the [`Options`] object.
-    pub fn build(self) -> Options<'a> {
+    pub fn build(self) -> Options {
         self.0
     }
 }
 
-impl Default for OptionsBuilder<'_> {
+impl Default for OptionsBuilder {
     fn default() -> Self {
         Self::new()
     }
@@ -1166,10 +1166,10 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         for element in replace {
-            if let Some(replace) = element.replace {
+            if let Some(replace) = &element.replace {
                 seq.serialize_element(&("replace", format!("{}:{}", element.find, replace)))?;
             } else {
-                seq.serialize_element(&("replace", element.find))?;
+                seq.serialize_element(&("replace", &element.find))?;
             }
         }
 
@@ -1180,7 +1180,7 @@ impl Serialize for SerializableOptions<'_> {
                     format!("{}:{}", element.keyword, intensifier),
                 ))?;
             } else {
-                seq.serialize_element(&("keywords", element.keyword))?;
+                seq.serialize_element(&("keywords", &element.keyword))?;
             }
         }
 
@@ -1219,7 +1219,7 @@ impl AsRef<str> for Tier {
     }
 }
 
-impl AsRef<str> for Model<'_> {
+impl AsRef<str> for Model {
     fn as_ref(&self) -> &str {
         use Model::*;
 
@@ -1236,7 +1236,7 @@ impl AsRef<str> for Model<'_> {
     }
 }
 
-impl AsRef<str> for Language<'_> {
+impl AsRef<str> for Language {
     fn as_ref(&self) -> &str {
         use Language::*;
 
@@ -1273,7 +1273,7 @@ impl AsRef<str> for Language<'_> {
     }
 }
 
-impl AsRef<str> for Redact<'_> {
+impl AsRef<str> for Redact {
     fn as_ref(&self) -> &str {
         use Redact::*;
 
@@ -1319,7 +1319,11 @@ mod models_to_string_tests {
     #[test]
     fn custom() {
         assert_eq!(
-            models_to_string(&[Finance, CustomId("extra_crispy"), Conversationalai]),
+            models_to_string(&[
+                Finance,
+                CustomId(String::from("extra_crispy")),
+                Conversationalai
+            ]),
             "finance:extra_crispy:conversationalai"
         );
     }
@@ -1380,19 +1384,19 @@ mod serialize_options_tests {
             .ner(true)
             .multichannel_with_models([
                 Model::Finance,
-                Model::CustomId("extra_crispy"),
+                Model::CustomId(String::from("extra_crispy")),
                 Model::Conversationalai,
             ])
             .alternatives(4)
             .numerals(true)
             .search(["Rust", "Deepgram"])
             .replace([Replace {
-                find: "Aaron",
-                replace: Some("Erin"),
+                find: String::from("Aaron"),
+                replace: Some(String::from("Erin")),
             }])
             .keywords(["Ferris"])
             .keywords_with_intensifiers([Keyword {
-                keyword: "Cargo",
+                keyword: String::from("Cargo"),
                 intensifier: Some(-1.5),
             }])
             .utterances_with_utt_split(0.9)
@@ -1421,7 +1425,7 @@ mod serialize_options_tests {
 
         check_serialization(
             &Options::builder()
-                .model(Model::CustomId("extra_crispy"))
+                .model(Model::CustomId(String::from("extra_crispy")))
                 .build(),
             "model=extra_crispy",
         );
@@ -1535,7 +1539,7 @@ mod serialize_options_tests {
             &Options::builder()
                 .multichannel_with_models([
                     Model::Finance,
-                    Model::CustomId("extra_crispy"),
+                    Model::CustomId(String::from("extra_crispy")),
                     Model::Conversationalai,
                 ])
                 .build(),
@@ -1585,8 +1589,8 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder()
                 .replace([Replace {
-                    find: "Aaron",
-                    replace: Some("Erin"),
+                    find: String::from("Aaron"),
+                    replace: Some(String::from("Erin")),
                 }])
                 .build(),
             "replace=Aaron%3AErin",
@@ -1595,7 +1599,7 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder()
                 .replace([Replace {
-                    find: "Voldemort",
+                    find: String::from("Voldemort"),
                     replace: None,
                 }])
                 .build(),
@@ -1606,11 +1610,11 @@ mod serialize_options_tests {
             &Options::builder()
                 .replace([
                     Replace {
-                        find: "Aaron",
-                        replace: Some("Erin"),
+                        find: String::from("Aaron"),
+                        replace: Some(String::from("Erin")),
                     },
                     Replace {
-                        find: "Voldemort",
+                        find: String::from("Voldemort"),
                         replace: None,
                     },
                 ])
@@ -1621,8 +1625,8 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder()
                 .replace([Replace {
-                    find: "this too",
-                    replace: Some("that too"),
+                    find: String::from("this too"),
+                    replace: Some(String::from("that too")),
                 }])
                 .build(),
             "replace=this+too%3Athat+too",
@@ -1651,7 +1655,7 @@ mod serialize_options_tests {
 
         {
             let keywords = [Keyword {
-                keyword: "Ferris",
+                keyword: String::from("Ferris"),
                 intensifier: Some(0.5),
             }];
 
@@ -1666,11 +1670,11 @@ mod serialize_options_tests {
         {
             let keywords = [
                 Keyword {
-                    keyword: "Ferris",
+                    keyword: String::from("Ferris"),
                     intensifier: Some(0.5),
                 },
                 Keyword {
-                    keyword: "Cargo",
+                    keyword: String::from("Cargo"),
                     intensifier: Some(-1.5),
                 },
             ];

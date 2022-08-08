@@ -76,7 +76,7 @@ impl<'a, K: AsRef<str>> Usage<'_, K> {
     pub async fn list_requests(
         &self,
         project_id: &str,
-        options: &list_requests_options::Options<'a>,
+        options: &list_requests_options::Options,
     ) -> crate::Result<Requests> {
         let url = format!(
             "https://api.deepgram.com/v1/projects/{}/requests",
@@ -175,7 +175,7 @@ impl<'a, K: AsRef<str>> Usage<'_, K> {
     pub async fn get_usage(
         &self,
         project_id: &str,
-        options: &get_usage_options::Options<'a>,
+        options: &get_usage_options::Options,
     ) -> crate::Result<UsageSummary> {
         let url = format!("https://api.deepgram.com/v1/projects/{}/usage", project_id);
         let request = self
@@ -225,7 +225,7 @@ impl<'a, K: AsRef<str>> Usage<'_, K> {
     pub async fn get_fields(
         &self,
         project_id: &str,
-        options: &get_fields_options::Options<'a>,
+        options: &get_fields_options::Options,
     ) -> crate::Result<Fields> {
         let url = format!(
             "https://api.deepgram.com/v1/projects/{}/usage/fields",

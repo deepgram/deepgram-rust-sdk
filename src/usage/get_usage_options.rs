@@ -12,13 +12,13 @@ use serde::{ser::SerializeSeq, Serialize};
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#usage-summary
 #[derive(Debug, PartialEq, Clone)]
-pub struct Options<'a> {
-    start: Option<&'a str>,
-    end: Option<&'a str>,
-    accessor: Option<&'a str>,
-    tags: Vec<&'a str>,
+pub struct Options {
+    start: Option<String>,
+    end: Option<String>,
+    accessor: Option<String>,
+    tags: Vec<String>,
     methods: Vec<Method>,
-    models: Vec<&'a str>,
+    models: Vec<String>,
     multichannel: Option<bool>,
     interim_results: Option<bool>,
     punctuate: Option<bool>,
@@ -52,18 +52,18 @@ pub enum Method {
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
-pub struct OptionsBuilder<'a>(Options<'a>);
+pub struct OptionsBuilder(Options);
 
-pub(super) struct SerializableOptions<'a>(&'a Options<'a>);
+pub(super) struct SerializableOptions<'a>(&'a Options);
 
-impl<'a> Options<'a> {
+impl Options {
     /// Construct a new [`OptionsBuilder`].
-    pub fn builder() -> OptionsBuilder<'a> {
+    pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
 }
 
-impl<'a> OptionsBuilder<'a> {
+impl OptionsBuilder {
     /// Construct a new [`OptionsBuilder`].
     pub fn new() -> Self {
         Self(Options {
@@ -100,8 +100,8 @@ impl<'a> OptionsBuilder<'a> {
     ///     .start("1970-01-01")
     ///     .build();
     /// ```
-    pub fn start(mut self, start: &'a str) -> Self {
-        self.0.start = Some(start);
+    pub fn start(mut self, start: impl Into<String>) -> Self {
+        self.0.start = Some(start.into());
         self
     }
 
@@ -116,8 +116,8 @@ impl<'a> OptionsBuilder<'a> {
     ///     .end("2038-01-19")
     ///     .build();
     /// ```
-    pub fn end(mut self, end: &'a str) -> Self {
-        self.0.end = Some(end);
+    pub fn end(mut self, end: impl Into<String>) -> Self {
+        self.0.end = Some(end.into());
         self
     }
 
@@ -132,8 +132,8 @@ impl<'a> OptionsBuilder<'a> {
     ///     .accessor("12345678-1234-1234-1234-1234567890ab")
     ///     .build();
     /// ```
-    pub fn accessor(mut self, accessor: &'a str) -> Self {
-        self.0.accessor = Some(accessor);
+    pub fn accessor(mut self, accessor: impl Into<String>) -> Self {
+        self.0.accessor = Some(accessor.into());
         self
     }
 
@@ -165,8 +165,8 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn tag(mut self, tag: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.tags.extend(tag);
+    pub fn tag<'a>(mut self, tag: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.tags.extend(tag.into_iter().map(String::from));
         self
     }
 
@@ -237,8 +237,8 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn model(mut self, model: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.models.extend(model);
+    pub fn model<'a>(mut self, model: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.models.extend(model.into_iter().map(String::from));
         self
     }
 
@@ -451,19 +451,19 @@ impl<'a> OptionsBuilder<'a> {
     }
 
     /// Finish building the [`Options`] object.
-    pub fn build(self) -> Options<'a> {
+    pub fn build(self) -> Options {
         self.0
     }
 }
 
-impl Default for OptionsBuilder<'_> {
+impl Default for OptionsBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> From<&'a Options<'a>> for SerializableOptions<'a> {
-    fn from(options: &'a Options<'a>) -> Self {
+impl<'a> From<&'a Options> for SerializableOptions<'a> {
+    fn from(options: &'a Options) -> Self {
         Self(options)
     }
 }

@@ -12,34 +12,34 @@ use serde::Serialize;
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#usage-fields
 #[derive(Debug, PartialEq, Clone)]
-pub struct Options<'a> {
-    start: Option<&'a str>,
-    end: Option<&'a str>,
+pub struct Options {
+    start: Option<String>,
+    end: Option<String>,
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
-pub struct OptionsBuilder<'a>(Options<'a>);
+pub struct OptionsBuilder(Options);
 
 #[derive(Serialize)]
 pub(super) struct SerializableOptions<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
-    start: Option<&'a str>,
+    start: &'a Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    end: Option<&'a str>,
+    end: &'a Option<String>,
 }
 
-impl<'a> Options<'a> {
+impl Options {
     /// Construct a new [`OptionsBuilder`].
-    pub fn builder() -> OptionsBuilder<'a> {
+    pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
 }
 
-impl<'a> OptionsBuilder<'a> {
+impl OptionsBuilder {
     /// Construct a new [`OptionsBuilder`].
     pub fn new() -> Self {
         Self(Options {
@@ -59,8 +59,8 @@ impl<'a> OptionsBuilder<'a> {
     ///     .start("1970-01-01")
     ///     .build();
     /// ```
-    pub fn start(mut self, start: &'a str) -> Self {
-        self.0.start = Some(start);
+    pub fn start(mut self, start: impl Into<String>) -> Self {
+        self.0.start = Some(start.into());
         self
     }
 
@@ -75,28 +75,28 @@ impl<'a> OptionsBuilder<'a> {
     ///     .end("2038-01-19")
     ///     .build();
     /// ```
-    pub fn end(mut self, end: &'a str) -> Self {
-        self.0.end = Some(end);
+    pub fn end(mut self, end: impl Into<String>) -> Self {
+        self.0.end = Some(end.into());
         self
     }
 
     /// Finish building the [`Options`] object.
-    pub fn build(self) -> Options<'a> {
+    pub fn build(self) -> Options {
         self.0
     }
 }
 
-impl Default for OptionsBuilder<'_> {
+impl Default for OptionsBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> From<&'a Options<'a>> for SerializableOptions<'a> {
-    fn from(options: &'a Options<'a>) -> Self {
-        Self {
-            start: options.start,
-            end: options.end,
-        }
+impl<'a> From<&'a Options> for SerializableOptions<'a> {
+    fn from(options: &'a Options) -> Self {
+        // Destructuring it makes sure that we don't forget to use any of it
+        let Options { start, end } = options;
+
+        Self { start, end }
     }
 }

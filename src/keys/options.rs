@@ -12,16 +12,16 @@ use serde::Serialize;
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#keys-create
 #[derive(Debug, PartialEq, Clone)]
-pub struct Options<'a> {
-    comment: &'a str,
-    tags: Vec<&'a str>,
-    scopes: Vec<&'a str>,
-    expiration: Option<Expiration<'a>>,
+pub struct Options {
+    comment: String,
+    tags: Vec<String>,
+    scopes: Vec<String>,
+    expiration: Option<Expiration>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-enum Expiration<'a> {
-    ExpirationDate(&'a str),
+enum Expiration {
+    ExpirationDate(String),
     TimeToLiveInSeconds(usize),
 }
 
@@ -29,41 +29,41 @@ enum Expiration<'a> {
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
-pub struct OptionsBuilder<'a>(Options<'a>);
+pub struct OptionsBuilder(Options);
 
 #[derive(Serialize)]
 pub(super) struct SerializableOptions<'a> {
-    comment: &'a str,
+    comment: &'a String,
 
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    tags: &'a Vec<&'a str>,
+    tags: &'a Vec<String>,
 
-    scopes: &'a Vec<&'a str>,
+    scopes: &'a Vec<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    expiration_date: Option<&'a str>,
+    expiration_date: Option<&'a String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     time_to_live_in_seconds: Option<usize>,
 }
 
-impl<'a> Options<'a> {
+impl Options {
     /// Construct a new [`OptionsBuilder`].
-    pub fn builder(
-        comment: &'a str,
+    pub fn builder<'a>(
+        comment: impl Into<String>,
         scopes: impl IntoIterator<Item = &'a str>,
-    ) -> OptionsBuilder<'a> {
+    ) -> OptionsBuilder {
         OptionsBuilder::new(comment, scopes)
     }
 }
 
-impl<'a> OptionsBuilder<'a> {
+impl OptionsBuilder {
     /// Construct a new [`OptionsBuilder`].
-    pub fn new(comment: &'a str, scopes: impl IntoIterator<Item = &'a str>) -> Self {
+    pub fn new<'a>(comment: impl Into<String>, scopes: impl IntoIterator<Item = &'a str>) -> Self {
         Self(Options {
-            comment,
+            comment: comment.into(),
             tags: Vec::new(),
-            scopes: scopes.into_iter().collect(),
+            scopes: scopes.into_iter().map(String::from).collect(),
             expiration: None,
         })
     }
@@ -86,8 +86,8 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn comment(mut self, comment: &'a str) -> Self {
-        self.0.comment = comment;
+    pub fn comment(mut self, comment: impl Into<String>) -> Self {
+        self.0.comment = comment.into();
         self
     }
 
@@ -119,8 +119,8 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn tag(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.tags.extend(tags);
+    pub fn tag<'a>(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.tags.extend(tags.into_iter().map(String::from));
         self
     }
 
@@ -149,8 +149,8 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn scopes(mut self, scopes: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.scopes.extend(scopes);
+    pub fn scopes<'a>(mut self, scopes: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.scopes.extend(scopes.into_iter().map(String::from));
         self
     }
 
@@ -182,8 +182,8 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn expiration_date(mut self, expiration_date: &'a str) -> Self {
-        self.0.expiration = Some(Expiration::ExpirationDate(expiration_date));
+    pub fn expiration_date(mut self, expiration_date: impl Into<String>) -> Self {
+        self.0.expiration = Some(Expiration::ExpirationDate(expiration_date.into()));
         self
     }
 
@@ -221,27 +221,35 @@ impl<'a> OptionsBuilder<'a> {
     }
 
     /// Finish building the [`Options`] object.
-    pub fn build(self) -> Options<'a> {
+    pub fn build(self) -> Options {
         self.0
     }
 }
 
-impl<'a> From<&'a Options<'a>> for SerializableOptions<'a> {
-    fn from(options: &'a Options<'a>) -> Self {
+impl<'a> From<&'a Options> for SerializableOptions<'a> {
+    fn from(options: &'a Options) -> Self {
+        // Destructuring it makes sure that we don't forget to use any of it
+        let Options {
+            comment,
+            tags,
+            scopes,
+            expiration,
+        } = options;
+
         let mut serializable_options = Self {
-            comment: options.comment,
-            tags: &options.tags,
-            scopes: &options.scopes,
+            comment,
+            tags,
+            scopes,
             expiration_date: None,
             time_to_live_in_seconds: None,
         };
 
-        match options.expiration {
+        match expiration {
             Some(Expiration::ExpirationDate(expiration_date)) => {
                 serializable_options.expiration_date = Some(expiration_date);
             }
             Some(Expiration::TimeToLiveInSeconds(time_to_live_in_seconds)) => {
-                serializable_options.time_to_live_in_seconds = Some(time_to_live_in_seconds);
+                serializable_options.time_to_live_in_seconds = Some(*time_to_live_in_seconds);
             }
             None => {}
         };
