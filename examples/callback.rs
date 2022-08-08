@@ -1,8 +1,12 @@
+use std::env;
+
 use deepgram::{
-    transcription::prerecorded::{AudioSource, Language, Options},
+    transcription::prerecorded::{
+        audio_source::AudioSource,
+        options::{Language, Options},
+    },
     Deepgram, DeepgramError,
 };
-use std::env;
 
 static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
 

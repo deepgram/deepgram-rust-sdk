@@ -1,3 +1,9 @@
+//! Sources of audio that can be transcribed.
+//!
+//! See the [Deepgram API Reference][api] for more info.
+//!
+//! [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+
 use reqwest::{header::CONTENT_TYPE, RequestBuilder};
 use serde::Serialize;
 

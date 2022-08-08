@@ -2,7 +2,11 @@
 // Currently not documented because interface of this module is still changing
 #![allow(missing_docs)]
 
-//! Provides various types that are used for streaming transcription requests to Deepgram.
+//! Types used for live audio transcription.
+//!
+//! See the [Deepgram API Reference][api] for more info.
+//!
+//! [api]: https://developers.deepgram.com/api-reference/#transcription-streaming
 
 use std::path::Path;
 use std::pin::Pin;
