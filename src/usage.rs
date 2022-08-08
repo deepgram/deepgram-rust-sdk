@@ -225,7 +225,7 @@ impl<'a, K: AsRef<str>> Usage<'_, K> {
     pub async fn get_fields(
         &self,
         project_id: &str,
-        options: &get_fields_options::Options<'a>,
+        options: &get_fields_options::Options,
     ) -> crate::Result<Fields> {
         let url = format!(
             "https://api.deepgram.com/v1/projects/{}/usage/fields",
