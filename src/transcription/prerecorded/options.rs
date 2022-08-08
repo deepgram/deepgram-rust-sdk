@@ -46,7 +46,7 @@ pub enum Tier {
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
 ///
-/// See the [Deepgram Tier feature docs][docs] for more info.
+/// See the [Deepgram Model feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/model/
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
