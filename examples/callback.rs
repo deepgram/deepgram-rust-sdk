@@ -1,8 +1,12 @@
+use std::env;
+
 use deepgram::{
-    prerecorded::{Language, Options, UrlSource},
+    transcription::prerecorded::{
+        audio_source::AudioSource,
+        options::{Language, Options},
+    },
     Deepgram, DeepgramError,
 };
-use std::env;
 
 static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
 
@@ -13,7 +17,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let dg_client = Deepgram::new(&deepgram_api_key);
 
-    let source = UrlSource { url: AUDIO_URL };
+    let source = AudioSource::from_url(AUDIO_URL);
 
     let options = Options::builder()
         .punctuate(true)
@@ -24,7 +28,8 @@ async fn main() -> Result<(), DeepgramError> {
         env::var("DEEPGRAM_CALLBACK_URL").expect("DEEPGRAM_CALLBACK_URL environmental variable");
 
     let response = dg_client
-        .callback_request(&source, &options, &callback_url)
+        .transcription()
+        .prerecorded_callback(source, &options, &callback_url)
         .await?;
 
     println!("{}", response.request_id);

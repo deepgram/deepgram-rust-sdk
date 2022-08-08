@@ -1,8 +1,13 @@
+use std::env;
+
 use deepgram::{
-    prerecorded::{Language, Options, Response, UrlSource},
+    transcription::prerecorded::{
+        audio_source::AudioSource,
+        options::{Language, Options},
+        response::Response,
+    },
     Deepgram,
 };
-use std::env;
 
 static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
 
@@ -13,14 +18,16 @@ async fn main() -> reqwest::Result<()> {
 
     let dg_client = Deepgram::new(&deepgram_api_key);
 
-    let source = UrlSource { url: AUDIO_URL };
+    let source = AudioSource::from_url(AUDIO_URL);
 
     let options = Options::builder()
         .punctuate(true)
         .language(Language::en_US)
         .build();
 
-    let request_builder = dg_client.make_prerecorded_request_builder(&source, &options);
+    let request_builder = dg_client
+        .transcription()
+        .make_prerecorded_request_builder(source, &options);
 
     // Customize the RequestBuilder here
     let customized_request_builder = request_builder

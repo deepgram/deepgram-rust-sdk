@@ -1,24 +1,47 @@
+//! Set various Deepgram features to control how the audio is transcribed.
+//!
+//! See the [Deepgram API Reference][api] for more info.
+//!
+//! [api]: https://developers.deepgram.com/documentation/features/
+
 use serde::{ser::SerializeSeq, Serialize};
 
-/// Used as a parameter for [`Deepgram::prerecorded_request`](crate::Deepgram::prerecorded_request) and similar functions.
+/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
-pub struct Options<'a> {
-    model: Option<Model<'a>>,
-    version: Option<&'a str>,
-    language: Option<Language<'a>>,
+pub struct Options {
+    tier: Option<Tier>,
+    model: Option<Model>,
+    version: Option<String>,
+    language: Option<Language>,
     punctuate: Option<bool>,
     profanity_filter: Option<bool>,
-    redact: Vec<Redact<'a>>,
+    redact: Vec<Redact>,
     diarize: Option<bool>,
     ner: Option<bool>,
-    multichannel: Option<Multichannel<'a>>,
+    multichannel: Option<Multichannel>,
     alternatives: Option<usize>,
     numerals: Option<bool>,
-    search: Vec<&'a str>,
-    keywords: Vec<Keyword<'a>>,
+    search: Vec<String>,
+    replace: Vec<Replace>,
+    keywords: Vec<Keyword>,
     keyword_boost_legacy: bool,
     utterances: Option<Utterances>,
-    tags: Vec<&'a str>,
+    tags: Vec<String>,
+}
+
+/// Used as a parameter for [`OptionsBuilder::tier`].
+///
+/// See the [Deepgram Tier feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/documentation/features/tier/
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[non_exhaustive]
+pub enum Tier {
+    #[allow(missing_docs)]
+    Enhanced,
+
+    #[allow(missing_docs)]
+    Base,
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
@@ -26,76 +49,170 @@ pub struct Options<'a> {
 /// See the [Deepgram Model feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/model/
-#[allow(missing_docs)] // Unnecessary to document every variant
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
-pub enum Model<'a> {
-    GeneralEnhanced,
+pub enum Model {
+    #[allow(missing_docs)]
     General,
+
+    #[allow(missing_docs)]
     Meeting,
+
+    #[allow(missing_docs)]
     Phonecall,
+
+    #[allow(missing_docs)]
     Voicemail,
+
+    #[allow(missing_docs)]
     Finance,
+
+    #[allow(missing_docs)]
     Conversationalai,
+
+    #[allow(missing_docs)]
     Video,
-    CustomId(&'a str),
+
+    #[allow(missing_docs)]
+    CustomId(String),
 }
 
 /// Used as a parameter for [`OptionsBuilder::language`].
-#[allow(missing_docs)] // Unnecessary to document every variant
+///
+/// See the [Deepgram Language feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/documentation/features/language/
 #[allow(non_camel_case_types)] // Variants should look like their BCP-47 tag
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
-pub enum Language<'a> {
+pub enum Language {
+    #[allow(missing_docs)]
     zh,
+
+    #[allow(missing_docs)]
     zh_CN,
+
+    #[allow(missing_docs)]
     zh_TW,
+
+    #[allow(missing_docs)]
     nl,
+
+    #[allow(missing_docs)]
     en,
+
+    #[allow(missing_docs)]
     en_AU,
+
+    #[allow(missing_docs)]
     en_GB,
+
+    #[allow(missing_docs)]
     en_IN,
+
+    #[allow(missing_docs)]
     en_NZ,
+
+    #[allow(missing_docs)]
     en_US,
+
+    #[allow(missing_docs)]
     fr,
+
+    #[allow(missing_docs)]
     fr_CA,
+
+    #[allow(missing_docs)]
     de,
+
+    #[allow(missing_docs)]
     hi,
+
+    #[allow(missing_docs)]
     hi_Latn,
+
+    #[allow(missing_docs)]
     id,
+
+    #[allow(missing_docs)]
     it,
+
+    #[allow(missing_docs)]
     ja,
+
+    #[allow(missing_docs)]
     ko,
+
+    #[allow(missing_docs)]
     pt,
+
+    #[allow(missing_docs)]
     pt_BR,
+
+    #[allow(missing_docs)]
     ru,
+
+    #[allow(missing_docs)]
     es,
+
+    #[allow(missing_docs)]
     es_419,
+
+    #[allow(missing_docs)]
     sv,
+
+    #[allow(missing_docs)]
     tr,
+
+    #[allow(missing_docs)]
     uk,
+
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new languages that Deepgram supports without being forced to update your version of the SDK.
     /// See the [Deepgram Language feature docs][docs] for the most up-to-date list of supported languages.
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/language/
-    Other(&'a str),
+    Other(String),
 }
 
 /// Used as a parameter for [`OptionsBuilder::redact`].
-#[allow(missing_docs)] // Unnecessary to document every variant
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+///
+/// See the [Deepgram Redaction feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/documentation/features/redact/
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
-pub enum Redact<'a> {
+pub enum Redact {
+    #[allow(missing_docs)]
     Pci,
+
+    #[allow(missing_docs)]
     Numbers,
+
+    #[allow(missing_docs)]
     Ssn,
+
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new redactable items that Deepgram supports without being forced to update your version of the SDK.
     /// See the [Deepgram Redact feature docs][docs] for the most up-to-date list of redactable items.
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/redact/
-    Other(&'a str),
+    Other(String),
+}
+
+/// Used as a parameter for [`OptionsBuilder::replace`].
+///
+/// See the [Deepgram Find and Replace feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/documentation/features/replace/
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct Replace {
+    /// The term or phrase to find.
+    pub find: String,
+
+    /// The term or phrase to replace [`find`](Replace::find) with.
+    /// If set to [`None`], [`find`](Replace::find) will be removed from the transcript without being replaced by anything.
+    pub replace: Option<String>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::keywords_with_intensifiers`].
@@ -103,10 +220,10 @@ pub enum Redact<'a> {
 /// See the [Deepgram Keywords feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/keywords/
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct Keyword<'a> {
+#[derive(Debug, PartialEq, Clone)]
+pub struct Keyword {
     /// The keyword to boost.
-    pub keyword: &'a str,
+    pub keyword: String,
 
     /// Optionally specify how much to boost it.
     pub intensifier: Option<f64>,
@@ -119,34 +236,35 @@ enum Utterances {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-enum Multichannel<'a> {
+enum Multichannel {
     Disabled,
-    Enabled { models: Option<Vec<Model<'a>>> },
+    Enabled { models: Option<Vec<Model>> },
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// Use it to set of Deepgram's features, excluding the Callback feature.
-/// The Callback feature can be set when making the request by calling [`Deepgram::callback_request`](crate::Deepgram::callback_request).
+/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::transcription::Transcription::prerecorded_callback).
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
-pub struct OptionsBuilder<'a>(Options<'a>);
+pub struct OptionsBuilder(Options);
 
 #[derive(Debug, PartialEq, Clone)]
-pub(super) struct SerializableOptions<'a>(pub &'a Options<'a>);
+pub(super) struct SerializableOptions<'a>(pub(super) &'a Options);
 
-impl<'a> Options<'a> {
+impl Options {
     /// Construct a new [`OptionsBuilder`].
-    pub fn builder() -> OptionsBuilder<'a> {
+    pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
 }
 
-impl<'a> OptionsBuilder<'a> {
+impl OptionsBuilder {
     /// Construct a new [`OptionsBuilder`].
     pub fn new() -> Self {
         Self(Options {
+            tier: None,
             model: None,
             version: None,
             language: None,
@@ -159,11 +277,37 @@ impl<'a> OptionsBuilder<'a> {
             alternatives: None,
             numerals: None,
             search: Vec::new(),
+            replace: Vec::new(),
             keywords: Vec::new(),
             keyword_boost_legacy: false,
             utterances: None,
             tags: Vec::new(),
         })
+    }
+
+    /// Set the Tier feature.
+    ///
+    /// Not all tiers are supported for all models and languages.
+    /// For a list of models/languages and their supported models,
+    /// see the [Deepgram Language feature][language] docs.
+    ///
+    /// See the [Deepgram Tier feature docs][docs] for more info.
+    ///
+    /// [language]: https://developers.deepgram.com/documentation/features/language/
+    /// [docs]: https://developers.deepgram.com/documentation/features/tier/
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::{Options, Tier};
+    /// #
+    /// let options = Options::builder()
+    ///     .tier(Tier::Enhanced)
+    ///     .build();
+    /// ```
+    pub fn tier(mut self, tier: Tier) -> Self {
+        self.0.tier = Some(tier);
+        self
     }
 
     /// Set the Model feature.
@@ -182,7 +326,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options = Options::builder()
     ///     .model(Model::General)
@@ -190,7 +334,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
@@ -204,7 +348,7 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn model(mut self, model: Model<'a>) -> Self {
+    pub fn model(mut self, model: Model) -> Self {
         self.0.model = Some(model);
 
         if let Some(Multichannel::Enabled { models }) = &mut self.0.multichannel {
@@ -223,14 +367,14 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .version("12345678-1234-1234-1234-1234567890ab")
     ///     .build();
     /// ```
-    pub fn version(mut self, version: &'a str) -> Self {
-        self.0.version = Some(version);
+    pub fn version(mut self, version: &str) -> Self {
+        self.0.version = Some(version.into());
         self
     }
 
@@ -243,13 +387,13 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Language, Options};
+    /// # use deepgram::transcription::prerecorded::options::{Language, Options};
     /// #
     /// let options = Options::builder()
     ///     .language(Language::en_US)
     ///     .build();
     /// ```
-    pub fn language(mut self, language: Language<'a>) -> Self {
+    pub fn language(mut self, language: Language) -> Self {
         self.0.language = Some(language);
         self
     }
@@ -263,7 +407,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .punctuate(true)
@@ -285,7 +429,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .profanity_filter(true)
@@ -309,7 +453,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Options, Redact};
+    /// # use deepgram::transcription::prerecorded::options::{Options, Redact};
     /// #
     /// let options = Options::builder()
     ///     .redact([Redact::Pci, Redact::Ssn])
@@ -317,7 +461,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Options, Redact};
+    /// # use deepgram::transcription::prerecorded::options::{Options, Redact};
     /// #
     /// let options1 = Options::builder()
     ///     .redact([Redact::Pci])
@@ -330,7 +474,7 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn redact(mut self, redact: impl IntoIterator<Item = Redact<'a>>) -> Self {
+    pub fn redact(mut self, redact: impl IntoIterator<Item = Redact>) -> Self {
         self.0.redact.extend(redact);
         self
     }
@@ -344,7 +488,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .diarize(true)
@@ -366,7 +510,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .ner(true)
@@ -390,7 +534,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .multichannel(true)
@@ -398,7 +542,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .model(Model::General)
@@ -438,7 +582,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options = Options::builder()
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
@@ -446,11 +590,15 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
+    /// # use std::env;
+    /// #
     /// # use deepgram::{
-    /// #     prerecorded::{Model, Options, UrlSource},
+    /// #     transcription::prerecorded::{
+    /// #         audio_source::AudioSource,
+    /// #         options::{Model, Options},
+    /// #     },
     /// #     Deepgram,
     /// # };
-    /// # use std::env;
     /// #
     /// #
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
@@ -459,9 +607,8 @@ impl<'a> OptionsBuilder<'a> {
     /// # let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
     /// #
     /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_transcription = dg_client.transcription();
     ///
-    /// # let source = UrlSource { url: AUDIO_URL };
-    /// #
     /// let options1 = Options::builder()
     ///     .model(Model::General)
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
@@ -471,8 +618,13 @@ impl<'a> OptionsBuilder<'a> {
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
     ///     .build();
     ///
-    /// let request1 = dg_client.make_prerecorded_request_builder(&source, &options1).build()?;
-    /// let request2 = dg_client.make_prerecorded_request_builder(&source, &options2).build()?;
+    /// let request1 = dg_transcription
+    ///     .make_prerecorded_request_builder(AudioSource::from_url(AUDIO_URL), &options1)
+    ///     .build()?;
+    ///
+    /// let request2 = dg_transcription
+    ///     .make_prerecorded_request_builder(AudioSource::from_url(AUDIO_URL), &options2)
+    ///     .build()?;
     ///
     /// // Both make the same request to Deepgram with the same features
     /// assert_eq!(request1.url(), request2.url());
@@ -486,7 +638,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .model(Model::General)
@@ -503,7 +655,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Model, Options};
+    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .multichannel_with_models([Model::Meeting])
@@ -516,7 +668,7 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn multichannel_with_models(mut self, models: impl IntoIterator<Item = Model<'a>>) -> Self {
+    pub fn multichannel_with_models(mut self, models: impl IntoIterator<Item = Model>) -> Self {
         if let Some(Multichannel::Enabled {
             models: Some(old_models),
         }) = &mut self.0.multichannel
@@ -534,7 +686,7 @@ impl<'a> OptionsBuilder<'a> {
         self
     }
 
-    /// Set the maximum number of transcript alternatives to return.
+    /// Set the Alternatives feature.
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
@@ -543,7 +695,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .alternatives(3)
@@ -565,7 +717,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .numerals(true)
@@ -587,7 +739,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .search(["hello", "world"])
@@ -595,7 +747,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .search(["hello"])
@@ -608,8 +760,69 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn search(mut self, search: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.search.extend(search);
+    pub fn search<'a>(mut self, search: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.search.extend(search.into_iter().map(String::from));
+        self
+    }
+
+    /// Set the Find and Replace feature.
+    ///
+    /// Calling this when already set will append to the existing replacements, not overwrite them.
+    ///
+    /// See the [Deepgram Find and Replace feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/replace/
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::{Options, Replace};
+    /// #
+    /// let options = Options::builder()
+    ///     .replace([
+    ///         Replace {
+    ///             find: String::from("Aaron"),
+    ///             replace: Some(String::from("Erin")),
+    ///         },
+    ///         Replace {
+    ///             find: String::from("Voldemort"),
+    ///             replace: None,
+    ///         },
+    ///     ])
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::{Options, Replace};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .replace([Replace {
+    ///         find: String::from("Aaron"),
+    ///         replace: Some(String::from("Erin")),
+    ///     }])
+    ///     .replace([Replace {
+    ///         find: String::from("Voldemort"),
+    ///         replace: None,
+    ///     }])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .replace([
+    ///         Replace {
+    ///             find: String::from("Aaron"),
+    ///             replace: Some(String::from("Erin")),
+    ///         },
+    ///         Replace {
+    ///             find: String::from("Voldemort"),
+    ///             replace: None,
+    ///         },
+    ///     ])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
+    pub fn replace(mut self, replace: impl IntoIterator<Item = Replace>) -> Self {
+        self.0.replace.extend(replace);
         self
     }
 
@@ -627,7 +840,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .keywords(["hello", "world"])
@@ -635,7 +848,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .keywords(["hello"])
@@ -648,9 +861,9 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn keywords(mut self, keywords: impl IntoIterator<Item = &'a str>) -> Self {
+    pub fn keywords<'a>(mut self, keywords: impl IntoIterator<Item = &'a str>) -> Self {
         let iter = keywords.into_iter().map(|keyword| Keyword {
-            keyword,
+            keyword: keyword.into(),
             intensifier: None,
         });
 
@@ -671,16 +884,16 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Keyword, Options};
+    /// # use deepgram::transcription::prerecorded::options::{Keyword, Options};
     /// #
     /// let options = Options::builder()
     ///     .keywords_with_intensifiers([
     ///         Keyword {
-    ///             keyword: "hello",
+    ///             keyword: String::from("hello"),
     ///             intensifier: Some(-1.5),
     ///         },
     ///         Keyword {
-    ///             keyword: "world",
+    ///             keyword: String::from("world"),
     ///             intensifier: None,
     ///         },
     ///     ])
@@ -688,18 +901,18 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::{Keyword, Options};
+    /// # use deepgram::transcription::prerecorded::options::{Keyword, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .keywords_with_intensifiers([
     ///         Keyword {
-    ///             keyword: "hello",
+    ///             keyword: String::from("hello"),
     ///             intensifier: Some(-1.5),
     ///         },
     ///     ])
     ///     .keywords_with_intensifiers([
     ///         Keyword {
-    ///             keyword: "world",
+    ///             keyword: String::from("world"),
     ///             intensifier: None,
     ///         },
     ///     ])
@@ -708,11 +921,11 @@ impl<'a> OptionsBuilder<'a> {
     /// let options2 = Options::builder()
     ///     .keywords_with_intensifiers([
     ///         Keyword {
-    ///             keyword: "hello",
+    ///             keyword: String::from("hello"),
     ///             intensifier: Some(-1.5),
     ///         },
     ///         Keyword {
-    ///             keyword: "world",
+    ///             keyword: String::from("world"),
     ///             intensifier: None,
     ///         },
     ///     ])
@@ -722,7 +935,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     pub fn keywords_with_intensifiers(
         mut self,
-        keywords: impl IntoIterator<Item = Keyword<'a>>,
+        keywords: impl IntoIterator<Item = Keyword>,
     ) -> Self {
         self.0.keywords.extend(keywords);
         self
@@ -737,7 +950,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .keywords(["hello", "world"])
@@ -760,7 +973,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .utterances(true)
@@ -778,7 +991,7 @@ impl<'a> OptionsBuilder<'a> {
 
     /// Set the Utterances feature and the Utterance Split feature.
     ///
-    /// If you do not want to set the Utterance Split feature, use [`OptionsBuilder::utterances_with_utt_split`] instead.
+    /// If you do not want to set the Utterance Split feature, use [`OptionsBuilder::utterances`] instead.
     ///
     /// See the [Deepgram Utterances feature docs][utterances-docs]
     /// and the [Deepgram Utterance Split feature docs][utt_split-docs] for more info.
@@ -789,7 +1002,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .utterances_with_utt_split(0.9)
@@ -813,7 +1026,7 @@ impl<'a> OptionsBuilder<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .tag(["Tag 1", "Tag 2"])
@@ -821,7 +1034,7 @@ impl<'a> OptionsBuilder<'a> {
     /// ```
     ///
     /// ```
-    /// # use deepgram::prerecorded::Options;
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .tag(["Tag 1"])
@@ -834,18 +1047,18 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn tag(mut self, tag: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.tags.extend(tag);
+    pub fn tag<'a>(mut self, tag: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.tags.extend(tag.into_iter().map(String::from));
         self
     }
 
     /// Finish building the [`Options`] object.
-    pub fn build(self) -> Options<'a> {
+    pub fn build(self) -> Options {
         self.0
     }
 }
 
-impl Default for OptionsBuilder<'_> {
+impl Default for OptionsBuilder {
     fn default() -> Self {
         Self::new()
     }
@@ -860,6 +1073,7 @@ impl Serialize for SerializableOptions<'_> {
 
         // Destructuring it makes sure that we don't forget to use any of it
         let Options {
+            tier,
             model,
             version,
             language,
@@ -872,11 +1086,16 @@ impl Serialize for SerializableOptions<'_> {
             alternatives,
             numerals,
             search,
+            replace,
             keywords,
             keyword_boost_legacy,
             utterances,
             tags,
         } = self.0;
+
+        if let Some(tier) = tier {
+            seq.serialize_element(&("tier", tier.as_ref()))?;
+        }
 
         match multichannel {
             // Multichannels with models is enabled
@@ -946,6 +1165,14 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("search", element))?;
         }
 
+        for element in replace {
+            if let Some(replace) = &element.replace {
+                seq.serialize_element(&("replace", format!("{}:{}", element.find, replace)))?;
+            } else {
+                seq.serialize_element(&("replace", &element.find))?;
+            }
+        }
+
         for element in keywords {
             if let Some(intensifier) = element.intensifier {
                 seq.serialize_element(&(
@@ -953,7 +1180,7 @@ impl Serialize for SerializableOptions<'_> {
                     format!("{}:{}", element.keyword, intensifier),
                 ))?;
             } else {
-                seq.serialize_element(&("keywords", element.keyword))?;
+                seq.serialize_element(&("keywords", &element.keyword))?;
             }
         }
 
@@ -981,12 +1208,22 @@ impl Serialize for SerializableOptions<'_> {
     }
 }
 
-impl AsRef<str> for Model<'_> {
+impl AsRef<str> for Tier {
+    fn as_ref(&self) -> &str {
+        use Tier::*;
+
+        match self {
+            Enhanced => "enhanced",
+            Base => "base",
+        }
+    }
+}
+
+impl AsRef<str> for Model {
     fn as_ref(&self) -> &str {
         use Model::*;
 
         match self {
-            GeneralEnhanced => "general-enhanced",
             General => "general",
             Meeting => "meeting",
             Phonecall => "phonecall",
@@ -999,7 +1236,7 @@ impl AsRef<str> for Model<'_> {
     }
 }
 
-impl AsRef<str> for Language<'_> {
+impl AsRef<str> for Language {
     fn as_ref(&self) -> &str {
         use Language::*;
 
@@ -1036,7 +1273,7 @@ impl AsRef<str> for Language<'_> {
     }
 }
 
-impl AsRef<str> for Redact<'_> {
+impl AsRef<str> for Redact {
     fn as_ref(&self) -> &str {
         use Redact::*;
 
@@ -1082,7 +1319,11 @@ mod models_to_string_tests {
     #[test]
     fn custom() {
         assert_eq!(
-            models_to_string(&[Finance, CustomId("extra_crispy"), Conversationalai]),
+            models_to_string(&[
+                Finance,
+                CustomId(String::from("extra_crispy")),
+                Conversationalai
+            ]),
             "finance:extra_crispy:conversationalai"
         );
     }
@@ -1090,10 +1331,11 @@ mod models_to_string_tests {
 
 #[cfg(test)]
 mod serialize_options_tests {
-    use super::*;
-    use crate::{prerecorded::UrlSource, Deepgram};
     use std::cmp;
     use std::env;
+
+    use super::{super::audio_source::AudioSource, *};
+    use crate::Deepgram;
 
     fn check_serialization(options: &Options, expected: &str) {
         let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
@@ -1101,7 +1343,8 @@ mod serialize_options_tests {
         let dg_client = Deepgram::new(deepgram_api_key);
 
         let request = dg_client
-            .make_prerecorded_request_builder(&UrlSource { url: "" }, options)
+            .transcription()
+            .make_prerecorded_request_builder(AudioSource::from_url(""), options)
             .build()
             .unwrap();
 
@@ -1130,6 +1373,7 @@ mod serialize_options_tests {
     #[test]
     fn all_options() {
         let options = Options::builder()
+            .tier(Tier::Enhanced)
             .model(Model::General)
             .version("1.2.3")
             .language(Language::en_US)
@@ -1140,22 +1384,36 @@ mod serialize_options_tests {
             .ner(true)
             .multichannel_with_models([
                 Model::Finance,
-                Model::CustomId("extra_crispy"),
+                Model::CustomId(String::from("extra_crispy")),
                 Model::Conversationalai,
             ])
             .alternatives(4)
             .numerals(true)
             .search(["Rust", "Deepgram"])
+            .replace([Replace {
+                find: String::from("Aaron"),
+                replace: Some(String::from("Erin")),
+            }])
             .keywords(["Ferris"])
             .keywords_with_intensifiers([Keyword {
-                keyword: "Cargo",
+                keyword: String::from("Cargo"),
                 intensifier: Some(-1.5),
             }])
             .utterances_with_utt_split(0.9)
             .tag(["Tag 1"])
             .build();
 
-        check_serialization(&options, "model=finance%3Aextra_crispy%3Aconversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1");
+        check_serialization(&options, "tier=enhanced&model=finance%3Aextra_crispy%3Aconversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1");
+    }
+
+    #[test]
+    fn tier() {
+        check_serialization(
+            &Options::builder().tier(Tier::Enhanced).build(),
+            "tier=enhanced",
+        );
+
+        check_serialization(&Options::builder().tier(Tier::Base).build(), "tier=base");
     }
 
     #[test]
@@ -1167,7 +1425,7 @@ mod serialize_options_tests {
 
         check_serialization(
             &Options::builder()
-                .model(Model::CustomId("extra_crispy"))
+                .model(Model::CustomId(String::from("extra_crispy")))
                 .build(),
             "model=extra_crispy",
         );
@@ -1281,7 +1539,7 @@ mod serialize_options_tests {
             &Options::builder()
                 .multichannel_with_models([
                     Model::Finance,
-                    Model::CustomId("extra_crispy"),
+                    Model::CustomId(String::from("extra_crispy")),
                     Model::Conversationalai,
                 ])
                 .build(),
@@ -1325,6 +1583,57 @@ mod serialize_options_tests {
     }
 
     #[test]
+    fn replace() {
+        check_serialization(&Options::builder().replace([]).build(), "");
+
+        check_serialization(
+            &Options::builder()
+                .replace([Replace {
+                    find: String::from("Aaron"),
+                    replace: Some(String::from("Erin")),
+                }])
+                .build(),
+            "replace=Aaron%3AErin",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .replace([Replace {
+                    find: String::from("Voldemort"),
+                    replace: None,
+                }])
+                .build(),
+            "replace=Voldemort",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .replace([
+                    Replace {
+                        find: String::from("Aaron"),
+                        replace: Some(String::from("Erin")),
+                    },
+                    Replace {
+                        find: String::from("Voldemort"),
+                        replace: None,
+                    },
+                ])
+                .build(),
+            "replace=Aaron%3AErin&replace=Voldemort",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .replace([Replace {
+                    find: String::from("this too"),
+                    replace: Some(String::from("that too")),
+                }])
+                .build(),
+            "replace=this+too%3Athat+too",
+        );
+    }
+
+    #[test]
     fn keywords() {
         check_serialization(&Options::builder().keywords([]).build(), "");
 
@@ -1346,7 +1655,7 @@ mod serialize_options_tests {
 
         {
             let keywords = [Keyword {
-                keyword: "Ferris",
+                keyword: String::from("Ferris"),
                 intensifier: Some(0.5),
             }];
 
@@ -1361,11 +1670,11 @@ mod serialize_options_tests {
         {
             let keywords = [
                 Keyword {
-                    keyword: "Ferris",
+                    keyword: String::from("Ferris"),
                     intensifier: Some(0.5),
                 },
                 Keyword {
-                    keyword: "Cargo",
+                    keyword: String::from("Cargo"),
                     intensifier: Some(-1.5),
                 },
             ];

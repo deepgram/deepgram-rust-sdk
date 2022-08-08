@@ -1,8 +1,12 @@
+use std::env;
+
 use deepgram::{
-    prerecorded::{BufferSource, Language, Options},
+    transcription::prerecorded::{
+        audio_source::AudioSource,
+        options::{Language, Options},
+    },
     Deepgram, DeepgramError,
 };
-use std::env;
 use tokio::fs::File;
 
 static PATH_TO_FILE: &str = "examples/prerecorded_from_file/Bueller-Life-moves-pretty-fast.mp3";
@@ -16,17 +20,17 @@ async fn main() -> Result<(), DeepgramError> {
 
     let file = File::open(PATH_TO_FILE).await.unwrap();
 
-    let source = BufferSource {
-        buffer: file,
-        mimetype: Some("audio/mpeg3"),
-    };
+    let source = AudioSource::from_buffer_with_mime_type(file, "audio/mpeg3");
 
     let options = Options::builder()
         .punctuate(true)
         .language(Language::en_US)
         .build();
 
-    let response = dg_client.prerecorded_request(source, &options).await?;
+    let response = dg_client
+        .transcription()
+        .prerecorded(source, &options)
+        .await?;
 
     let transcript = &response.results.channels[0].alternatives[0].transcript;
     println!("{}", transcript);
