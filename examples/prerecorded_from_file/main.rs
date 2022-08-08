@@ -1,5 +1,5 @@
 use deepgram::{
-    transcription::prerecorded::{BufferSource, Language, Options},
+    transcription::prerecorded::{AudioSource, Language, Options},
     Deepgram, DeepgramError,
 };
 use std::env;
@@ -16,10 +16,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let file = File::open(PATH_TO_FILE).await.unwrap();
 
-    let source = BufferSource {
-        buffer: file,
-        mimetype: Some("audio/mpeg3"),
-    };
+    let source = AudioSource::from_buffer_with_mime_type(file, "audio/mpeg3");
 
     let options = Options::builder()
         .punctuate(true)

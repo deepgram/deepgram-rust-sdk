@@ -568,7 +568,7 @@ impl<'a> OptionsBuilder<'a> {
     ///
     /// ```
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{Model, Options, UrlSource},
+    /// #     transcription::prerecorded::{AudioSource, Model, Options},
     /// #     Deepgram,
     /// # };
     /// # use std::env;
@@ -582,8 +582,6 @@ impl<'a> OptionsBuilder<'a> {
     /// let dg_client = Deepgram::new(&deepgram_api_key);
     /// let dg_transcription = dg_client.transcription();
     ///
-    /// # let source = UrlSource { url: AUDIO_URL };
-    /// #
     /// let options1 = Options::builder()
     ///     .model(Model::General)
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
@@ -594,11 +592,11 @@ impl<'a> OptionsBuilder<'a> {
     ///     .build();
     ///
     /// let request1 = dg_transcription
-    ///     .make_prerecorded_request_builder(&source, &options1)
+    ///     .make_prerecorded_request_builder(AudioSource::from_url(AUDIO_URL), &options1)
     ///     .build()?;
     ///
     /// let request2 = dg_transcription
-    ///     .make_prerecorded_request_builder(&source, &options2)
+    ///     .make_prerecorded_request_builder(AudioSource::from_url(AUDIO_URL), &options2)
     ///     .build()?;
     ///
     /// // Both make the same request to Deepgram with the same features
@@ -1233,7 +1231,7 @@ mod models_to_string_tests {
 #[cfg(test)]
 mod serialize_options_tests {
     use super::*;
-    use crate::{transcription::prerecorded::UrlSource, Deepgram};
+    use crate::{transcription::prerecorded::AudioSource, Deepgram};
     use std::cmp;
     use std::env;
 
@@ -1244,7 +1242,7 @@ mod serialize_options_tests {
 
         let request = dg_client
             .transcription()
-            .make_prerecorded_request_builder(&UrlSource { url: "" }, options)
+            .make_prerecorded_request_builder(AudioSource::from_url(""), options)
             .build()
             .unwrap();
 
