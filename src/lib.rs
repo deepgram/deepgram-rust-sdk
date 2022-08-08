@@ -8,9 +8,21 @@
 
 use std::io;
 
+use reqwest::{
+    header::{HeaderMap, HeaderValue},
+    RequestBuilder,
+};
+use serde::de::DeserializeOwned;
 use thiserror::Error;
 
+pub mod billing;
+pub mod invitations;
+pub mod keys;
+pub mod members;
+pub mod projects;
+pub mod scopes;
 pub mod transcription;
+pub mod usage;
 
 /// A client for the Deepgram API.
 ///
@@ -32,9 +44,9 @@ pub enum DeepgramError {
     #[error("No source was provided to the request builder.")]
     NoSource,
 
-    /// Something went wrong during transcription.
-    #[error("Something went wrong during transcription.")]
-    TranscriptionError {
+    /// The Deepgram API returned an error.
+    #[error("The Deepgram API returned an error.")]
+    DeepgramApiError {
         /// Error message from the Deepgram API.
         body: String,
 
@@ -86,13 +98,42 @@ where
             " rust",
         );
 
+        let authorization_header = {
+            let mut header = HeaderMap::new();
+            header.insert(
+                "Authorization",
+                HeaderValue::from_str(&format!("Token {}", api_key.as_ref()))
+                    .expect("Invalid API key"),
+            );
+            header
+        };
+
         Deepgram {
             api_key,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
+                .default_headers(authorization_header)
                 .build()
                 // Even though `reqwest::Client::new` is not used here, it will always panic under the same conditions
                 .expect("See reqwest::Client::new docs for cause of panic"),
         }
+    }
+}
+
+/// Sends the request and checks the response for an error.
+///
+/// If there is an error, it translates it into a [`DeepgramError::DeepgramApiError`].
+/// Otherwise, it deserializes the JSON accordingly.
+async fn send_and_translate_response<R: DeserializeOwned>(
+    request_builder: RequestBuilder,
+) -> crate::Result<R> {
+    let response = request_builder.send().await?;
+
+    match response.error_for_status_ref() {
+        Ok(_) => Ok(response.json().await?),
+        Err(err) => Err(DeepgramError::DeepgramApiError {
+            body: response.text().await?,
+            err,
+        }),
     }
 }
