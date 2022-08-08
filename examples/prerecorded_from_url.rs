@@ -2,7 +2,7 @@ use std::env;
 
 use deepgram::{
     transcription::prerecorded::{
-        audio_source::UrlSource,
+        audio_source::AudioSource,
         options::{Language, Options},
     },
     Deepgram, DeepgramError,
@@ -17,7 +17,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let dg_client = Deepgram::new(&deepgram_api_key);
 
-    let source = UrlSource { url: AUDIO_URL };
+    let source = AudioSource::from_url(AUDIO_URL);
 
     let options = Options::builder()
         .punctuate(true)
@@ -26,7 +26,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let response = dg_client
         .transcription()
-        .prerecorded(&source, &options)
+        .prerecorded(source, &options)
         .await?;
 
     let transcript = &response.results.channels[0].alternatives[0].transcript;

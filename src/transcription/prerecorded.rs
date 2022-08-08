@@ -34,7 +34,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// # use deepgram::{
     /// #     transcription::prerecorded::{
-    /// #         audio_source::UrlSource,
+    /// #         audio_source::AudioSource,
     /// #         options::{Language, Options},
     /// #     },
     /// #     Deepgram, DeepgramError,
@@ -49,7 +49,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let dg_client = Deepgram::new(&deepgram_api_key);
     ///
-    /// let source = UrlSource { url: AUDIO_URL };
+    /// let source = AudioSource::from_url(AUDIO_URL);
     ///
     /// let options = Options::builder()
     ///     .punctuate(true)
@@ -58,7 +58,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     ///
     /// let response = dg_client
     ///     .transcription()
-    ///     .prerecorded(&source, &options)
+    ///     .prerecorded(source, &options)
     ///     .await?;
     /// #
     /// # Ok(())
@@ -66,7 +66,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// ```
     pub async fn prerecorded(
         &self,
-        source: impl AudioSource,
+        source: AudioSource,
         options: &Options<'_>,
     ) -> crate::Result<Response> {
         let request_builder = self.make_prerecorded_request_builder(source, options);
@@ -88,7 +88,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// # use deepgram::{
     /// #     transcription::prerecorded::{
-    /// #         audio_source::UrlSource,
+    /// #         audio_source::AudioSource,
     /// #         options::{Language, Options},
     /// #     },
     /// #     Deepgram, DeepgramError,
@@ -103,7 +103,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let dg_client = Deepgram::new(&deepgram_api_key);
     ///
-    /// let source = UrlSource { url: AUDIO_URL };
+    /// let source = AudioSource::from_url(AUDIO_URL);
     ///
     /// let options = Options::builder()
     ///     .punctuate(true)
@@ -115,7 +115,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let response = dg_client
     ///     .transcription()
-    ///     .prerecorded_callback(&source, &options, &callback_url)
+    ///     .prerecorded_callback(source, &options, &callback_url)
     ///     .await?;
     /// #
     /// # Ok(())
@@ -123,7 +123,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// ```
     pub async fn prerecorded_callback(
         &self,
-        source: impl AudioSource,
+        source: AudioSource,
         options: &Options<'_>,
         callback: &str,
     ) -> crate::Result<CallbackResponse> {
@@ -147,7 +147,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// # use deepgram::{
     /// #     transcription::prerecorded::{
-    /// #         audio_source::UrlSource,
+    /// #         audio_source::AudioSource,
     /// #         options::{Language, Options},
     /// #         response::Response,
     /// #     },
@@ -164,14 +164,16 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// # let dg_client = Deepgram::new(&deepgram_api_key);
     /// #
-    /// # let source = UrlSource { url: AUDIO_URL };
+    /// # let source = AudioSource::from_url(AUDIO_URL);
     /// #
     /// # let options = Options::builder()
     /// #     .punctuate(true)
     /// #     .language(Language::en_US)
     /// #     .build();
     /// #
-    /// let request_builder = dg_client.transcription().make_prerecorded_request_builder(&source, &options);
+    /// let request_builder = dg_client
+    ///     .transcription()
+    ///     .make_prerecorded_request_builder(source, &options);
     ///
     /// // Customize the RequestBuilder here
     /// let customized_request_builder = request_builder
@@ -187,7 +189,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// ```
     pub fn make_prerecorded_request_builder(
         &self,
-        source: impl AudioSource,
+        source: AudioSource,
         options: &Options<'_>,
     ) -> RequestBuilder {
         let request_builder = self
@@ -213,7 +215,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// # use deepgram::{
     /// #     transcription::prerecorded::{
-    /// #         audio_source::UrlSource,
+    /// #         audio_source::AudioSource,
     /// #         options::{Language, Options},
     /// #         response::CallbackResponse,
     /// #     },
@@ -230,7 +232,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// # let dg_client = Deepgram::new(&deepgram_api_key);
     /// #
-    /// # let source = UrlSource { url: AUDIO_URL };
+    /// # let source = AudioSource::from_url(AUDIO_URL);
     /// #
     /// # let options = Options::builder()
     /// #     .punctuate(true)
@@ -242,7 +244,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// #
     /// let request_builder = dg_client
     ///     .transcription()
-    ///     .make_prerecorded_callback_request_builder(&source, &options, &callback_url);
+    ///     .make_prerecorded_callback_request_builder(source, &options, &callback_url);
     ///
     /// // Customize the RequestBuilder here
     /// let customized_request_builder = request_builder
@@ -258,7 +260,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     /// ```
     pub fn make_prerecorded_callback_request_builder(
         &self,
-        source: impl AudioSource,
+        source: AudioSource,
         options: &Options<'_>,
         callback: &str,
     ) -> RequestBuilder {

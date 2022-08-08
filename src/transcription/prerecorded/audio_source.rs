@@ -8,67 +8,72 @@ use reqwest::{header::CONTENT_TYPE, RequestBuilder};
 use serde::Serialize;
 
 /// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
-///
-/// This trait is [sealed], and thus cannot be implemented by anything new.
-///
-/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
-pub trait AudioSource: private::Sealed {
-    #[doc(hidden)]
-    fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder;
+#[derive(Debug)]
+pub struct AudioSource(InternalAudioSource);
+
+#[derive(Debug)]
+enum InternalAudioSource {
+    Url(String),
+    Buffer {
+        buffer: reqwest::Body,
+        mime_type: Option<String>,
+    },
 }
 
-/// Used to prevent other crates from implementing AudioSource
-/// See <https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed>
-mod private {
-    use super::{BufferSource, UrlSource};
+impl AudioSource {
+    /// Constructs an [`AudioSource`] that will instruct Deepgram to download the audio from the specified URL.
+    pub fn from_url(url: impl Into<String>) -> Self {
+        Self(InternalAudioSource::Url(url.into()))
+    }
 
-    pub trait Sealed {}
-
-    impl Sealed for &UrlSource<'_> {}
-    impl<B: Into<reqwest::Body>> Sealed for BufferSource<'_, B> {}
-}
-
-/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
-///
-/// Instructs Deepgram to download the audio from the specified URL.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
-pub struct UrlSource<'a> {
-    /// URL of audio file to transcribe.
-    pub url: &'a str,
-}
-
-/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
-///
-/// Uploads the raw binary audio data to Deepgram as part of the request.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct BufferSource<'a, B: Into<reqwest::Body>> {
-    /// The source of the raw binary audio data, such as a [`tokio::fs::File`].
+    /// Constructs an [`AudioSource`] that will upload the raw binary audio data to Deepgram as part of the request.
     ///
-    /// It can be any type that implements [`Into<reqwest::Body>`].
+    /// The buffer can be any type that implements [`Into<reqwest::Body>`], such as a [`tokio::fs::File`].
     /// See [trait implementations for `reqwest::Body`](reqwest::Body#trait-implementations)
     /// for a list of types that already implement it.
-    pub buffer: B,
-
-    /// Optionally specify the [MIME type][mime] of the raw binary audio data.
+    ///
+    /// Use [`AudioSource::from_buffer_with_mime_type`] if you want to specify a [MIME type][mime].
     ///
     /// [mime]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types#audio_and_video_types
-    pub mimetype: Option<&'a str>,
-}
-
-impl AudioSource for &UrlSource<'_> {
-    fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
-        request_builder.json(self)
+    pub fn from_buffer(buffer: impl Into<reqwest::Body>) -> Self {
+        Self(InternalAudioSource::Buffer {
+            buffer: buffer.into(),
+            mime_type: None,
+        })
     }
-}
 
-impl<B: Into<reqwest::Body>> AudioSource for BufferSource<'_, B> {
-    fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
-        let request_builder = request_builder.body(self.buffer);
+    /// Same as [`AudioSource::from_buffer`], but allows you to specify a [MIME type][mime].
+    ///
+    /// [mime]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types#audio_and_video_types
+    pub fn from_buffer_with_mime_type(
+        buffer: impl Into<reqwest::Body>,
+        mime_type: impl Into<String>,
+    ) -> Self {
+        Self(InternalAudioSource::Buffer {
+            buffer: buffer.into(),
+            mime_type: Some(mime_type.into()),
+        })
+    }
 
-        if let Some(mimetype) = self.mimetype {
-            request_builder.header(CONTENT_TYPE, mimetype)
-        } else {
-            request_builder
+    pub(super) fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
+        match self.0 {
+            InternalAudioSource::Url(url) => {
+                #[derive(Serialize)]
+                struct UrlSource {
+                    url: String,
+                }
+
+                request_builder.json(&UrlSource { url })
+            }
+            InternalAudioSource::Buffer { buffer, mime_type } => {
+                let request_builder = request_builder.body(buffer);
+
+                if let Some(mime_type) = mime_type {
+                    request_builder.header(CONTENT_TYPE, mime_type)
+                } else {
+                    request_builder
+                }
+            }
         }
     }
 }

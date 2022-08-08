@@ -2,7 +2,7 @@ use std::env;
 
 use deepgram::{
     transcription::prerecorded::{
-        audio_source::UrlSource,
+        audio_source::AudioSource,
         options::{Language, Options},
         response::Response,
     },
@@ -18,7 +18,7 @@ async fn main() -> reqwest::Result<()> {
 
     let dg_client = Deepgram::new(&deepgram_api_key);
 
-    let source = UrlSource { url: AUDIO_URL };
+    let source = AudioSource::from_url(AUDIO_URL);
 
     let options = Options::builder()
         .punctuate(true)
@@ -27,7 +27,7 @@ async fn main() -> reqwest::Result<()> {
 
     let request_builder = dg_client
         .transcription()
-        .make_prerecorded_request_builder(&source, &options);
+        .make_prerecorded_request_builder(source, &options);
 
     // Customize the RequestBuilder here
     let customized_request_builder = request_builder
