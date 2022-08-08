@@ -761,7 +761,7 @@ impl OptionsBuilder {
     /// assert_eq!(options1, options2);
     /// ```
     pub fn search<'a>(mut self, search: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.search.extend(search.into_iter().map(|s| s.into()));
+        self.0.search.extend(search.into_iter().map(String::from));
         self
     }
 
@@ -1048,7 +1048,7 @@ impl OptionsBuilder {
     /// assert_eq!(options1, options2);
     /// ```
     pub fn tag<'a>(mut self, tag: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.tags.extend(tag.into_iter().map(|s| s.into()));
+        self.0.tags.extend(tag.into_iter().map(String::from));
         self
     }
 
