@@ -187,9 +187,9 @@ impl OptionsBuilder {
         self
     }
 
-    /// Set the expiration date.
+    /// Set the time to live in seconds.
     ///
-    /// This will unset the time to live in seconds.
+    /// This will unset the expiration date.
     ///
     /// # Examples
     ///
@@ -197,7 +197,7 @@ impl OptionsBuilder {
     /// # use deepgram::keys::options::Options;
     /// #
     /// let options = Options::builder("New Key", ["member"])
-    ///     .expiration_date("2038-01-19")
+    ///     .time_to_live_in_seconds(7776000)
     ///     .build();
     /// ```
     ///
@@ -205,12 +205,12 @@ impl OptionsBuilder {
     /// # use deepgram::keys::options::Options;
     /// #
     /// let options1 = Options::builder("New Key", ["member"])
-    ///     .time_to_live_in_seconds(7776000)
     ///     .expiration_date("2038-01-19")
+    ///     .time_to_live_in_seconds(7776000)
     ///     .build();
     ///
     /// let options2 = Options::builder("New Key", ["member"])
-    ///     .expiration_date("2038-01-19")
+    ///     .time_to_live_in_seconds(7776000)
     ///     .build();
     ///
     /// assert_eq!(options1, options2);
