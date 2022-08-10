@@ -12,10 +12,12 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::{stream::FusedStream, Sink, Stream};
-use pin_project::pin_project;
+use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use tokio::net::TcpStream;
-use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{
+    connect_async, tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream,
+};
 
 use super::Transcription;
 use crate::DeepgramError;
@@ -23,9 +25,7 @@ use crate::DeepgramError;
 static DEEPGRAM_API_URL_LISTEN: &str = "wss://api.deepgram.com/v1/listen";
 
 #[derive(Debug)]
-#[pin_project]
 pub struct DeepgramLive {
-    #[pin]
     websocket: WebSocketStream<MaybeTlsStream<TcpStream>>,
 }
 
@@ -56,42 +56,56 @@ impl OptionsBuilder {
 
 impl<K: AsRef<str>> Transcription<'_, K> {
     pub async fn live(&self, _options: &Options) -> crate::Result<DeepgramLive> {
-        let (websocket, response) = connect_async(DEEPGRAM_API_URL_LISTEN).await?;
+        let (websocket, _response) = connect_async(DEEPGRAM_API_URL_LISTEN).await?;
 
         Ok(DeepgramLive { websocket })
+    }
+}
+
+impl DeepgramLive {
+    pub async fn finish(&mut self) -> crate::Result<()> {
+        Ok(self.websocket.send(Message::binary(Vec::new())).await?)
     }
 }
 
 impl Stream for DeepgramLive {
     type Item = crate::Result<Response>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        todo!()
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.websocket.poll_next_unpin(cx).map(|message| {
+            message.map(|message| Ok(serde_json::from_slice(&message?.into_data())?))
+        })
     }
 }
 
 impl<B: Into<Vec<u8>>> Sink<B> for DeepgramLive {
     type Error = DeepgramError;
 
-    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
+    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.websocket
+            .poll_ready_unpin(cx)
+            .map(|result| Ok(result?))
     }
 
-    fn start_send(self: Pin<&mut Self>, item: B) -> Result<(), Self::Error> {
-        todo!()
+    fn start_send(mut self: Pin<&mut Self>, item: B) -> Result<(), Self::Error> {
+        Ok(self.websocket.start_send_unpin(Message::binary(item))?)
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.websocket
+            .poll_flush_unpin(cx)
+            .map(|result| Ok(result?))
     }
 
-    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.websocket
+            .poll_close_unpin(cx)
+            .map(|result| Ok(result?))
     }
 }
 
 impl FusedStream for DeepgramLive {
     fn is_terminated(&self) -> bool {
-        todo!()
+        self.websocket.is_terminated()
     }
 }
