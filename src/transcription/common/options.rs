@@ -1,4 +1,4 @@
-/// Used as a parameter for [`OptionsBuilder::tier`].
+/// Used to set the Tier feature.
 ///
 /// See the [Deepgram Tier feature docs][docs] for more info.
 ///
@@ -13,7 +13,7 @@ pub enum Tier {
     Base,
 }
 
-/// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
+/// Used to set the Model feature.
 ///
 /// See the [Deepgram Model feature docs][docs] for more info.
 ///
@@ -46,7 +46,7 @@ pub enum Model {
     CustomId(String),
 }
 
-/// Used as a parameter for [`OptionsBuilder::language`].
+/// Used to set the Language feature.
 ///
 /// See the [Deepgram Language feature docs][docs] for more info.
 ///
@@ -144,7 +144,7 @@ pub enum Language {
     Other(String),
 }
 
-/// Used as a parameter for [`OptionsBuilder::redact`].
+/// Used to set the Redaction feature.
 ///
 /// See the [Deepgram Redaction feature docs][docs] for more info.
 ///
@@ -169,7 +169,7 @@ pub enum Redact {
     Other(String),
 }
 
-/// Used as a parameter for [`OptionsBuilder::replace`].
+/// Used to set the Replace feature.
 ///
 /// See the [Deepgram Find and Replace feature docs][docs] for more info.
 ///
@@ -184,7 +184,7 @@ pub struct Replace {
     pub replace: Option<String>,
 }
 
-/// Used as a parameter for [`OptionsBuilder::keywords_with_intensifiers`].
+/// Used to set the Keywords feature.
 ///
 /// See the [Deepgram Keywords feature docs][docs] for more info.
 ///
