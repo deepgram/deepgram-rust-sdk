@@ -1083,14 +1083,14 @@ mod serialize_options_tests {
 
         let dg_client = Deepgram::new(deepgram_api_key);
 
-        let url = dg_client
+        let request = dg_client
             .transcription()
-            .make_streaming_url(options)
+            .make_streaming_request(options)
             .unwrap();
 
-        let actual = url.query().unwrap_or("");
+        let actual = request.uri().to_string();
 
-        assert_eq!(actual, expected);
+        assert_eq!(&actual[33..], expected);
     }
 
     fn generate_alphabet_test(key: &str, length: usize) -> (Vec<&str>, String) {

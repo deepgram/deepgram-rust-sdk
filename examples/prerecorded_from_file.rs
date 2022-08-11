@@ -9,7 +9,7 @@ use deepgram::{
 };
 use tokio::fs::File;
 
-static PATH_TO_FILE: &str = "examples/prerecorded_from_file/Bueller-Life-moves-pretty-fast.mp3";
+static PATH_TO_FILE: &str = "examples/Bueller-Life-moves-pretty-fast.mp3";
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {

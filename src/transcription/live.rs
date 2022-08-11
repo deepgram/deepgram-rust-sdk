@@ -13,10 +13,11 @@ use std::task::{Context, Poll};
 
 use futures::{stream::FusedStream, Sink, Stream};
 use futures::{SinkExt, StreamExt};
-use reqwest::Url;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
-    connect_async, tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream,
+    connect_async,
+    tungstenite::{handshake::client::Request, protocol::Message},
+    MaybeTlsStream, WebSocketStream,
 };
 
 use super::Transcription;
@@ -40,24 +41,30 @@ pub struct DeepgramLive {
 
 impl<K: AsRef<str>> Transcription<'_, K> {
     pub async fn live(&self, options: &Options) -> crate::Result<DeepgramLive> {
-        let url = self.make_streaming_url(options)?;
+        let request = self.make_streaming_request(options)?;
 
-        let (websocket, _response) = connect_async(url).await?;
+        let (websocket, _response) = connect_async(request).await?;
 
         Ok(DeepgramLive { websocket })
     }
 
-    fn make_streaming_url(&self, options: &Options) -> reqwest::Result<Url> {
+    fn make_streaming_request(&self, options: &Options) -> crate::Result<Request> {
         // The reqwest::Request is *not* sent
         // It only exists to build a URL
-        Ok(self
+        let url_building_request = self
             .0
             .client
             .get(DEEPGRAM_API_URL_LISTEN)
             .query(&SerializableOptions(options))
-            .build()?
-            .url()
-            .to_owned())
+            .build()?;
+
+        Ok(Request::builder()
+            .uri(AsRef::<str>::as_ref(url_building_request.url()))
+            .header(
+                "Authorization",
+                format!("Token {}", self.0.api_key.as_ref()),
+            )
+            .body(())?)
     }
 }
 
