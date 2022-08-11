@@ -24,6 +24,9 @@ use crate::DeepgramError;
 
 static DEEPGRAM_API_URL_LISTEN: &str = "wss://api.deepgram.com/v1/listen";
 
+// The traits `futures::{stream::FusedStream, Sink, Stream}` were chosed for `DeepgramLive`
+// because tokio_tungstenite::WebSocketStream implements them, and DeepgramLive is essentially
+// just a wrapper around tokio_tungstenite::WebSocketStream
 #[derive(Debug)]
 pub struct DeepgramLive {
     websocket: WebSocketStream<MaybeTlsStream<TcpStream>>,
