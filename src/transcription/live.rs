@@ -13,7 +13,7 @@ use std::task::{Context, Poll};
 
 use futures::{stream::FusedStream, Sink, Stream};
 use futures::{SinkExt, StreamExt};
-use serde::Deserialize;
+use reqwest::Url;
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
     connect_async, tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream,
@@ -21,6 +21,12 @@ use tokio_tungstenite::{
 
 use super::Transcription;
 use crate::DeepgramError;
+
+pub mod options;
+pub mod response;
+
+use options::{Options, SerializableOptions};
+use response::Response;
 
 static DEEPGRAM_API_URL_LISTEN: &str = "wss://api.deepgram.com/v1/listen";
 
@@ -32,36 +38,26 @@ pub struct DeepgramLive {
     websocket: WebSocketStream<MaybeTlsStream<TcpStream>>,
 }
 
-#[derive(Debug)]
-pub struct Options {
-    // TODO
-}
-
-#[derive(Debug)]
-pub struct OptionsBuilder(Options);
-
-#[derive(Debug, Deserialize)]
-pub struct Response {
-    // TODO
-}
-
-impl Options {
-    pub fn builder() -> OptionsBuilder {
-        OptionsBuilder(Self {})
-    }
-}
-
-impl OptionsBuilder {
-    pub fn build(self) -> Options {
-        self.0
-    }
-}
-
 impl<K: AsRef<str>> Transcription<'_, K> {
-    pub async fn live(&self, _options: &Options) -> crate::Result<DeepgramLive> {
-        let (websocket, _response) = connect_async(DEEPGRAM_API_URL_LISTEN).await?;
+    pub async fn live(&self, options: &Options) -> crate::Result<DeepgramLive> {
+        let url = self.make_streaming_url(options)?;
+
+        let (websocket, _response) = connect_async(url).await?;
 
         Ok(DeepgramLive { websocket })
+    }
+
+    fn make_streaming_url(&self, options: &Options) -> reqwest::Result<Url> {
+        // The reqwest::Request is *not* sent
+        // It only exists to build a URL
+        Ok(self
+            .0
+            .client
+            .get(DEEPGRAM_API_URL_LISTEN)
+            .query(&SerializableOptions(options))
+            .build()?
+            .url()
+            .to_owned())
     }
 }
 

@@ -10,7 +10,7 @@ pub use super::super::common::options::{Keyword, Language, Model, Redact, Replac
 
 use super::super::common::options::{models_to_string, Multichannel};
 
-/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
+/// Used as a parameter for [`Transcription::live`](crate::transcription::Transcription::live) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options {
     tier: Option<Tier>,
@@ -27,22 +27,46 @@ pub struct Options {
     numerals: Option<bool>,
     search: Vec<String>,
     replace: Vec<Replace>,
+    callback: Option<String>,
     keywords: Vec<Keyword>,
     keyword_boost_legacy: bool,
-    utterances: Option<Utterances>,
+    interim_results: Option<bool>,
+    endpointing: Option<Endpointing>,
+    encoding: Option<InternalEncoding>,
     tags: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-enum Utterances {
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[non_exhaustive]
+enum Endpointing {
     Disabled,
-    Enabled { utt_split: Option<f64> },
+    Enabled { vad_turnoff: Option<usize> },
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[non_exhaustive]
+struct InternalEncoding {
+    encoding: Encoding,
+    channels: Option<usize>,
+    sample_rate: usize,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[non_exhaustive]
+pub enum Encoding {
+    Linear16,
+    Flac,
+    Mulaw,
+    AmrNb,
+    AmrWb,
+    Opus,
+    Speex,
+    Other(String),
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
-/// Use it to set Deepgram's features, excluding the Callback feature.
-/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::transcription::Transcription::prerecorded_callback).
+/// Use it to set Deepgram's features.
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
@@ -76,9 +100,12 @@ impl OptionsBuilder {
             numerals: None,
             search: Vec::new(),
             replace: Vec::new(),
+            callback: None,
             keywords: Vec::new(),
             keyword_boost_legacy: false,
-            utterances: None,
+            interim_results: None,
+            endpointing: None,
+            encoding: None,
             tags: Vec::new(),
         })
     }
@@ -97,7 +124,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Options, Tier};
+    /// # use deepgram::transcription::live::options::{Options, Tier};
     /// #
     /// let options = Options::builder()
     ///     .tier(Tier::Enhanced)
@@ -124,7 +151,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
+    /// # use deepgram::transcription::live::options::{Model, Options};
     /// #
     /// let options = Options::builder()
     ///     .model(Model::General)
@@ -132,7 +159,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
+    /// # use deepgram::transcription::live::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
@@ -165,7 +192,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .version("12345678-1234-1234-1234-1234567890ab")
@@ -185,7 +212,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Language, Options};
+    /// # use deepgram::transcription::live::options::{Language, Options};
     /// #
     /// let options = Options::builder()
     ///     .language(Language::en_US)
@@ -205,7 +232,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .punctuate(true)
@@ -227,7 +254,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .profanity_filter(true)
@@ -251,7 +278,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Options, Redact};
+    /// # use deepgram::transcription::live::options::{Options, Redact};
     /// #
     /// let options = Options::builder()
     ///     .redact([Redact::Pci, Redact::Ssn])
@@ -259,7 +286,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Options, Redact};
+    /// # use deepgram::transcription::live::options::{Options, Redact};
     /// #
     /// let options1 = Options::builder()
     ///     .redact([Redact::Pci])
@@ -286,7 +313,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .diarize(true)
@@ -308,7 +335,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .ner(true)
@@ -332,7 +359,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .multichannel(true)
@@ -340,7 +367,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
+    /// # use deepgram::transcription::live::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .model(Model::General)
@@ -380,21 +407,18 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
+    /// # use deepgram::transcription::live::options::{Model, Options};
     /// #
     /// let options = Options::builder()
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
     ///     .build();
     /// ```
     ///
-    /// ```
+    /// ```ignore // TODO: Fix this example
     /// # use std::env;
     /// #
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{
-    /// #         audio_source::AudioSource,
-    /// #         options::{Model, Options},
-    /// #     },
+    /// #     transcription::live::options::{Model, Options},
     /// #     Deepgram,
     /// # };
     /// #
@@ -436,7 +460,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
+    /// # use deepgram::transcription::live::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .model(Model::General)
@@ -453,7 +477,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Model, Options};
+    /// # use deepgram::transcription::live::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .multichannel_with_models([Model::Meeting])
@@ -493,7 +517,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .alternatives(3)
@@ -515,7 +539,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .numerals(true)
@@ -537,7 +561,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .search(["hello", "world"])
@@ -545,7 +569,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .search(["hello"])
@@ -574,7 +598,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Options, Replace};
+    /// # use deepgram::transcription::live::options::{Options, Replace};
     /// #
     /// let options = Options::builder()
     ///     .replace([
@@ -591,7 +615,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Options, Replace};
+    /// # use deepgram::transcription::live::options::{Options, Replace};
     /// #
     /// let options1 = Options::builder()
     ///     .replace([Replace {
@@ -624,6 +648,11 @@ impl OptionsBuilder {
         self
     }
 
+    pub fn callback(mut self, callback: &str) -> Self {
+        self.0.callback = Some(callback.into());
+        self
+    }
+
     /// Set the Keywords feature.
     ///
     /// To specify intensifiers, use [`OptionsBuilder::keywords_with_intensifiers`] instead.
@@ -638,7 +667,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .keywords(["hello", "world"])
@@ -646,7 +675,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .keywords(["hello"])
@@ -682,7 +711,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Keyword, Options};
+    /// # use deepgram::transcription::live::options::{Keyword, Options};
     /// #
     /// let options = Options::builder()
     ///     .keywords_with_intensifiers([
@@ -699,7 +728,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Keyword, Options};
+    /// # use deepgram::transcription::live::options::{Keyword, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .keywords_with_intensifiers([
@@ -748,7 +777,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .keywords(["hello", "world"])
@@ -760,55 +789,47 @@ impl OptionsBuilder {
         self
     }
 
-    /// Set the Utterances feature.
-    ///
-    /// To set the Utterance Split feature, use [`OptionsBuilder::utterances_with_utt_split`] instead.
-    ///
-    /// See the [Deepgram Utterances feature docs][docs] for more info.
-    ///
-    /// [docs]: https://developers.deepgram.com/documentation/features/utterances/
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
-    /// #
-    /// let options = Options::builder()
-    ///     .utterances(true)
-    ///     .build();
-    /// ```
-    pub fn utterances(mut self, utterances: bool) -> Self {
-        self.0.utterances = Some(if utterances {
-            Utterances::Enabled { utt_split: None }
+    pub fn interim_results(mut self, interim_results: bool) -> Self {
+        self.0.interim_results = Some(interim_results);
+        self
+    }
+
+    pub fn endpointing(mut self, endpointing: bool) -> Self {
+        self.0.endpointing = Some(if endpointing {
+            Endpointing::Enabled { vad_turnoff: None }
         } else {
-            Utterances::Disabled
+            Endpointing::Disabled
         });
 
         self
     }
 
-    /// Set the Utterances feature and the Utterance Split feature.
-    ///
-    /// If you do not want to set the Utterance Split feature, use [`OptionsBuilder::utterances`] instead.
-    ///
-    /// See the [Deepgram Utterances feature docs][utterances-docs]
-    /// and the [Deepgram Utterance Split feature docs][utt_split-docs] for more info.
-    ///
-    /// [utterances-docs]: https://developers.deepgram.com/documentation/features/utterances/
-    /// [utt_split-docs]: https://developers.deepgram.com/documentation/features/utterance-split/
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
-    /// #
-    /// let options = Options::builder()
-    ///     .utterances_with_utt_split(0.9)
-    ///     .build();
-    /// ```
-    pub fn utterances_with_utt_split(mut self, utt_split: f64) -> Self {
-        self.0.utterances = Some(Utterances::Enabled {
-            utt_split: Some(utt_split),
+    pub fn endpointing_with_vad_turnoff(mut self, vad_turnoff: usize) -> Self {
+        self.0.endpointing = Some(Endpointing::Enabled {
+            vad_turnoff: Some(vad_turnoff),
+        });
+        self
+    }
+
+    pub fn encoding(mut self, encoding: Encoding, sample_rate: usize) -> Self {
+        self.0.encoding = Some(InternalEncoding {
+            encoding,
+            channels: None,
+            sample_rate,
+        });
+        self
+    }
+
+    pub fn encoding_with_channels(
+        mut self,
+        encoding: Encoding,
+        sample_rate: usize,
+        channels: usize,
+    ) -> Self {
+        self.0.encoding = Some(InternalEncoding {
+            encoding,
+            channels: Some(channels),
+            sample_rate,
         });
         self
     }
@@ -824,7 +845,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .tag(["Tag 1", "Tag 2"])
@@ -832,7 +853,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// # use deepgram::transcription::live::options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .tag(["Tag 1"])
@@ -885,9 +906,12 @@ impl Serialize for SerializableOptions<'_> {
             numerals,
             search,
             replace,
+            callback,
             keywords,
             keyword_boost_legacy,
-            utterances,
+            interim_results,
+            endpointing,
+            encoding,
             tags,
         } = self.0;
 
@@ -971,6 +995,10 @@ impl Serialize for SerializableOptions<'_> {
             }
         }
 
+        if let Some(callback) = callback {
+            seq.serialize_element(&("callback", callback))?;
+        }
+
         for element in keywords {
             if let Some(intensifier) = element.intensifier {
                 seq.serialize_element(&(
@@ -986,17 +1014,36 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("keyword_boost", "legacy"))?;
         }
 
-        match utterances {
-            Some(Utterances::Disabled) => seq.serialize_element(&("utterances", false))?,
-            Some(Utterances::Enabled { utt_split }) => {
-                seq.serialize_element(&("utterances", true))?;
+        if let Some(interim_results) = interim_results {
+            seq.serialize_element(&("interim_results", interim_results))?;
+        }
 
-                if let Some(utt_split) = utt_split {
-                    seq.serialize_element(&("utt_split", utt_split))?;
+        match endpointing {
+            Some(Endpointing::Disabled) => seq.serialize_element(&("endpointing", false))?,
+            Some(Endpointing::Enabled { vad_turnoff }) => {
+                seq.serialize_element(&("endpointing", true))?;
+
+                if let Some(vad_turnoff) = vad_turnoff {
+                    seq.serialize_element(&("vad_turnoff", vad_turnoff))?;
                 }
             }
-            None => (),
-        };
+            None => {}
+        }
+
+        if let Some(InternalEncoding {
+            encoding,
+            channels,
+            sample_rate,
+        }) = encoding
+        {
+            seq.serialize_element(&("encoding", AsRef::<str>::as_ref(encoding)))?;
+
+            if let Some(channels) = channels {
+                seq.serialize_element(&("channels", channels))?;
+            }
+
+            seq.serialize_element(&("sample_rate", sample_rate))?;
+        }
 
         for element in tags {
             seq.serialize_element(&("tag", element))?;
@@ -1006,12 +1053,29 @@ impl Serialize for SerializableOptions<'_> {
     }
 }
 
+impl AsRef<str> for Encoding {
+    fn as_ref(&self) -> &str {
+        use Encoding::*;
+
+        match self {
+            Linear16 => "linear16",
+            Flac => "flac",
+            Mulaw => "mulaw",
+            AmrNb => "amr-nb",
+            AmrWb => "amr-wb",
+            Opus => "opus",
+            Speex => "speex",
+            Other(code) => code,
+        }
+    }
+}
+
 #[cfg(test)]
 mod serialize_options_tests {
     use std::cmp;
     use std::env;
 
-    use super::{super::audio_source::AudioSource, *};
+    use super::*;
     use crate::Deepgram;
 
     fn check_serialization(options: &Options, expected: &str) {
@@ -1019,13 +1083,12 @@ mod serialize_options_tests {
 
         let dg_client = Deepgram::new(deepgram_api_key);
 
-        let request = dg_client
+        let url = dg_client
             .transcription()
-            .make_prerecorded_request_builder(AudioSource::from_url(""), options)
-            .build()
+            .make_streaming_url(options)
             .unwrap();
 
-        let actual = request.url().query().unwrap_or("");
+        let actual = url.query().unwrap_or("");
 
         assert_eq!(actual, expected);
     }
@@ -1071,16 +1134,19 @@ mod serialize_options_tests {
                 find: String::from("Aaron"),
                 replace: Some(String::from("Erin")),
             }])
+            .callback("wss://example.com/")
             .keywords(["Ferris"])
             .keywords_with_intensifiers([Keyword {
                 keyword: String::from("Cargo"),
                 intensifier: Some(-1.5),
             }])
-            .utterances_with_utt_split(0.9)
             .tag(["Tag 1"])
+            .interim_results(true)
+            .endpointing_with_vad_turnoff(5000)
+            .encoding_with_channels(Encoding::Linear16, 44100, 2)
             .build();
 
-        check_serialization(&options, "tier=enhanced&model=finance%3Aextra_crispy%3Aconversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1");
+        check_serialization(&options, "tier=enhanced&model=finance%3Aextra_crispy%3Aconversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&callback=wss%3A%2F%2Fexample.com%2F&keywords=Ferris&keywords=Cargo%3A-1.5&interim_results=true&endpointing=true&vad_turnoff=5000&encoding=linear16&channels=2&sample_rate=44100&tag=Tag+1");
     }
 
     #[test]
@@ -1311,6 +1377,14 @@ mod serialize_options_tests {
     }
 
     #[test]
+    fn callback() {
+        check_serialization(
+            &Options::builder().callback("wss://example.com/").build(),
+            "callback=wss%3A%2F%2Fexample.com%2F",
+        );
+    }
+
+    #[test]
     fn keywords() {
         check_serialization(&Options::builder().keywords([]).build(), "");
 
@@ -1374,20 +1448,52 @@ mod serialize_options_tests {
     }
 
     #[test]
-    fn utterances() {
+    fn interim_results() {
         check_serialization(
-            &Options::builder().utterances(false).build(),
-            "utterances=false",
+            &Options::builder().interim_results(true).build(),
+            "interim_results=true",
         );
 
         check_serialization(
-            &Options::builder().utterances(true).build(),
-            "utterances=true",
+            &Options::builder().interim_results(false).build(),
+            "interim_results=false",
+        );
+    }
+
+    #[test]
+    fn endpointing() {
+        check_serialization(
+            &Options::builder().endpointing(true).build(),
+            "endpointing=true",
         );
 
         check_serialization(
-            &Options::builder().utterances_with_utt_split(0.9).build(),
-            "utterances=true&utt_split=0.9",
+            &Options::builder().endpointing(false).build(),
+            "endpointing=false",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .endpointing_with_vad_turnoff(5000)
+                .build(),
+            "endpointing=true&vad_turnoff=5000",
+        );
+    }
+
+    #[test]
+    fn encoding() {
+        check_serialization(
+            &Options::builder()
+                .encoding(Encoding::Linear16, 44100)
+                .build(),
+            "encoding=linear16&sample_rate=44100",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .encoding_with_channels(Encoding::Linear16, 44100, 2)
+                .build(),
+            "encoding=linear16&channels=2&sample_rate=44100",
         );
     }
 

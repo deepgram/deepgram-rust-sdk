@@ -10,6 +10,8 @@ pub mod live;
 pub mod old_live;
 pub mod prerecorded;
 
+mod common;
+
 /// Transcribe audio using Deepgram's automated speech recognition.
 ///
 /// Constructed using [`Deepgram::transcription`].
