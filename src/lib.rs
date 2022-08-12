@@ -1,5 +1,10 @@
 #![forbid(unsafe_code)]
-#![warn(missing_debug_implementations, missing_docs, clippy::cargo)]
+#![warn(
+    missing_debug_implementations,
+    missing_docs,
+    clippy::cargo,
+    clippy::missing_errors_doc
+)]
 #![allow(clippy::multiple_crate_versions, clippy::derive_partial_eq_without_eq)]
 
 //! Official Rust SDK for Deepgram's automated speech recognition APIs.

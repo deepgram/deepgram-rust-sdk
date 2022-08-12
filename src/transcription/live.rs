@@ -4,9 +4,7 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-streaming
 
-// TODO: Remove this lint
-// Missing docs allowed while this module is under development
-#![allow(missing_docs)]
+// TODO: Fix the docs in this module (and submodules)
 
 use std::pin::Pin;
 use std::task::{Context, Poll};

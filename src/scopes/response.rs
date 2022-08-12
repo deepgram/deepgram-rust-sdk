@@ -1,4 +1,4 @@
-//! Deepgram TODO API response types.
+//! Deepgram scopes API response types.
 
 use serde::Deserialize;
 
