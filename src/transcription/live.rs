@@ -16,7 +16,7 @@ use futures::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
     connect_async,
-    tungstenite::{handshake::client::Request, protocol::Message},
+    tungstenite::{client::IntoClientRequest, handshake::client::Request, protocol::Message},
     MaybeTlsStream, WebSocketStream,
 };
 
@@ -49,22 +49,23 @@ impl<K: AsRef<str>> Transcription<'_, K> {
     }
 
     fn make_streaming_request(&self, options: &Options) -> crate::Result<Request> {
-        // The reqwest::Request is *not* sent
-        // It only exists to build a URL
-        let url_building_request = self
+        // The reqwest::Request used here is *not* sent
+        // It only exists to build a URL, which is passed to into_client_request
+        // Since only the URL is used, headers aren't set here
+        let mut request = self
             .0
             .client
             .get(DEEPGRAM_API_URL_LISTEN)
             .query(&SerializableOptions(options))
-            .build()?;
+            .build()?
+            .url()
+            .into_client_request()?;
 
-        Ok(Request::builder()
-            .uri(AsRef::<str>::as_ref(url_building_request.url()))
-            .header(
-                "Authorization",
-                format!("Token {}", self.0.api_key.as_ref()),
-            )
-            .body(())?)
+        request
+            .headers_mut()
+            .insert("Authorization", self.0.api_key_header.clone());
+
+        Ok(request)
     }
 }
 

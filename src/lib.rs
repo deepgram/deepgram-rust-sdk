@@ -35,6 +35,7 @@ where
     K: AsRef<str>,
 {
     api_key: K,
+    api_key_header: HeaderValue,
     client: reqwest::Client,
 }
 
@@ -100,18 +101,18 @@ where
             " rust",
         );
 
+        let api_key_header =
+            HeaderValue::from_str(&format!("Token {}", api_key.as_ref())).expect("Invalid API key");
+
         let authorization_header = {
             let mut header = HeaderMap::new();
-            header.insert(
-                "Authorization",
-                HeaderValue::from_str(&format!("Token {}", api_key.as_ref()))
-                    .expect("Invalid API key"),
-            );
+            header.insert("Authorization", api_key_header.clone());
             header
         };
 
         Deepgram {
             api_key,
+            api_key_header,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
                 .default_headers(authorization_header)
