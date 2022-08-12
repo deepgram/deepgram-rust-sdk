@@ -1075,6 +1075,8 @@ mod serialize_options_tests {
     use std::cmp;
     use std::env;
 
+    use url::Url;
+
     use super::*;
     use crate::Deepgram;
 
@@ -1083,14 +1085,19 @@ mod serialize_options_tests {
 
         let dg_client = Deepgram::new(deepgram_api_key);
 
-        let request = dg_client
-            .transcription()
-            .make_streaming_request(options)
-            .unwrap();
+        let url = Url::parse(
+            &dg_client
+                .transcription()
+                .make_streaming_request(options)
+                .unwrap()
+                .uri()
+                .to_string(),
+        )
+        .unwrap();
 
-        let actual = request.uri().to_string();
+        let actual = url.query().unwrap_or("");
 
-        assert_eq!(&actual[33..], expected);
+        assert_eq!(actual, expected);
     }
 
     fn generate_alphabet_test(key: &str, length: usize) -> (Vec<&str>, String) {
