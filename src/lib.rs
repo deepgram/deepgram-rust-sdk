@@ -7,7 +7,7 @@
 //! Get started transcribing with a [`Transcription`](transcription::Transcription) object.
 
 use reqwest::{
-    header::{HeaderMap, HeaderValue},
+    header::{HeaderMap, HeaderValue, InvalidHeaderValue},
     RequestBuilder,
 };
 use serde::de::DeserializeOwned;
@@ -38,6 +38,12 @@ pub struct Deepgram {
 // TODO sub-errors for the different types?
 #[derive(Debug, Error)]
 pub enum DeepgramError {
+    /// The provided API key contains invalid characters.
+    ///
+    /// See the [this doc page][reqwest::header::HeaderValue::from_str] for more info.
+    #[error("The provided API key contains invalid characters.")]
+    InvalidApiKey(InvalidHeaderValue),
+
     /// The Deepgram API returned an error.
     #[error("The Deepgram API returned an error.")]
     DeepgramApiError {
@@ -78,10 +84,16 @@ impl Deepgram {
     ///
     /// [console]: https://console.deepgram.com/
     ///
+    /// # Errors
+    ///
+    /// Returns a [`DeepgramError::InvalidApiKey`] if the API key contains invalid characters.
+    /// This doesn't guarantee that the API key will be correct, just that it's doesn't contain invalid characters.
+    /// See the [this doc page][reqwest::header::HeaderValue::from_str] for more info.
+    ///
     /// # Panics
     ///
     /// Panics under the same conditions as [`reqwest::Client::new`].
-    pub fn new(api_key: &str) -> Self {
+    pub fn new(api_key: &str) -> crate::Result<Self> {
         static USER_AGENT: &str = concat!(
             env!("CARGO_PKG_NAME"),
             "/",
@@ -89,8 +101,8 @@ impl Deepgram {
             " rust",
         );
 
-        let api_key_header =
-            HeaderValue::from_str(&format!("Token {}", api_key)).expect("Invalid API key");
+        let api_key_header = HeaderValue::from_str(&format!("Token {}", api_key))
+            .map_err(DeepgramError::InvalidApiKey)?;
 
         let authorization_header = {
             let mut header = HeaderMap::new();
@@ -98,7 +110,7 @@ impl Deepgram {
             header
         };
 
-        Deepgram {
+        Ok(Deepgram {
             api_key_header,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
@@ -106,7 +118,7 @@ impl Deepgram {
                 .build()
                 // Even though `reqwest::Client::new` is not used here, it will always panic under the same conditions
                 .expect("See reqwest::Client::new docs for cause of panic"),
-        }
+        })
     }
 }
 

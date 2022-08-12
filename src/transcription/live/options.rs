@@ -428,7 +428,7 @@ impl OptionsBuilder {
     /// # fn main() -> Result<(), reqwest::Error> {
     /// # let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     /// let dg_transcription = dg_client.transcription();
     ///
     /// let options1 = Options::builder()
@@ -1083,7 +1083,8 @@ mod serialize_options_tests {
     fn check_serialization(options: &Options, expected: &str) {
         let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
 
-        let dg_client = Deepgram::new(&deepgram_api_key);
+        let dg_client =
+            Deepgram::new(&deepgram_api_key).unwrap_or_else(|_| Deepgram::new("").unwrap());
 
         let url = Url::parse(
             &dg_client

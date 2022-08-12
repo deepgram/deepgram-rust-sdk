@@ -47,7 +47,7 @@ impl Transcription<'_> {
     /// # let deepgram_api_key =
     /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// let source = AudioSource::from_url(AUDIO_URL);
     ///
@@ -101,7 +101,7 @@ impl Transcription<'_> {
     /// # let deepgram_api_key =
     /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// let source = AudioSource::from_url(AUDIO_URL);
     ///
@@ -157,12 +157,12 @@ impl Transcription<'_> {
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
     /// # #[tokio::main]
-    /// # async fn main() -> reqwest::Result<()> {
+    /// # async fn main() -> Result<(), DeepgramError> {
     /// #
     /// # let deepgram_api_key =
     /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
     /// #
-    /// # let dg_client = Deepgram::new(&deepgram_api_key);
+    /// # let dg_client = Deepgram::new(&deepgram_api_key)?;
     /// #
     /// # let source = AudioSource::from_url(AUDIO_URL);
     /// #
@@ -225,12 +225,12 @@ impl Transcription<'_> {
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
     /// # #[tokio::main]
-    /// # async fn main() -> reqwest::Result<()> {
+    /// # async fn main() -> Result<(), DeepgramError> {
     /// #
     /// # let deepgram_api_key =
     /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
     /// #
-    /// # let dg_client = Deepgram::new(&deepgram_api_key);
+    /// # let dg_client = Deepgram::new(&deepgram_api_key)?;
     /// #
     /// # let source = AudioSource::from_url(AUDIO_URL);
     /// #

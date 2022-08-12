@@ -16,7 +16,7 @@ async fn main() -> Result<(), DeepgramError> {
     let request_id =
         env::var("DEEPGRAM_REQUEST_ID").expect("DEEPGRAM_REQUEST_ID environmental variable");
 
-    let dg_client = Deepgram::new(&deepgram_api_key);
+    let dg_client = Deepgram::new(&deepgram_api_key)?;
 
     let options = list_requests_options::Options::builder().build();
     let requests = dg_client

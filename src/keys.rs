@@ -58,7 +58,7 @@ impl<'a> Keys<'_> {
     /// # let project_id =
     /// #     env::var("DEEPGRAM_PROJECT_ID").expect("DEEPGRAM_PROJECT_ID environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// let keys = dg_client
     ///     .keys()
@@ -97,7 +97,7 @@ impl<'a> Keys<'_> {
     /// #
     /// # let key_id = env::var("DEEPGRAM_KEY_ID").expect("DEEPGRAM_KEY_ID environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// let key = dg_client
     ///     .keys()
@@ -139,7 +139,7 @@ impl<'a> Keys<'_> {
     /// #
     /// # let key_id = env::var("DEEPGRAM_KEY_ID").expect("DEEPGRAM_KEY_ID environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// let options = Options::builder("New Key", ["member"]).build();
     /// let new_key = dg_client
@@ -184,7 +184,7 @@ impl<'a> Keys<'_> {
     /// #
     /// # let key_id = env::var("DEEPGRAM_KEY_ID").expect("DEEPGRAM_KEY_ID environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// dg_client
     ///     .keys()

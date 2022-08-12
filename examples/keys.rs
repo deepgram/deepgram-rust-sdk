@@ -12,7 +12,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let key_id = env::var("DEEPGRAM_KEY_ID").expect("DEEPGRAM_KEY_ID environmental variable");
 
-    let dg_client = Deepgram::new(&deepgram_api_key);
+    let dg_client = Deepgram::new(&deepgram_api_key)?;
 
     let keys = dg_client.keys().list(&project_id).await?;
     println!("{:#?}", keys);

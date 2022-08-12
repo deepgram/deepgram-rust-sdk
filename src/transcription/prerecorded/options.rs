@@ -395,16 +395,16 @@ impl OptionsBuilder {
     /// #         audio_source::AudioSource,
     /// #         options::{Model, Options},
     /// #     },
-    /// #     Deepgram,
+    /// #     Deepgram, DeepgramError
     /// # };
     /// #
     /// #
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
-    /// # fn main() -> Result<(), reqwest::Error> {
+    /// # fn main() -> Result<(), DeepgramError> {
     /// # let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     /// let dg_transcription = dg_client.transcription();
     ///
     /// let options1 = Options::builder()
@@ -1017,7 +1017,8 @@ mod serialize_options_tests {
     fn check_serialization(options: &Options, expected: &str) {
         let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
 
-        let dg_client = Deepgram::new(&deepgram_api_key);
+        let dg_client =
+            Deepgram::new(&deepgram_api_key).unwrap_or_else(|_| Deepgram::new("").unwrap());
 
         let request = dg_client
             .transcription()

@@ -55,7 +55,7 @@ impl Billing<'_> {
     /// # let project_id =
     /// #     env::var("DEEPGRAM_PROJECT_ID").expect("DEEPGRAM_PROJECT_ID environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// let balances = dg_client
     ///     .billing()
@@ -97,7 +97,7 @@ impl Billing<'_> {
     /// # let balance_id =
     /// #     env::var("DEEPGRAM_BALANCE_ID").expect("DEEPGRAM_BALANCE_ID environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// let balance = dg_client
     ///     .billing()

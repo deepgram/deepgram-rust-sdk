@@ -16,7 +16,7 @@ async fn main() -> Result<(), DeepgramError> {
     let deepgram_api_key =
         env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
 
-    let dg_client = Deepgram::new(&deepgram_api_key);
+    let dg_client = Deepgram::new(&deepgram_api_key)?;
 
     let file = File::open(PATH_TO_FILE).await.unwrap();
 

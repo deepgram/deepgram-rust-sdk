@@ -12,7 +12,7 @@ async fn main() -> Result<(), DeepgramError> {
     let balance_id =
         env::var("DEEPGRAM_BALANCE_ID").expect("DEEPGRAM_BALANCE_ID environmental variable");
 
-    let dg_client = Deepgram::new(&deepgram_api_key);
+    let dg_client = Deepgram::new(&deepgram_api_key)?;
 
     let all_balances = dg_client.billing().list_balance(&project_id).await?;
     println!("{:#?}", all_balances);
