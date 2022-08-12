@@ -43,7 +43,7 @@ pub struct DeepgramLive {
     websocket: WebSocketStream<MaybeTlsStream<TcpStream>>,
 }
 
-impl<K: AsRef<str>> Transcription<'_, K> {
+impl Transcription<'_> {
     pub async fn live(&self, options: &Options) -> crate::Result<DeepgramLive> {
         let request = self.make_streaming_request(options)?;
 

@@ -1083,7 +1083,7 @@ mod serialize_options_tests {
     fn check_serialization(options: &Options, expected: &str) {
         let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
 
-        let dg_client = Deepgram::new(deepgram_api_key);
+        let dg_client = Deepgram::new(&deepgram_api_key);
 
         let url = Url::parse(
             &dg_client

@@ -6,15 +6,13 @@
 //!
 //! Get started transcribing with a [`Transcription`](transcription::Transcription) object.
 
-use std::io;
-
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     RequestBuilder,
 };
 use serde::de::DeserializeOwned;
 use thiserror::Error;
-use tokio_tungstenite::tungstenite::protocol::CloseFrame;
+use tokio_tungstenite::tungstenite::{self, protocol::CloseFrame};
 
 pub mod billing;
 pub mod invitations;
@@ -31,11 +29,7 @@ mod response;
 ///
 /// Make transcriptions requests using [`Deepgram::transcription`].
 #[derive(Debug, Clone)]
-pub struct Deepgram<K>
-where
-    K: AsRef<str>,
-{
-    api_key: K,
+pub struct Deepgram {
     api_key_header: HeaderValue,
     client: reqwest::Client,
 }
@@ -44,10 +38,6 @@ where
 // TODO sub-errors for the different types?
 #[derive(Debug, Error)]
 pub enum DeepgramError {
-    /// No source was provided to the request builder.
-    #[error("No source was provided to the request builder.")]
-    NoSource,
-
     /// The Deepgram API returned an error.
     #[error("The Deepgram API returned an error.")]
     DeepgramApiError {
@@ -66,17 +56,9 @@ pub enum DeepgramError {
     #[error("A problem occurred when transcribing the live audio stream.")]
     DeepgramLiveError(CloseFrame<'static>),
 
-    /// Something went wrong when generating the http request.
-    #[error("Something went wrong when generating the http request: {0}")]
-    HttpError(#[from] http::Error),
-
     /// Something went wrong when making the HTTP request.
     #[error("Something went wrong when making the HTTP request: {0}")]
     ReqwestError(#[from] reqwest::Error),
-
-    /// Something went wrong during I/O.
-    #[error("Something went wrong during I/O: {0}")]
-    IoError(#[from] io::Error),
 
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
@@ -89,10 +71,7 @@ pub enum DeepgramError {
 
 type Result<T> = std::result::Result<T, DeepgramError>;
 
-impl<K> Deepgram<K>
-where
-    K: AsRef<str>,
-{
+impl Deepgram {
     /// Construct a new Deepgram client.
     ///
     /// Create your first API key on the [Deepgram Console][console].
@@ -102,7 +81,7 @@ where
     /// # Panics
     ///
     /// Panics under the same conditions as [`reqwest::Client::new`].
-    pub fn new(api_key: K) -> Self {
+    pub fn new(api_key: &str) -> Self {
         static USER_AGENT: &str = concat!(
             env!("CARGO_PKG_NAME"),
             "/",
@@ -111,7 +90,7 @@ where
         );
 
         let api_key_header =
-            HeaderValue::from_str(&format!("Token {}", api_key.as_ref())).expect("Invalid API key");
+            HeaderValue::from_str(&format!("Token {}", api_key)).expect("Invalid API key");
 
         let authorization_header = {
             let mut header = HeaderMap::new();
@@ -120,7 +99,6 @@ where
         };
 
         Deepgram {
-            api_key,
             api_key_header,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)

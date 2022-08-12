@@ -18,23 +18,23 @@ use response::{Balance, Balances};
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#billing
 #[derive(Debug, Clone)]
-pub struct Billing<'a, K: AsRef<str>>(&'a Deepgram<K>);
+pub struct Billing<'a>(&'a Deepgram);
 
-impl<'a, K: AsRef<str>> Deepgram<K> {
+impl<'a> Deepgram {
     /// Construct a new [`Billing`] from a [`Deepgram`].
-    pub fn billing(&'a self) -> Billing<'a, K> {
+    pub fn billing(&'a self) -> Billing<'a> {
         self.into()
     }
 }
 
-impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Billing<'a, K> {
+impl<'a> From<&'a Deepgram> for Billing<'a> {
     /// Construct a new [`Billing`] from a [`Deepgram`].
-    fn from(deepgram: &'a Deepgram<K>) -> Self {
+    fn from(deepgram: &'a Deepgram) -> Self {
         Self(deepgram)
     }
 }
 
-impl<K: AsRef<str>> Billing<'_, K> {
+impl Billing<'_> {
     /// Get the outstanding balances for the specified project.
     ///
     /// See the [Deepgram API Reference][api] for more info.

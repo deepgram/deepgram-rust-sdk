@@ -7,7 +7,6 @@
 use crate::Deepgram;
 
 pub mod live;
-pub mod old_live;
 pub mod prerecorded;
 
 mod common;
@@ -20,18 +19,18 @@ mod common;
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription
 #[derive(Debug, Clone)]
-pub struct Transcription<'a, K: AsRef<str>>(&'a Deepgram<K>);
+pub struct Transcription<'a>(&'a Deepgram);
 
-impl<'a, K: AsRef<str>> Deepgram<K> {
+impl<'a> Deepgram {
     /// Construct a new [`Transcription`] from a [`Deepgram`].
-    pub fn transcription(&'a self) -> Transcription<'a, K> {
+    pub fn transcription(&'a self) -> Transcription<'a> {
         self.into()
     }
 }
 
-impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Transcription<'a, K> {
+impl<'a> From<&'a Deepgram> for Transcription<'a> {
     /// Construct a new [`Transcription`] from a [`Deepgram`].
-    fn from(deepgram: &'a Deepgram<K>) -> Self {
+    fn from(deepgram: &'a Deepgram) -> Self {
         Self(deepgram)
     }
 }

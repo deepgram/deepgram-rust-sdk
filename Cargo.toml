@@ -1,6 +1,6 @@
 [package]
 name = "deepgram"
-version = "0.2.2-alpha.1"
+version = "0.3.0-alpha.1"
 authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
 description = "Official Rust SDK for Deepgram's automated speech recognition APIs."
@@ -13,21 +13,14 @@ categories = ["api-bindings", "multimedia::audio"]
 
 [dependencies]
 # TODO Investigate which of these dependencies can go behind features.
-bytes = "1"
 futures = "0.3"
-http = "0.2"
-pin-project = "1"
 reqwest = { version = "0.11.10", features = ["json", "stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = { version = "0.17.2", features = ["native-tls"] }
-tokio-util = { version = "0.7.1", features = ["codec", "io"] }
-tungstenite = "0.17"
-url = "2"
 uuid = { version = "1", features = ["serde"] }
 
 [dev-dependencies]
-cpal = "0.13"
-crossbeam = "0.8"
+url = "2"

@@ -20,23 +20,23 @@ use response::{MemberAndApiKey, MembersAndApiKeys, Message, NewApiKey};
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#keys
 #[derive(Debug, Clone)]
-pub struct Keys<'a, K: AsRef<str>>(&'a Deepgram<K>);
+pub struct Keys<'a>(&'a Deepgram);
 
-impl<'a, K: AsRef<str>> Deepgram<K> {
+impl<'a> Deepgram {
     /// Construct a new [`Keys`] from a [`Deepgram`].
-    pub fn keys(&'a self) -> Keys<'a, K> {
+    pub fn keys(&'a self) -> Keys<'a> {
         self.into()
     }
 }
 
-impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Keys<'a, K> {
+impl<'a> From<&'a Deepgram> for Keys<'a> {
     /// Construct a new [`Keys`] from a [`Deepgram`].
-    fn from(deepgram: &'a Deepgram<K>) -> Self {
+    fn from(deepgram: &'a Deepgram) -> Self {
         Self(deepgram)
     }
 }
 
-impl<'a, K: AsRef<str>> Keys<'_, K> {
+impl<'a> Keys<'_> {
     /// Get keys for the specified project.
     ///
     /// See the [Deepgram API Reference][api] for more info.
