@@ -98,7 +98,7 @@ impl Stream for DeepgramLive {
             }
 
             // No need to give this message to the user of DeepgramLive
-            // Skipping it and polling again
+            // Skip it and poll again
             //
             // The tokio_tungstenite::WebSocketStream will automatically
             // respond to the Ping/Close appropriately when we call poll_next

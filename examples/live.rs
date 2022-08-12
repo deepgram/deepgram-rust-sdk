@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, time::Duration};
 
 use deepgram::{
     transcription::live::{
@@ -43,7 +43,22 @@ async fn main() -> Result<(), DeepgramError> {
 async fn send_to_deepgram(mut sink: SplitSink<DeepgramLive, &[u8]>) -> Result<(), DeepgramError> {
     let audio_data = tokio::fs::read(PATH_TO_FILE).await.unwrap();
 
-    sink.send(&audio_data).await?;
+    static SLICE_SIZE: usize = 250;
+
+    // Simulate an audio stream by sending the contents of a file in chunks
+    let mut slice_begin = 0;
+    while slice_begin < audio_data.len() {
+        let slice_end = std::cmp::min(slice_begin + SLICE_SIZE, audio_data.len());
+
+        let slice = &audio_data[slice_begin..slice_end];
+        sink.send(slice).await?;
+
+        slice_begin += SLICE_SIZE;
+
+        tokio::time::sleep(Duration::from_millis(16)).await;
+    }
+
+    // Tell Deepgram that we've finished sending audio data by sending a zero-byte message
     sink.send(&[]).await?;
 
     Ok(())
