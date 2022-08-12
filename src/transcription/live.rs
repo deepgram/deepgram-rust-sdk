@@ -16,7 +16,11 @@ use futures::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{
     connect_async,
-    tungstenite::{client::IntoClientRequest, handshake::client::Request, protocol::Message},
+    tungstenite::{
+        client::IntoClientRequest,
+        handshake::client::Request,
+        protocol::{frame::coding::CloseCode, CloseFrame, Message},
+    },
     MaybeTlsStream, WebSocketStream,
 };
 
@@ -31,7 +35,7 @@ use response::Response;
 
 static DEEPGRAM_API_URL_LISTEN: &str = "wss://api.deepgram.com/v1/listen";
 
-// The traits `futures::{stream::FusedStream, Sink, Stream}` were chosed for `DeepgramLive`
+// The traits `futures::{stream::FusedStream, Sink, Stream}` were chosen for `DeepgramLive`
 // because tokio_tungstenite::WebSocketStream implements them, and DeepgramLive is essentially
 // just a wrapper around tokio_tungstenite::WebSocketStream
 #[derive(Debug)]
@@ -79,9 +83,62 @@ impl Stream for DeepgramLive {
     type Item = crate::Result<Response>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.websocket.poll_next_unpin(cx).map(|message| {
-            message.map(|message| Ok(serde_json::from_slice(&message?.into_data())?))
-        })
+        match self.websocket.poll_next_unpin(cx) {
+            // Deserialize the Response
+            Poll::Ready(Some(Ok(Message::Text(message)))) => {
+                let response = serde_json::from_str(&message)?;
+                Poll::Ready(Some(Ok(response)))
+            }
+
+            // I'm pretty sure that Deepgram API doesn't send binary frames,
+            // but it's good to make sure that this case is covered
+            Poll::Ready(Some(Ok(Message::Binary(message)))) => {
+                let response = serde_json::from_slice(&message)?;
+                Poll::Ready(Some(Ok(response)))
+            }
+
+            // No need to give this message to the user of DeepgramLive
+            // Skipping it and polling again
+            //
+            // The tokio_tungstenite::WebSocketStream will automatically
+            // respond to the Ping/Close appropriately when we call poll_next
+            // on it again (as we are doing below).
+            //
+            // It's important to call poll_next again, *even* if we know
+            // that the DeepgramLive stream won't be producing any more values,
+            // because otherwise the tokio_tungstenite::WebSocketStream won't
+            // get a chance to respond to the Ping/Close.
+            Poll::Ready(Some(Ok(
+                Message::Ping(_)
+                | Message::Pong(_)
+                | Message::Close(Some(CloseFrame {
+                    code: CloseCode::Normal,
+                    reason: _,
+                }))
+                | Message::Close(None),
+            ))) => self.poll_next(cx),
+
+            // Occurs in response errors from Deepgram
+            // https://developers.deepgram.com/api-reference/#error-handling-str
+            Poll::Ready(Some(Ok(Message::Close(Some(not_normal_close))))) => Poll::Ready(Some(
+                Err(DeepgramError::DeepgramLiveError(not_normal_close)),
+            )),
+
+            // tungstenite guarantees "that you're not going to get this value while reading the message"
+            // Source: https://docs.rs/tungstenite/0.17/tungstenite/enum.Message.html#variant.Frame
+            Poll::Ready(Some(Ok(Message::Frame(_)))) => {
+                unreachable!("Unexpected raw WebSocket frame");
+            }
+
+            // tungstenite::Error occured
+            Poll::Ready(Some(Err(err))) => Poll::Ready(Some(Err(DeepgramError::WsError(err)))),
+
+            // Stream has terminated
+            Poll::Ready(None) => Poll::Ready(None),
+
+            // Stream' next value is not ready yet
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 

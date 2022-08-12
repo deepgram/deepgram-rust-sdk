@@ -8,12 +8,19 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 pub use super::super::common::response::{
-    ChannelResult, Hit, ResultAlternative, SearchResults, Word,
+    ChannelResult, Hit, ListenMetadata, ResultAlternative, SearchResults, Word,
 };
 
 #[derive(Debug, PartialEq, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum Response {
+    Results(ListenResults),
+    Metadata(ListenMetadata),
+}
+
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 #[non_exhaustive]
-pub struct Response {
+pub struct ListenResults {
     pub channel_index: (usize, usize),
     pub duration: f64,
     pub start: f64,
@@ -28,3 +35,12 @@ pub struct Response {
 pub struct Metadata {
     pub request_id: Uuid,
 }
+
+// {
+// "transaction_key":"deprecated",
+// "request_id":"62359324-2d6a-4214-bb9d-947764e9e905",
+// "sha256":"295d80fc68d1eaf980ad07f586f62a673b26a5d3aa057e7995abb42189e5207a",
+// "created":"2022-08-12T03:25:14.333Z",
+// "duration":17.632626,
+// "channels":1
+//}

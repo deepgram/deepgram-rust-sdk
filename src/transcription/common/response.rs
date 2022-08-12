@@ -1,4 +1,32 @@
 use serde::Deserialize;
+use uuid::Uuid;
+
+/// Metadata about the transcription.
+///
+/// See the [Deepgram API Reference][api] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[non_exhaustive]
+pub struct ListenMetadata {
+    #[allow(missing_docs)]
+    pub request_id: Uuid,
+
+    #[allow(missing_docs)]
+    pub transaction_key: String,
+
+    #[allow(missing_docs)]
+    pub sha256: String,
+
+    #[allow(missing_docs)]
+    pub created: String,
+
+    #[allow(missing_docs)]
+    pub duration: f64,
+
+    #[allow(missing_docs)]
+    pub channels: usize,
+}
 
 /// Transcription results for a single audio channel.
 ///

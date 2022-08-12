@@ -8,7 +8,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 pub use super::super::common::response::{
-    ChannelResult, Hit, ResultAlternative, SearchResults, Word,
+    ChannelResult, Hit, ListenMetadata, ResultAlternative, SearchResults, Word,
 };
 
 /// Returned by [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded).
@@ -36,33 +36,6 @@ pub struct Response {
 pub struct CallbackResponse {
     #[allow(missing_docs)]
     pub request_id: Uuid,
-}
-
-/// Metadata about the transcription.
-///
-/// See the [Deepgram API Reference][api] for more info.
-///
-/// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
-#[derive(Debug, PartialEq, Clone, Deserialize)]
-#[non_exhaustive]
-pub struct ListenMetadata {
-    #[allow(missing_docs)]
-    pub request_id: Uuid,
-
-    #[allow(missing_docs)]
-    pub transaction_key: String,
-
-    #[allow(missing_docs)]
-    pub sha256: String,
-
-    #[allow(missing_docs)]
-    pub created: String,
-
-    #[allow(missing_docs)]
-    pub duration: f64,
-
-    #[allow(missing_docs)]
-    pub channels: usize,
 }
 
 /// Transcription results.

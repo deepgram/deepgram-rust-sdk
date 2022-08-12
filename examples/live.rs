@@ -1,6 +1,9 @@
+use std::env;
+
 use deepgram::{
     transcription::live::{
         options::{Language, Options, Tier},
+        response::Response,
         DeepgramLive,
     },
     Deepgram, DeepgramError,
@@ -9,7 +12,6 @@ use futures::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
-use std::env;
 
 static PATH_TO_FILE: &str = "examples/Bueller-Life-moves-pretty-fast.mp3";
 
@@ -42,13 +44,19 @@ async fn send_to_deepgram(mut sink: SplitSink<DeepgramLive, &[u8]>) -> Result<()
     let audio_data = tokio::fs::read(PATH_TO_FILE).await.unwrap();
 
     sink.send(&audio_data).await?;
+    sink.send(&[]).await?;
 
     Ok(())
 }
 
 async fn receive_from_deepgram(mut stream: SplitStream<DeepgramLive>) -> Result<(), DeepgramError> {
     while let Some(response) = stream.next().await {
-        println!("{}", response?.channel.alternatives[0].transcript);
+        match response? {
+            Response::Results(results) => {
+                println!("{}", results.channel.alternatives[0].transcript)
+            }
+            Response::Metadata(metadata) => println!("{:?}", metadata),
+        }
     }
 
     Ok(())

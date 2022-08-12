@@ -14,6 +14,7 @@ use reqwest::{
 };
 use serde::de::DeserializeOwned;
 use thiserror::Error;
+use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 
 pub mod billing;
 pub mod invitations;
@@ -56,6 +57,14 @@ pub enum DeepgramError {
         /// Underlying [`reqwest::Error`] from the HTTP request.
         err: reqwest::Error,
     },
+
+    /// A problem occurred when transcribing the live audio stream.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/api-reference/#error-handling-str
+    #[error("A problem occurred when transcribing the live audio stream.")]
+    DeepgramLiveError(CloseFrame<'static>),
 
     /// Something went wrong when generating the http request.
     #[error("Something went wrong when generating the http request: {0}")]
