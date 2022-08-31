@@ -4,7 +4,7 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded-responses
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Returned by [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded).
@@ -12,7 +12,7 @@ use uuid::Uuid;
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Response {
     #[allow(missing_docs)]
@@ -27,7 +27,7 @@ pub struct Response {
 /// See the [Deepgram Callback feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/callback/
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct CallbackResponse {
     #[allow(missing_docs)]
@@ -39,7 +39,7 @@ pub struct CallbackResponse {
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ListenMetadata {
     #[allow(missing_docs)]
@@ -66,7 +66,7 @@ pub struct ListenMetadata {
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ListenResults {
     #[allow(missing_docs)]
@@ -86,7 +86,7 @@ pub struct ListenResults {
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 /// [docs]: https://developers.deepgram.com/documentation/features/multichannel/
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ChannelResult {
     /// [`None`] unless the [Search feature][docs] is set.
@@ -104,7 +104,7 @@ pub struct ChannelResult {
 /// See the [Deepgram Utterance feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/documentation/features/utterances/
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Utterance {
     #[allow(missing_docs)]
@@ -142,7 +142,7 @@ pub struct Utterance {
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 /// [docs]: https://developers.deepgram.com/documentation/features/search/
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct SearchResults {
     #[allow(missing_docs)]
@@ -157,7 +157,7 @@ pub struct SearchResults {
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ResultAlternative {
     #[allow(missing_docs)]
@@ -175,7 +175,7 @@ pub struct ResultAlternative {
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Word {
     #[allow(missing_docs)]
@@ -210,7 +210,7 @@ pub struct Word {
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 /// [docs]: https://developers.deepgram.com/documentation/features/search/
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Hit {
     #[allow(missing_docs)]
