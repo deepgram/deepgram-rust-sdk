@@ -1,6 +1,6 @@
 //! Deepgram keys API response types.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub use crate::response::Message;
@@ -10,7 +10,7 @@ pub use crate::response::Message;
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#keys-get-keys
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct MembersAndApiKeys {
     #[allow(missing_docs)]
@@ -22,7 +22,7 @@ pub struct MembersAndApiKeys {
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#keys-get-key
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct MemberAndApiKey {
     #[allow(missing_docs)]
@@ -37,7 +37,7 @@ pub struct MemberAndApiKey {
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#keys-get-key
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Member {
     #[allow(missing_docs)]
@@ -58,7 +58,7 @@ pub struct Member {
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#keys-get-key
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ApiKey {
     #[allow(missing_docs)]
@@ -85,7 +85,7 @@ pub struct ApiKey {
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#keys-create
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct NewApiKey {
     #[allow(missing_docs)]

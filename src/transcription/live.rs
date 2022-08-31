@@ -19,7 +19,7 @@ use futures::stream::StreamExt;
 use futures::{SinkExt, Stream};
 use http::Request;
 use pin_project::pin_project;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::fs::File;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_util::io::ReaderStream;
@@ -43,7 +43,7 @@ where
     channels: Option<u16>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Word {
     pub word: String,
     pub start: f64,
@@ -51,18 +51,18 @@ pub struct Word {
     pub confidence: f64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Alternatives {
     pub transcript: String,
     pub words: Vec<Word>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Channel {
     pub alternatives: Vec<Alternatives>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StreamResponse {
     TranscriptResponse {
