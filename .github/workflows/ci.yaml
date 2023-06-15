@@ -69,6 +69,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        sudo apt-get install curl
         sudo apt-get install libasound2-dev
         sudo apt-get install libssl-dev
         sudo apt-get install gcc make
