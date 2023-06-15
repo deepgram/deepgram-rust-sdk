@@ -6,16 +6,20 @@
 [![docs](https://img.shields.io/docsrs/deepgram)](https://docs.rs/deepgram)
 [![license](https://img.shields.io/crates/l/deepgram)](./LICENSE)
 
-**NOTICE**: *This SDK is still very much work-in-progress. The interface is subject to rapid change.
-If you would like a stable way to access all that Deepgram has to offer, you can use the
-[Deepgram API](https://developers.deepgram.com/api-reference/) directly until this SDK has been stabilized.*
+Experimental Rust SDK for [Deepgram](https://www.deepgram.com/). Start building with our powerful transcription & speech understanding API.
 
-Official Rust SDK for Deepgram's automated speech recognition APIs.
+> This SDK only supports hosted usage of api.deepgram.com.
 
-To access the API you will need a Deepgram account. Sign up for free at [console.deepgram.com](https://console.deepgram.com/signup?utm_medium=github&utm_source=DEVREL&utm_content=deepgram-rust-sdk).
+## Getting an API Key
 
-You can learn more about the full Deepgram API at [developers.deepgram.com](https://developers.deepgram.com).
+🔑 To access the Deepgram API you will need a [free Deepgram API Key](https://console.deepgram.com/signup?jump=keys).
+## Documentation
 
+You can learn more about the Deepgram API at [developers.deepgram.com](https://developers.deepgram.com/docs).
+
+## Current Status
+
+This SDK is still very much work-in-progress. The interface is subject to rapid change.
 ## Install
 
 From within your Cargo project directory, run the following command:
@@ -47,9 +51,8 @@ To make sure our community is safe for all, be sure to review and agree to our
 We love to hear from you so if you have questions, comments or find a bug in the
 project, let us know! You can either:
 
-- [Open an issue](https://github.com/deepgram-devs/deepgram-rust-sdk/issues/new) on this repository
-- Tweet at us! We're [@DeepgramDevs on Twitter](https://twitter.com/DeepgramDevs)
+- [Open an issue in this repository](https://github.com/deepgram-devs/deepgram-rust-sdk/issues/new)
+- [Join the Deepgram Github Discussions Community](https://github.com/orgs/deepgram/discussions)
+- [Join the Deepgram Discord Community](https://discord.gg/xWRaCDBtW4)
 
-## Further Reading
-
-Check out the Developer Documentation at [https://developers.deepgram.com/](https://developers.deepgram.com/)
+[license]: LICENSE.txt
