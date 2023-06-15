@@ -14,6 +14,7 @@ categories = ["api-bindings", "multimedia::audio"]
 [dependencies]
 # TODO Investigate which of these dependencies can go behind features.
 bytes = "1"
+openssl-sys = "0.9.88"
 futures = "0.3"
 http = "0.2"
 pin-project = "1"
