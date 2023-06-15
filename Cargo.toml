@@ -29,5 +29,6 @@ url = "2"
 uuid = { version = "1", features = ["serde"] }
 
 [dev-dependencies]
+pkg-config = "0.3.27"
 cpal = "0.13"
 crossbeam = "0.8"
