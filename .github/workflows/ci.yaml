@@ -63,7 +63,7 @@ jobs:
     - name: Cargo Audit
       run: cargo audit
   Minimal-Versions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v3
     - name: Install dependencies
