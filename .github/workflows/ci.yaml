@@ -71,6 +71,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install libasound2-dev
         sudo apt-get install libssl-dev
+        sudo apt-get install gcc make
+        sudo apt-get install libc++1-15
+        sudo apt-get install libc++1
     - name: Install Rust Nightly
       run: rustup toolchain install nightly
     - name: Cargo Build
