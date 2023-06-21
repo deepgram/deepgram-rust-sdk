@@ -1,6 +1,6 @@
 //! Deepgram projects API response types.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 pub use crate::response::Message;
@@ -10,7 +10,7 @@ pub use crate::response::Message;
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#projects-get-projects
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Projects {
     #[allow(missing_docs)]
@@ -22,7 +22,7 @@ pub struct Projects {
 /// See the [Deepgram API Reference][api] for more info.
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#projects-get-project
-#[derive(Debug, PartialEq, Clone, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Project {
     #[allow(missing_docs)]
