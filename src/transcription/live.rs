@@ -220,21 +220,22 @@ where
 
         // This unwrap is safe because we're parsing a static.
         let mut base = Url::parse("wss://api.deepgram.com/v1/listen").unwrap();
-        let mut pairs = base.query_pairs_mut();
-        if let Some(encoding) = encoding {
-            pairs.append_pair("encoding", &encoding);
-        }
-        if let Some(sample_rate) = sample_rate {
-            pairs.append_pair("sample_rate", &sample_rate.to_string());
-        }
-        if let Some(channels) = channels {
-            pairs.append_pair("channels", &channels.to_string());
+        {
+            let mut pairs = base.query_pairs_mut();
+            if let Some(encoding) = encoding {
+                pairs.append_pair("encoding", &encoding);
+            }
+            if let Some(sample_rate) = sample_rate {
+                pairs.append_pair("sample_rate", &sample_rate.to_string());
+            }
+            if let Some(channels) = channels {
+                pairs.append_pair("channels", &channels.to_string());
+            }
         }
 
         let request = Request::builder()
             .method("GET")
-            // TODO Hard-coded.
-            .uri("wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=44100&channels=2")
+            .uri(base.to_string())
             .header(
                 "authorization",
                 format!("token {}", config.api_key.as_ref()),
