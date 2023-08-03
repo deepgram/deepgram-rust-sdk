@@ -18,23 +18,23 @@ use response::Message;
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#invitations
 #[derive(Debug, Clone)]
-pub struct Invitations<'a, K: AsRef<str>>(&'a Deepgram<K>);
+pub struct Invitations<'a>(&'a Deepgram);
 
-impl<'a, K: AsRef<str>> Deepgram<K> {
+impl Deepgram {
     /// Construct a new [`Invitations`] from a [`Deepgram`].
-    pub fn invitations(&'a self) -> Invitations<'a, K> {
+    pub fn invitations(&self) -> Invitations<'_> {
         self.into()
     }
 }
 
-impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Invitations<'a, K> {
+impl<'a> From<&'a Deepgram> for Invitations<'a> {
     /// Construct a new [`Invitations`] from a [`Deepgram`].
-    fn from(deepgram: &'a Deepgram<K>) -> Self {
+    fn from(deepgram: &'a Deepgram) -> Self {
         Self(deepgram)
     }
 }
 
-impl<K: AsRef<str>> Invitations<'_, K> {
+impl Invitations<'_> {
     /// Remove the authenticated account from the specified project.
     ///
     /// See the [Deepgram API Reference][api] for more info.

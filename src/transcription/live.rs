@@ -31,12 +31,11 @@ use crate::{Deepgram, DeepgramError, Result};
 use super::Transcription;
 
 #[derive(Debug)]
-pub struct StreamRequestBuilder<'a, S, K, E>
+pub struct StreamRequestBuilder<'a, S, E>
 where
     S: Stream<Item = std::result::Result<Bytes, E>>,
-    K: AsRef<str>,
 {
-    config: &'a Deepgram<K>,
+    config: &'a Deepgram,
     source: Option<S>,
     encoding: Option<String>,
     sample_rate: Option<u32>,
@@ -86,10 +85,10 @@ struct FileChunker {
     file: ReaderStream<File>,
 }
 
-impl<K: AsRef<str>> Transcription<'_, K> {
+impl Transcription<'_> {
     pub fn stream_request<E, S: Stream<Item = std::result::Result<Bytes, E>>>(
         &self,
-    ) -> StreamRequestBuilder<S, K, E> {
+    ) -> StreamRequestBuilder<S, E> {
         StreamRequestBuilder {
             config: self.0,
             source: None,
@@ -142,10 +141,9 @@ impl Stream for FileChunker {
     }
 }
 
-impl<'a, S, K, E> StreamRequestBuilder<'a, S, K, E>
+impl<'a, S, E> StreamRequestBuilder<'a, S, E>
 where
     S: Stream<Item = std::result::Result<Bytes, E>>,
-    K: AsRef<str>,
 {
     pub fn stream(mut self, stream: S) -> Self {
         self.source = Some(stream);
@@ -172,16 +170,13 @@ where
     }
 }
 
-impl<'a, K> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, K, DeepgramError>
-where
-    K: AsRef<str>,
-{
+impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
     pub async fn file(
         mut self,
         filename: impl AsRef<Path>,
         frame_size: usize,
         frame_delay: Duration,
-    ) -> Result<StreamRequestBuilder<'a, Receiver<Result<Bytes>>, K, DeepgramError>> {
+    ) -> Result<StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError>> {
         let file = File::open(filename).await?;
         let mut chunker = FileChunker::new(file, frame_size);
         let (mut tx, rx) = mpsc::channel(1);
@@ -200,10 +195,9 @@ where
     }
 }
 
-impl<S, K, E> StreamRequestBuilder<'_, S, K, E>
+impl<S, E> StreamRequestBuilder<'_, S, E>
 where
     S: Stream<Item = std::result::Result<Bytes, E>> + Send + Unpin + 'static,
-    K: AsRef<str>,
     E: Send + std::fmt::Debug,
 {
     pub async fn start(self) -> Result<Receiver<Result<StreamResponse>>> {
@@ -236,10 +230,7 @@ where
         let request = Request::builder()
             .method("GET")
             .uri(base.to_string())
-            .header(
-                "authorization",
-                format!("token {}", config.api_key.as_ref()),
-            )
+            .header("authorization", format!("token {}", config.api_key))
             .header("sec-websocket-key", client::generate_key())
             .header("host", "api.deepgram.com")
             .header("connection", "upgrade")

@@ -19,7 +19,7 @@ use response::{CallbackResponse, Response};
 
 static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
 
-impl<K: AsRef<str>> Transcription<'_, K> {
+impl Transcription<'_> {
     /// Sends a request to Deepgram to transcribe pre-recorded audio.
     /// If you wish to use the Callback feature, you should use [`Transcription::prerecorded_callback`] instead.
     ///
