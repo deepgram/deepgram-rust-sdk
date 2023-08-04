@@ -30,11 +30,8 @@ mod response;
 ///
 /// Make transcriptions requests using [`Deepgram::transcription`].
 #[derive(Debug, Clone)]
-pub struct Deepgram<K>
-where
-    K: AsRef<str>,
-{
-    api_key: K,
+pub struct Deepgram {
+    api_key: String,
     client: reqwest::Client,
 }
 
@@ -79,10 +76,7 @@ pub enum DeepgramError {
 
 type Result<T> = std::result::Result<T, DeepgramError>;
 
-impl<K> Deepgram<K>
-where
-    K: AsRef<str>,
-{
+impl Deepgram {
     /// Construct a new Deepgram client.
     ///
     /// Create your first API key on the [Deepgram Console][console].
@@ -92,7 +86,7 @@ where
     /// # Panics
     ///
     /// Panics under the same conditions as [`reqwest::Client::new`].
-    pub fn new(api_key: K) -> Self {
+    pub fn new<K: AsRef<str>>(api_key: K) -> Self {
         static USER_AGENT: &str = concat!(
             env!("CARGO_PKG_NAME"),
             "/",
@@ -109,6 +103,7 @@ where
             );
             header
         };
+        let api_key = api_key.as_ref().to_owned();
 
         Deepgram {
             api_key,

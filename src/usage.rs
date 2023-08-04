@@ -21,23 +21,23 @@ use response::{Fields, Request, Requests, UsageSummary};
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#usage
 #[derive(Debug, Clone)]
-pub struct Usage<'a, K: AsRef<str>>(&'a Deepgram<K>);
+pub struct Usage<'a>(&'a Deepgram);
 
-impl<'a, K: AsRef<str>> Deepgram<K> {
+impl Deepgram {
     /// Construct a new [`Usage`] from a [`Deepgram`].
-    pub fn usage(&'a self) -> Usage<'a, K> {
+    pub fn usage(&self) -> Usage<'_> {
         self.into()
     }
 }
 
-impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Usage<'a, K> {
+impl<'a> From<&'a Deepgram> for Usage<'a> {
     /// Construct a new [`Usage`] from a [`Deepgram`].
-    fn from(deepgram: &'a Deepgram<K>) -> Self {
+    fn from(deepgram: &'a Deepgram) -> Self {
         Self(deepgram)
     }
 }
 
-impl<'a, K: AsRef<str>> Usage<'_, K> {
+impl Usage<'_> {
     /// Get all requests sent to the Deepgram API for the specified project.
     ///
     /// See the [Deepgram API Reference][api] for more info.
