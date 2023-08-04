@@ -27,6 +27,7 @@ pub struct Options {
     keyword_boost_legacy: bool,
     utterances: Option<Utterances>,
     tags: Vec<String>,
+    detect_language: Option<bool>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::tier`].
@@ -282,6 +283,7 @@ impl OptionsBuilder {
             keyword_boost_legacy: false,
             utterances: None,
             tags: Vec::new(),
+            detect_language: None,
         })
     }
 
@@ -1052,6 +1054,26 @@ impl OptionsBuilder {
         self
     }
 
+    /// Set the Language Detection feature.
+    ///
+    /// See the [Deepgram Language Detection feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/language-detection/
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .detect_language(true)
+    ///     .build();
+    /// ```
+    pub fn detect_language(mut self, detect_language: bool) -> Self {
+        self.0.detect_language = Some(detect_language);
+
+        self
+    }
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -1091,6 +1113,7 @@ impl Serialize for SerializableOptions<'_> {
             keyword_boost_legacy,
             utterances,
             tags,
+            detect_language,
         } = self.0;
 
         if let Some(tier) = tier {
@@ -1202,6 +1225,10 @@ impl Serialize for SerializableOptions<'_> {
 
         for element in tags {
             seq.serialize_element(&("tag", element))?;
+        }
+
+        if let Some(detect_language) = detect_language {
+            seq.serialize_element(&("detect_language", detect_language))?;
         }
 
         seq.end()
@@ -1721,6 +1748,19 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder().tag(["Tag 1", "Tag 2"]).build(),
             "tag=Tag+1&tag=Tag+2",
+        );
+    }
+
+    #[test]
+    fn detect_language() {
+        check_serialization(
+            &Options::builder().detect_language(false).build(),
+            "detect_language=false",
+        );
+
+        check_serialization(
+            &Options::builder().detect_language(true).build(),
+            "detect_language=true",
         );
     }
 }
