@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `detect_language` option.
 
+### Changed
+- Remove generic from `Deepgram` struct.
+
+
 ## [0.3.0]
 
 ### Added

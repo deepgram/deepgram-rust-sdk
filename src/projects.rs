@@ -23,23 +23,23 @@ use response::{Message, Project};
 /// [console]: https://console.deepgram.com/
 /// [api]: https://developers.deepgram.com/api-reference/#projects
 #[derive(Debug, Clone)]
-pub struct Projects<'a, K: AsRef<str>>(&'a Deepgram<K>);
+pub struct Projects<'a>(&'a Deepgram);
 
-impl<'a, K: AsRef<str>> Deepgram<K> {
+impl Deepgram {
     /// Construct a new [`Projects`] from a [`Deepgram`].
-    pub fn projects(&'a self) -> Projects<'a, K> {
+    pub fn projects(&self) -> Projects<'_> {
         self.into()
     }
 }
 
-impl<'a, K: AsRef<str>> From<&'a Deepgram<K>> for Projects<'a, K> {
+impl<'a> From<&'a Deepgram> for Projects<'a> {
     /// Construct a new [`Projects`] from a [`Deepgram`].
-    fn from(deepgram: &'a Deepgram<K>) -> Self {
+    fn from(deepgram: &'a Deepgram) -> Self {
         Self(deepgram)
     }
 }
 
-impl<'a, K: AsRef<str>> Projects<'_, K> {
+impl Projects<'_> {
     /// Get all projects.
     ///
     /// See the [Deepgram API Reference][api] for more info.
