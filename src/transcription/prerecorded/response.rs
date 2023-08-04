@@ -97,6 +97,15 @@ pub struct ChannelResult {
 
     #[allow(missing_docs)]
     pub alternatives: Vec<ResultAlternative>,
+
+    ///  [BCP-47][bcp47] language tag for the dominant language identified in the channel.
+    ///
+    /// [`None`] unless the [Language Detection feature][docs] is set.
+    /// Features can be set using an [`OptionsBuilder`](`super::options::OptionsBuilder`).
+    ///
+    /// [bcp47]: https://tools.ietf.org/html/bcp47
+    /// [docs]: https://developers.deepgram.com/docs/language-detection/
+    pub detected_language: Option<String>,
 }
 
 /// Transcription results for a single utterance.
