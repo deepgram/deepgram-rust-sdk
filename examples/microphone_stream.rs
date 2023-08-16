@@ -87,6 +87,12 @@ fn microphone_as_stream() -> FuturesReceiver<Result<Bytes, RecvError>> {
     async_rx
 }
 
+#[cfg(not(feature = "tokio"))]
+fn main() {
+    println!("This example requires the `tokio` feature");
+}
+
+#[cfg(feature = "tokio")]
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
     let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap());

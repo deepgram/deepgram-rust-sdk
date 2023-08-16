@@ -1,3 +1,4 @@
+#![cfg(feature = "tokio")]
 // TODO: Remove this lint
 // Currently not documented because interface of this module is still changing
 #![allow(missing_docs)]

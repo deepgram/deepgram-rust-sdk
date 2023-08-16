@@ -5,6 +5,12 @@ use futures::stream::StreamExt;
 
 use deepgram::{Deepgram, DeepgramError};
 
+#[cfg(not(feature = "tokio"))]
+fn main() {
+    println!("This example requires the `tokio` feature");
+}
+
+#[cfg(feature = "tokio")]
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
     let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap());

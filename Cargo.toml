@@ -9,6 +9,10 @@ repository = "https://github.com/deepgram-devs/deepgram-rust-sdk"
 keywords = ["deepgram", "asr", "transcription", "ai", "speech-to-text"]
 categories = ["api-bindings", "multimedia::audio"]
 
+[features]
+default = ["live"]
+live = ["tokio", "tokio-tungstenite", "tokio-util"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -21,14 +25,18 @@ reqwest = { version = "0.11.10", default-features = false, features = ["json", "
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
-tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = { version = "0.17", features = ["rustls-tls-webpki-roots"] }
-tokio-util = { version = "0.7.1", features = ["codec", "io"] }
+tokio = { version = "1", features = ["full"], optional = true }
+tokio-tungstenite = { version = "0.17", features = ["rustls-tls-webpki-roots"], optional = true }
+tokio-util = { version = "0.7.1", features = ["codec", "io"], optional = true }
 tungstenite = "0.17"
 url = "2"
 uuid = { version = "1", features = ["serde"] }
 
 [dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.17", features = ["rustls-tls-webpki-roots"] }
+tokio-util = { version = "0.7.1", features = ["codec", "io"] }
+
 pkg-config = "0.3.27"
 cpal = "0.13"
 crossbeam = "0.8"
