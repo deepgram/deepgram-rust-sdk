@@ -6,7 +6,7 @@
 [![docs](https://img.shields.io/docsrs/deepgram)](https://docs.rs/deepgram)
 [![license](https://img.shields.io/crates/l/deepgram)](./LICENSE)
 
-Experimental Rust SDK for [Deepgram](https://www.deepgram.com/). Start building with our powerful transcription & speech understanding API.
+Experimental Rust SDK for [Deepgram](https://www.deepgram.com/). Power your apps with world-class speech and Language AI models.
 
 > This SDK only supports hosted usage of api.deepgram.com.
 
