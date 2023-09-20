@@ -41,6 +41,7 @@ where
     encoding: Option<String>,
     sample_rate: Option<u32>,
     channels: Option<u16>,
+    language: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -96,6 +97,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
             encoding: None,
             sample_rate: None,
             channels: None,
+            language: None,
         }
     }
 }
@@ -170,6 +172,11 @@ where
 
         self
     }
+    pub fn language(mut self, language: String) -> Self {
+        self.language = Some(language);
+
+        self
+    }
 }
 
 impl<'a, K> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, K, DeepgramError>
@@ -213,6 +220,7 @@ where
             encoding,
             sample_rate,
             channels,
+            language,
         } = self;
         let mut source = source
             .ok_or(DeepgramError::NoSource)?
@@ -230,6 +238,9 @@ where
             }
             if let Some(channels) = channels {
                 pairs.append_pair("channels", &channels.to_string());
+            }
+            if let Some(language) = language {
+                pairs.append_pair("language", &language.to_string());
             }
         }
 
