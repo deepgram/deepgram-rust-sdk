@@ -39,6 +39,7 @@ where
     config: &'a Deepgram<K>,
     source: Option<S>,
     encoding: Option<String>,
+    endpointing: Option<bool>,
     sample_rate: Option<u32>,
     channels: Option<u16>,
     language: Option<String>,
@@ -95,6 +96,7 @@ impl<K: AsRef<str>> Transcription<'_, K> {
             config: self.0,
             source: None,
             encoding: None,
+            endpointing: None,
             sample_rate: None,
             channels: None,
             language: None,
@@ -161,6 +163,12 @@ where
         self
     }
 
+    pub fn endpointing(mut self, endpointing: bool) -> Self {
+        self.endpointing = Some(endpointing);
+
+        self
+    }
+
     pub fn sample_rate(mut self, sample_rate: u32) -> Self {
         self.sample_rate = Some(sample_rate);
 
@@ -218,6 +226,7 @@ where
             config,
             source,
             encoding,
+            endpointing,
             sample_rate,
             channels,
             language,
@@ -241,6 +250,9 @@ where
             }
             if let Some(language) = language {
                 pairs.append_pair("language", &language.to_string());
+            }
+            if let Some(endpointing) = endpointing {
+                pairs.append_pair("endpointing", &endpointing.to_string());
             }
         }
 
