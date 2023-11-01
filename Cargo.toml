@@ -27,6 +27,8 @@ tokio-util = { version = "0.7.1", features = ["codec", "io"] }
 tungstenite = "0.20.1"
 url = "2"
 uuid = { version = "1", features = ["serde"] }
+# Dependencies below are specified only to satisfy minimal-versions.
+proc-macro2 = "1.0.60"
 
 [dev-dependencies]
 pkg-config = "0.3.27"
