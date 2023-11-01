@@ -1,6 +1,6 @@
 [package]
 name = "deepgram"
-version = "0.4.0-alpha.1"
+version = "0.4.0-alpha.2"
 authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
 description = "Official Rust SDK for Deepgram's automated speech recognition APIs."
@@ -17,16 +17,18 @@ bytes = "1"
 futures = "0.3"
 http = "0.2"
 pin-project = "1"
-reqwest = { version = "0.11.10", default-features = false, features = ["json", "rustls-tls", "stream"] }
+reqwest = { version = "0.11.22", default-features = false, features = ["json", "rustls-tls", "stream"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = { version = "0.17", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.20.1", features = ["rustls-tls-webpki-roots"] }
 tokio-util = { version = "0.7.1", features = ["codec", "io"] }
-tungstenite = "0.17"
+tungstenite = "0.20.1"
 url = "2"
 uuid = { version = "1", features = ["serde"] }
+# Dependencies below are specified only to satisfy minimal-versions.
+proc-macro2 = "1.0.60"
 
 [dev-dependencies]
 pkg-config = "0.3.27"

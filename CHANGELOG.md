@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Remove generic from `Deepgram` struct.
+- Upgrade dependencies: `tungstenite`, `tokio-tungstenite`, `reqwest`.
 
 
 ## [0.3.0]
