@@ -171,6 +171,9 @@ pub struct SearchResults {
 pub struct ResultAlternative {
     #[allow(missing_docs)]
     pub transcript: String,
+    
+    #[allow(missing_docs)]
+    pub paragraphs: Option<Box<ResultAlternative>>,
 
     #[allow(missing_docs)]
     pub confidence: f64,
