@@ -39,3 +39,27 @@ crossbeam = "0.8"
 default = ["prerecorded", "live"]
 live = ["dep:tungstenite", "dep:tokio-tungstenite"]
 prerecorded = []
+
+[[example]]
+name = "prerecorded_from_file"
+required-features = ["prerecorded"]
+
+[[example]]
+name = "callback"
+required-features = ["prerecorded"]
+
+[[example]]
+name = "make_prerecorded_request_builder"
+required-features = ["prerecorded"]
+
+[[example]]
+name = "microphone_stream"
+required-features = ["live"]
+
+[[example]]
+name = "prerecorded_from_url"
+required-features = ["prerecorded"]
+
+[[example]]
+name = "simple_stream"
+required-features = ["live"]

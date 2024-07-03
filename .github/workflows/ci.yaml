@@ -7,6 +7,20 @@ env:
   RUSTDOCFLAGS: -D warnings
 
 jobs:
+  Features:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install libasound2-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install libasound2-dev
+    - name: Check no features
+      run: cargo check --all-targets --no-default-features
+    - name: Check prerecorded feature
+      run: cargo check --all-targets --no-default-features --features=prerecorded
+    - name: Check live feature
+      run: cargo check --all-targets --no-default-features --features=live
   Build:
     runs-on: ubuntu-latest
     steps:
