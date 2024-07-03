@@ -22,9 +22,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
 tokio = { version = "1.13.0", features = ["full"] }
-tokio-tungstenite = { version = "0.20.1", features = ["rustls-tls-webpki-roots"] }
+tokio-tungstenite = { version = "0.20.1", features = ["rustls-tls-webpki-roots"], optional = true }
 tokio-util = { version = "0.7.1", features = ["codec", "io"] }
-tungstenite = "0.20.1"
+tungstenite = { version = "0.20.1", optional = true }
 url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
@@ -34,3 +34,32 @@ proc-macro2 = "1.0.60"
 pkg-config = "0.3.27"
 cpal = "0.13"
 crossbeam = "0.8"
+
+[features]
+default = ["prerecorded", "live"]
+live = ["dep:tungstenite", "dep:tokio-tungstenite"]
+prerecorded = []
+
+[[example]]
+name = "prerecorded_from_file"
+required-features = ["prerecorded"]
+
+[[example]]
+name = "callback"
+required-features = ["prerecorded"]
+
+[[example]]
+name = "make_prerecorded_request_builder"
+required-features = ["prerecorded"]
+
+[[example]]
+name = "microphone_stream"
+required-features = ["live"]
+
+[[example]]
+name = "prerecorded_from_url"
+required-features = ["prerecorded"]
+
+[[example]]
+name = "simple_stream"
+required-features = ["live"]
