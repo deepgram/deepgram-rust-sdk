@@ -5,6 +5,7 @@
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 
 use reqwest::RequestBuilder;
+use url::Url;
 
 use super::Transcription;
 use crate::send_and_translate_response;
@@ -17,7 +18,7 @@ use audio_source::AudioSource;
 use options::{Options, SerializableOptions};
 use response::{CallbackResponse, Response};
 
-static DEEPGRAM_API_URL_LISTEN: &str = "https://api.deepgram.com/v1/listen";
+static DEEPGRAM_API_URL_LISTEN: &str = "v1/listen";
 
 impl Transcription<'_> {
     /// Sends a request to Deepgram to transcribe pre-recorded audio.
@@ -195,7 +196,7 @@ impl Transcription<'_> {
         let request_builder = self
             .0
             .client
-            .post(DEEPGRAM_API_URL_LISTEN)
+            .post(self.listen_url())
             .query(&SerializableOptions(options));
 
         source.fill_body(request_builder)
@@ -266,5 +267,32 @@ impl Transcription<'_> {
     ) -> RequestBuilder {
         self.make_prerecorded_request_builder(source, options)
             .query(&[("callback", callback)])
+    }
+
+    fn listen_url(&self) -> Url {
+        self.0.base_url.join(DEEPGRAM_API_URL_LISTEN).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Deepgram;
+
+    #[test]
+    fn listen_url() {
+        let dg = Deepgram::new("token");
+        assert_eq!(
+            &dg.transcription().listen_url().to_string(),
+            "https://api.deepgram.com/v1/listen"
+        );
+    }
+
+    #[test]
+    fn listen_url_custom_host() {
+        let dg = Deepgram::with_base_url("token", "http://localhost:8888/abc/");
+        assert_eq!(
+            &dg.transcription().listen_url().to_string(),
+            "http://localhost:8888/abc/v1/listen"
+        );
     }
 }

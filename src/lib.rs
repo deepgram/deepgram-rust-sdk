@@ -14,6 +14,7 @@ use reqwest::{
 };
 use serde::de::DeserializeOwned;
 use thiserror::Error;
+use url::Url;
 
 pub mod billing;
 pub mod invitations;
@@ -26,6 +27,8 @@ pub mod usage;
 
 mod response;
 
+static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
+
 /// A client for the Deepgram API.
 ///
 /// Make transcriptions requests using [`Deepgram::transcription`].
@@ -33,6 +36,11 @@ mod response;
 pub struct Deepgram {
     #[cfg_attr(not(feature = "live"), allow(unused))]
     api_key: String,
+    #[cfg_attr(
+        all(not(feature = "live"), not(feature = "prerecorded")),
+        allow(unused)
+    )]
+    base_url: Url,
     client: reqwest::Client,
 }
 
@@ -81,6 +89,8 @@ type Result<T> = std::result::Result<T, DeepgramError>;
 impl Deepgram {
     /// Construct a new Deepgram client.
     ///
+    /// The client will be pointed at the deepgram API.
+    ///
     /// Create your first API key on the [Deepgram Console][console].
     ///
     /// [console]: https://console.deepgram.com/
@@ -89,6 +99,46 @@ impl Deepgram {
     ///
     /// Panics under the same conditions as [`reqwest::Client::new`].
     pub fn new<K: AsRef<str>>(api_key: K) -> Self {
+        Self::with_base_url(api_key, DEEPGRAM_BASE_URL)
+    }
+
+    /// Construct a new Deepgram client with the specified base URL.
+    ///
+    /// When using a self-hosted instance of deepgram, this will be the
+    /// host portion of your own instance. For instance, if you would
+    /// query your deepgram instance at `http://deepgram.internal/v1/listen`,
+    /// the base_url will be `http://deepgram.internal`.
+    ///
+    /// Admin features, such as billing, usage, and key management will
+    /// still go through the hosted site at `https://api.deepgram.com`.
+    ///
+    /// Create your first API key on the [Deepgram Console][console].
+    ///
+    /// [console]: https://console.deepgram.com/
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// # use deepgram::Deepgram;
+    /// let deepgram = Deepgram::with_base_url(
+    ///     "apikey12345",
+    ///     "http://localhost:8080",
+    /// );
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics under the same conditions as [`reqwest::Client::new`], or if `base_url`
+    /// is not a valid URL.
+    ///
+    ///
+
+    pub fn with_base_url<K, U>(api_key: K, base_url: U) -> Self
+    where
+        K: AsRef<str>,
+        U: TryInto<Url>,
+        U::Error: std::fmt::Debug,
+    {
         static USER_AGENT: &str = concat!(
             env!("CARGO_PKG_NAME"),
             "/",
@@ -106,9 +156,10 @@ impl Deepgram {
             header
         };
         let api_key = api_key.as_ref().to_owned();
-
+        let base_url = base_url.try_into().expect("base_url must be a valid Url");
         Deepgram {
             api_key,
+            base_url,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
                 .default_headers(authorization_header)
