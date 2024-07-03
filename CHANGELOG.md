@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deprecate tiers and add explicit support for all currently available models.
 - Expand language enum to include all currently-supported languages.
 - Add (default on) feature flags for live and prerecorded transcription.
+- Support arbitrary query params in transcription options.
 
 ## [0.4.0] - 2023-11-01
 
