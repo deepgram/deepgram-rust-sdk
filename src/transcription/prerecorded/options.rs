@@ -37,7 +37,6 @@ pub struct Options {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum Model {
-
     /// Recommended for readability and Deepgram's lowest word error rates.
     /// Recommended for most use cases.
     ///
@@ -386,7 +385,6 @@ impl OptionsBuilder {
             detect_language: None,
         })
     }
-
 
     /// Set the Model feature.
     ///
@@ -1306,7 +1304,6 @@ impl Serialize for SerializableOptions<'_> {
     }
 }
 
-
 impl AsRef<str> for Model {
     fn as_ref(&self) -> &str {
         match self {
@@ -1525,7 +1522,6 @@ mod serialize_options_tests {
 
         check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1");
     }
-
 
     #[test]
     fn model() {
