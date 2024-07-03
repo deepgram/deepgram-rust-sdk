@@ -1433,7 +1433,6 @@ impl AsRef<str> for Model {
 
 impl AsRef<str> for Language {
     fn as_ref(&self) -> &str {
-
         match self {
             Self::bg => "bg",
             Self::ca => "ca",
