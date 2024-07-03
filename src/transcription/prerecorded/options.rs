@@ -9,7 +9,6 @@ use serde::{ser::SerializeSeq, Serialize};
 /// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options {
-    tier: Option<Tier>,
     model: Option<Model>,
     version: Option<String>,
     language: Option<Language>,
@@ -30,21 +29,6 @@ pub struct Options {
     detect_language: Option<bool>,
 }
 
-/// Used as a parameter for [`OptionsBuilder::tier`].
-///
-/// See the [Deepgram Tier feature docs][docs] for more info.
-///
-/// [docs]: https://developers.deepgram.com/documentation/features/tier/
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-#[non_exhaustive]
-pub enum Tier {
-    #[allow(missing_docs)]
-    Enhanced,
-
-    #[allow(missing_docs)]
-    Base,
-}
-
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
 ///
 /// See the [Deepgram Model feature docs][docs] for more info.
@@ -53,24 +37,141 @@ pub enum Tier {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum Model {
+
+    /// Recommended for readability and Deepgram's lowest word error rates.
+    /// Recommended for most use cases.
+    ///
+    /// Nova-2 expands on Nova-1's advancements with speech-specific
+    /// optimizations to the underlying Transformer architecture, advanced
+    /// data curation techniques, and a multi-stage training methodology.
+    /// These changes yield reduced word error rate (WER) and enhancements
+    /// to entity recognition (i.e. proper nouns, alphanumerics, etc.),
+    /// punctuation, and capitalization.
+    Nova2,
+
+    /// Recommended for readability and low word error rates.
+    ///
+    /// Nova is the predecessor to Nova-2. Training on this model spans over
+    /// 100 domains and 47 billion tokens, making it the deepest-trained
+    /// automatic speech-to-text model to date. Nova doesn't just excel in one
+    /// specific domain — it is ideal for a wide array of voice applications
+    /// that require high accuracy in diverse contexts. See the benchmarks.
+    Nova,
+
+    /// Recommended for lower word error rates than Base, high accuracy
+    /// timestamps, and use cases that require keyword boosting.
+    Enhanced,
+
+    /// Recommended for large transcription volumes and high accuracy
+    /// timestamps.
+    Base,
+
+    #[allow(missing_docs)]
+    Nova2Meeting,
+
+    #[allow(missing_docs)]
+    Nova2Phonecall,
+
+    #[allow(missing_docs)]
+    Nova2Finance,
+
+    #[allow(missing_docs)]
+    Nova2Conversationalai,
+
+    #[allow(missing_docs)]
+    Nova2Voicemail,
+
+    #[allow(missing_docs)]
+    Nova2Video,
+
+    #[allow(missing_docs)]
+    Nova2Medical,
+
+    #[allow(missing_docs)]
+    Nova2Drivethru,
+
+    #[allow(missing_docs)]
+    Nova2Automotive,
+
+    #[allow(missing_docs)]
+    NovaPhonecall,
+
+    #[allow(missing_docs)]
+    NovaMedical,
+
+    #[allow(missing_docs)]
+    EnhancedMeeting,
+
+    #[allow(missing_docs)]
+    EnhancedPhonecall,
+
+    #[allow(missing_docs)]
+    EnhancedFinance,
+
+    #[allow(missing_docs)]
+    BaseMeeting,
+
+    #[allow(missing_docs)]
+    BasePhonecall,
+
+    #[allow(missing_docs)]
+    BaseVoicemail,
+
+    #[allow(missing_docs)]
+    BaseFinance,
+
+    #[allow(missing_docs)]
+    BaseConversationalai,
+
+    #[allow(missing_docs)]
+    BaseVideo,
+
+    #[deprecated(
+        since = "0.5.0",
+        note = "use one of the general-purpose models like Model::Nova2 instead"
+    )]
     #[allow(missing_docs)]
     General,
 
+    #[deprecated(
+        since = "0.5.0",
+        note = "use one of the qualified models like Model::Nova2Meeting instead"
+    )]
     #[allow(missing_docs)]
     Meeting,
 
+    #[deprecated(
+        since = "0.5.0",
+        note = "use one of the qualified models like Model::Nova2Phonecall instead"
+    )]
     #[allow(missing_docs)]
     Phonecall,
 
+    #[deprecated(
+        since = "0.5.0",
+        note = "use one of the qualified models like Model::Nova2Voicemail instead"
+    )]
     #[allow(missing_docs)]
     Voicemail,
 
+    #[deprecated(
+        since = "0.5.0",
+        note = "use one of the qualified models like Model::Nova2Finance instead"
+    )]
     #[allow(missing_docs)]
     Finance,
 
+    #[deprecated(
+        since = "0.5.0",
+        note = "use one of the qualified models like Model::Nova2Conversationalai instead"
+    )]
     #[allow(missing_docs)]
     Conversationalai,
 
+    #[deprecated(
+        since = "0.5.0",
+        note = "use one of the qualified models like Model::Nova2Video instead"
+    )]
     #[allow(missing_docs)]
     Video,
 
@@ -265,7 +366,6 @@ impl OptionsBuilder {
     /// Construct a new [`OptionsBuilder`].
     pub fn new() -> Self {
         Self(Options {
-            tier: None,
             model: None,
             version: None,
             language: None,
@@ -287,30 +387,6 @@ impl OptionsBuilder {
         })
     }
 
-    /// Set the Tier feature.
-    ///
-    /// Not all tiers are supported for all models and languages.
-    /// For a list of models/languages and their supported models,
-    /// see the [Deepgram Language feature][language] docs.
-    ///
-    /// See the [Deepgram Tier feature docs][docs] for more info.
-    ///
-    /// [language]: https://developers.deepgram.com/documentation/features/language/
-    /// [docs]: https://developers.deepgram.com/documentation/features/tier/
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use deepgram::transcription::prerecorded::options::{Options, Tier};
-    /// #
-    /// let options = Options::builder()
-    ///     .tier(Tier::Enhanced)
-    ///     .build();
-    /// ```
-    pub fn tier(mut self, tier: Tier) -> Self {
-        self.0.tier = Some(tier);
-        self
-    }
 
     /// Set the Model feature.
     ///
@@ -331,7 +407,7 @@ impl OptionsBuilder {
     /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options = Options::builder()
-    ///     .model(Model::General)
+    ///     .model(Model::Nova2)
     ///     .build();
     /// ```
     ///
@@ -339,13 +415,13 @@ impl OptionsBuilder {
     /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
-    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
-    ///     .model(Model::General)
+    ///     .multichannel_with_models([Model::Nova2Meeting, Model::Nova2Phonecall])
+    ///     .model(Model::Nova2)
     ///     .build();
     ///
     /// let options2 = Options::builder()
     ///     .multichannel(true)
-    ///     .model(Model::General)
+    ///     .model(Model::Nova2)
     ///     .build();
     ///
     /// assert_eq!(options1, options2);
@@ -547,13 +623,13 @@ impl OptionsBuilder {
     /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
-    ///     .model(Model::General)
-    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .model(Model::Nova2)
+    ///     .multichannel_with_models([Model::Nova2Meeting, Model::Nova2Phonecall])
     ///     .multichannel(true)
     ///     .build();
     ///
     /// let options2 = Options::builder()
-    ///     .model(Model::General)
+    ///     .model(Model::Nova2)
     ///     .multichannel(true)
     ///     .build();
     ///
@@ -612,12 +688,12 @@ impl OptionsBuilder {
     /// let dg_transcription = dg_client.transcription();
     ///
     /// let options1 = Options::builder()
-    ///     .model(Model::General)
-    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .model(Model::Nova2)
+    ///     .multichannel_with_models([Model::Nova2Meeting, Model::Nova2Phonecall])
     ///     .build();
     ///
     /// let options2 = Options::builder()
-    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .multichannel_with_models([Model::Nova2Meeting, Model::Nova2Phonecall])
     ///     .build();
     ///
     /// let request1 = dg_transcription
@@ -643,13 +719,13 @@ impl OptionsBuilder {
     /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
-    ///     .model(Model::General)
-    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .model(Model::Nova2)
+    ///     .multichannel_with_models([Model::Nova2Meeting, Model::Nova2Phonecall])
     ///     .multichannel(true)
     ///     .build();
     ///
     /// let options2 = Options::builder()
-    ///     .model(Model::General)
+    ///     .model(Model::Nova2)
     ///     .multichannel(true)
     ///     .build();
     ///
@@ -660,12 +736,12 @@ impl OptionsBuilder {
     /// # use deepgram::transcription::prerecorded::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
-    ///     .multichannel_with_models([Model::Meeting])
-    ///     .multichannel_with_models([Model::Phonecall])
+    ///     .multichannel_with_models([Model::Nova2Meeting])
+    ///     .multichannel_with_models([Model::Nova2Phonecall])
     ///     .build();
     ///
     /// let options2 = Options::builder()
-    ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
+    ///     .multichannel_with_models([Model::Nova2Meeting, Model::Nova2Phonecall])
     ///     .build();
     ///
     /// assert_eq!(options1, options2);
@@ -1095,7 +1171,6 @@ impl Serialize for SerializableOptions<'_> {
 
         // Destructuring it makes sure that we don't forget to use any of it
         let Options {
-            tier,
             model,
             version,
             language,
@@ -1115,10 +1190,6 @@ impl Serialize for SerializableOptions<'_> {
             tags,
             detect_language,
         } = self.0;
-
-        if let Some(tier) = tier {
-            seq.serialize_element(&("tier", tier.as_ref()))?;
-        }
 
         match multichannel {
             // Multichannels with models is enabled
@@ -1235,30 +1306,49 @@ impl Serialize for SerializableOptions<'_> {
     }
 }
 
-impl AsRef<str> for Tier {
-    fn as_ref(&self) -> &str {
-        use Tier::*;
-
-        match self {
-            Enhanced => "enhanced",
-            Base => "base",
-        }
-    }
-}
 
 impl AsRef<str> for Model {
     fn as_ref(&self) -> &str {
-        use Model::*;
-
         match self {
-            General => "general",
-            Meeting => "meeting",
-            Phonecall => "phonecall",
-            Voicemail => "voicemail",
-            Finance => "finance",
-            Conversationalai => "conversationalai",
-            Video => "video",
-            CustomId(id) => id,
+            Self::Nova2 => "nova-2",
+            Self::Nova => "nova",
+            Self::Enhanced => "enhanced",
+            Self::Base => "base",
+            Self::Nova2Meeting => "nova-2-meeting",
+            Self::Nova2Phonecall => "nova-2-phonecall",
+            Self::Nova2Finance => "nova-2-finance",
+            Self::Nova2Conversationalai => "nova-2-conversationalai",
+            Self::Nova2Voicemail => "nova-2-voicemail",
+            Self::Nova2Video => "nova-2-video",
+            Self::Nova2Medical => "nova-2-medical",
+            Self::Nova2Drivethru => "nova-2-drivethru",
+            Self::Nova2Automotive => "nova-2-automotive",
+            Self::NovaPhonecall => "nova-phonecall",
+            Self::NovaMedical => "nova-medical",
+            Self::EnhancedMeeting => "enhanced-meeting",
+            Self::EnhancedPhonecall => "enhanced-phonecall",
+            Self::EnhancedFinance => "enhanced-finance",
+            Self::BaseMeeting => "base-meeting",
+            Self::BasePhonecall => "base-phonecall",
+            Self::BaseVoicemail => "base-voicemail",
+            Self::BaseFinance => "base-finance",
+            Self::BaseConversationalai => "base-conversationalai",
+            Self::BaseVideo => "base-video",
+            #[allow(deprecated)]
+            Self::General => "general",
+            #[allow(deprecated)]
+            Self::Phonecall => "phonecall",
+            #[allow(deprecated)]
+            Self::Voicemail => "voicemail",
+            #[allow(deprecated)]
+            Self::Finance => "finance",
+            #[allow(deprecated)]
+            Self::Meeting => "meeting",
+            #[allow(deprecated)]
+            Self::Conversationalai => "conversationalai",
+            #[allow(deprecated)]
+            Self::Video => "video",
+            Self::CustomId(id) => id,
         }
     }
 }
@@ -1323,7 +1413,7 @@ fn models_to_string(models: &[Model]) -> String {
 
 #[cfg(test)]
 mod models_to_string_tests {
-    use super::{Model::*, *};
+    use super::*;
 
     #[test]
     fn empty() {
@@ -1332,14 +1422,18 @@ mod models_to_string_tests {
 
     #[test]
     fn one() {
-        assert_eq!(models_to_string(&[General]), "general");
+        assert_eq!(models_to_string(&[Model::Base]), "base");
     }
 
     #[test]
     fn many() {
         assert_eq!(
-            models_to_string(&[Phonecall, Meeting, Voicemail]),
-            "phonecall:meeting:voicemail"
+            models_to_string(&[
+                Model::BasePhonecall,
+                Model::BaseMeeting,
+                Model::BaseVoicemail
+            ]),
+            "base-phonecall:base-meeting:base-voicemail"
         );
     }
 
@@ -1347,11 +1441,11 @@ mod models_to_string_tests {
     fn custom() {
         assert_eq!(
             models_to_string(&[
-                Finance,
-                CustomId(String::from("extra_crispy")),
-                Conversationalai
+                Model::EnhancedFinance,
+                Model::CustomId(String::from("extra_crispy")),
+                Model::Nova2Conversationalai,
             ]),
-            "finance:extra_crispy:conversationalai"
+            "enhanced-finance:extra_crispy:nova-2-conversationalai"
         );
     }
 }
@@ -1400,8 +1494,7 @@ mod serialize_options_tests {
     #[test]
     fn all_options() {
         let options = Options::builder()
-            .tier(Tier::Enhanced)
-            .model(Model::General)
+            .model(Model::Base)
             .version("1.2.3")
             .language(Language::en_US)
             .punctuate(true)
@@ -1410,9 +1503,9 @@ mod serialize_options_tests {
             .diarize(true)
             .ner(true)
             .multichannel_with_models([
-                Model::Finance,
+                Model::EnhancedFinance,
                 Model::CustomId(String::from("extra_crispy")),
-                Model::Conversationalai,
+                Model::Nova2Conversationalai,
             ])
             .alternatives(4)
             .numerals(true)
@@ -1430,25 +1523,13 @@ mod serialize_options_tests {
             .tag(["Tag 1"])
             .build();
 
-        check_serialization(&options, "tier=enhanced&model=finance%3Aextra_crispy%3Aconversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1");
+        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1");
     }
 
-    #[test]
-    fn tier() {
-        check_serialization(
-            &Options::builder().tier(Tier::Enhanced).build(),
-            "tier=enhanced",
-        );
-
-        check_serialization(&Options::builder().tier(Tier::Base).build(), "tier=base");
-    }
 
     #[test]
     fn model() {
-        check_serialization(
-            &Options::builder().model(Model::General).build(),
-            "model=general",
-        );
+        check_serialization(&Options::builder().model(Model::Base).build(), "model=base");
 
         check_serialization(
             &Options::builder()
@@ -1565,12 +1646,12 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder()
                 .multichannel_with_models([
-                    Model::Finance,
+                    Model::EnhancedFinance,
                     Model::CustomId(String::from("extra_crispy")),
-                    Model::Conversationalai,
+                    Model::Nova2Conversationalai,
                 ])
                 .build(),
-            "model=finance%3Aextra_crispy%3Aconversationalai&multichannel=true",
+            "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&multichannel=true",
         );
     }
 
