@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 - Deprecate tiers and add explicit support for all currently available models.
+- Expand language enum to include all currently-supported languages.
 
 ## [0.4.0] - 2023-11-01
 
