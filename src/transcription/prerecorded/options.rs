@@ -189,16 +189,25 @@ pub enum Model {
 #[non_exhaustive]
 pub enum Language {
     #[allow(missing_docs)]
-    zh,
+    bg,
 
     #[allow(missing_docs)]
-    zh_CN,
+    ca,
 
     #[allow(missing_docs)]
-    zh_TW,
+    cs,
 
     #[allow(missing_docs)]
-    nl,
+    da,
+
+    #[allow(missing_docs)]
+    de,
+
+    #[allow(missing_docs)]
+    de_CH,
+
+    #[allow(missing_docs)]
+    el,
 
     #[allow(missing_docs)]
     en,
@@ -219,19 +228,34 @@ pub enum Language {
     en_US,
 
     #[allow(missing_docs)]
+    es,
+
+    #[allow(missing_docs)]
+    es_419,
+
+    #[allow(missing_docs)]
+    es_LATAM,
+
+    #[allow(missing_docs)]
+    et,
+
+    #[allow(missing_docs)]
+    fi,
+
+    #[allow(missing_docs)]
     fr,
 
     #[allow(missing_docs)]
     fr_CA,
 
     #[allow(missing_docs)]
-    de,
-
-    #[allow(missing_docs)]
     hi,
 
     #[allow(missing_docs)]
     hi_Latn,
+
+    #[allow(missing_docs)]
+    hu,
 
     #[allow(missing_docs)]
     id,
@@ -246,28 +270,85 @@ pub enum Language {
     ko,
 
     #[allow(missing_docs)]
+    ko_KR,
+
+    #[allow(missing_docs)]
+    lv,
+
+    #[allow(missing_docs)]
+    lt,
+
+    #[allow(missing_docs)]
+    ms,
+
+    #[allow(missing_docs)]
+    nl,
+
+    #[allow(missing_docs)]
+    nl_BE,
+
+    #[allow(missing_docs)]
+    no,
+
+    #[allow(missing_docs)]
+    pl,
+
+    #[allow(missing_docs)]
     pt,
 
     #[allow(missing_docs)]
     pt_BR,
 
     #[allow(missing_docs)]
+    ro,
+
+    #[allow(missing_docs)]
     ru,
 
     #[allow(missing_docs)]
-    es,
-
-    #[allow(missing_docs)]
-    es_419,
+    sk,
 
     #[allow(missing_docs)]
     sv,
+
+    #[allow(missing_docs)]
+    sv_SE,
+
+    #[allow(missing_docs)]
+    ta,
+
+    #[allow(missing_docs)]
+    taq,
+
+    #[allow(missing_docs)]
+    th,
+
+    #[allow(missing_docs)]
+    th_TH,
 
     #[allow(missing_docs)]
     tr,
 
     #[allow(missing_docs)]
     uk,
+
+    #[allow(missing_docs)]
+    vi,
+
+    #[allow(missing_docs)]
+    zh,
+
+    #[allow(missing_docs)]
+    zh_CN,
+
+    #[allow(missing_docs)]
+    zh_Hans,
+
+    #[allow(missing_docs)]
+    zh_Hant,
+
+    #[allow(missing_docs)]
+    zh_TW,
 
     /// Avoid using the `Other` variant where possible.
     /// It exists so that you can use new languages that Deepgram supports without being forced to update your version of the SDK.
@@ -1355,37 +1436,63 @@ impl AsRef<str> for Model {
 
 impl AsRef<str> for Language {
     fn as_ref(&self) -> &str {
-        use Language::*;
 
         match self {
-            zh => "zh",
-            zh_CN => "zh-CN",
-            zh_TW => "zh-TW",
-            nl => "nl",
-            en => "en",
-            en_AU => "en-AU",
-            en_GB => "en-GB",
-            en_IN => "en-IN",
-            en_NZ => "en-NZ",
-            en_US => "en-US",
-            fr => "fr",
-            fr_CA => "fr-CA",
-            de => "de",
-            hi => "hi",
-            hi_Latn => "hi-Latn",
-            id => "id",
-            it => "it",
-            ja => "ja",
-            ko => "ko",
-            pt => "pt",
-            pt_BR => "pt-BR",
-            ru => "ru",
-            es => "es",
-            es_419 => "es-419",
-            sv => "sv",
-            tr => "tr",
-            uk => "uk",
-            Other(bcp_47_tag) => bcp_47_tag,
+            Self::bg => "bg",
+            Self::ca => "ca",
+            Self::cs => "cs",
+            Self::da => "da",
+            Self::de => "de",
+            Self::de_CH => "de-CH",
+            Self::el => "el",
+            Self::en => "en",
+            Self::en_AU => "en-AU",
+            Self::en_GB => "en-GB",
+            Self::en_IN => "en-IN",
+            Self::en_NZ => "en-NZ",
+            Self::en_US => "en-US",
+            Self::es => "es",
+            Self::es_419 => "es-419",
+            Self::es_LATAM => "es-LATAM",
+            Self::et => "et",
+            Self::fi => "fi",
+            Self::fr => "fr",
+            Self::fr_CA => "fr-CA",
+            Self::hi => "hi",
+            Self::hi_Latn => "hi-Latn",
+            Self::hu => "hu",
+            Self::id => "id",
+            Self::it => "it",
+            Self::ja => "ja",
+            Self::ko => "ko",
+            Self::ko_KR => "ko-KR",
+            Self::lv => "lv",
+            Self::lt => "lt",
+            Self::ms => "ms",
+            Self::nl => "nl",
+            Self::nl_BE => "nl-BE",
+            Self::no => "no",
+            Self::pl => "pl",
+            Self::pt => "pt",
+            Self::pt_BR => "pt-BR",
+            Self::ro => "ro",
+            Self::ru => "ru",
+            Self::sk => "sk",
+            Self::sv => "sv",
+            Self::sv_SE => "sv-SE",
+            Self::ta => "ta",
+            Self::taq => "taq",
+            Self::th => "th",
+            Self::th_TH => "th-TH",
+            Self::tr => "tr",
+            Self::uk => "uk",
+            Self::vi => "vi",
+            Self::zh => "zh",
+            Self::zh_CN => "zh-CN",
+            Self::zh_Hans => "zh-Hans",
+            Self::zh_Hant => "zh-Hant",
+            Self::zh_TW => "zh-TW",
+            Self::Other(bcp_47_tag) => bcp_47_tag,
         }
     }
 }
