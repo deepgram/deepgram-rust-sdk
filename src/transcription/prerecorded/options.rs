@@ -27,6 +27,7 @@ pub struct Options {
     utterances: Option<Utterances>,
     tags: Vec<String>,
     detect_language: Option<bool>,
+    query_params: Vec<(String, String)>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
@@ -465,6 +466,7 @@ impl OptionsBuilder {
             utterances: None,
             tags: Vec::new(),
             detect_language: None,
+            query_params: Vec::new(),
         })
     }
 
@@ -1231,6 +1233,34 @@ impl OptionsBuilder {
 
         self
     }
+
+    /// Append extra query parameters to the end of the transcription request.
+    /// Users should prefer using the other builder methods over this one. This
+    /// exists as an escape hatch for using features before they have been added
+    /// to the SDK.
+    ///
+    /// Calling this twice will add both sets of parameters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    ///
+    /// use std::collections::HashMap;
+    /// let mut params = HashMap::new(); // Could also be a Vec<(String, String)>
+    /// params.insert("extra".to_string(), "parameter".to_string());
+    /// let more_params = vec![("final".to_string(), "option".to_string())];
+    /// let options = Options::builder()
+    ///     .query_params(params)
+    ///     .query_params(more_params)
+    ///     .build();
+    ///
+    /// ```
+    pub fn query_params(mut self, params: impl IntoIterator<Item = (String, String)>) -> Self {
+        self.0.query_params.extend(params);
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -1270,6 +1300,7 @@ impl Serialize for SerializableOptions<'_> {
             utterances,
             tags,
             detect_language,
+            query_params,
         } = self.0;
 
         match multichannel {
@@ -1381,6 +1412,10 @@ impl Serialize for SerializableOptions<'_> {
 
         if let Some(detect_language) = detect_language {
             seq.serialize_element(&("detect_language", detect_language))?;
+        }
+
+        for (param, value) in query_params {
+            seq.serialize_element(&(param, value))?;
         }
 
         seq.end()
