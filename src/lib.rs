@@ -8,6 +8,7 @@
 
 use std::io;
 
+use redacted::RedactedString;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     RequestBuilder,
@@ -21,11 +22,11 @@ pub mod invitations;
 pub mod keys;
 pub mod members;
 pub mod projects;
+mod redacted;
+mod response;
 pub mod scopes;
 pub mod transcription;
 pub mod usage;
-
-mod response;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 
@@ -35,7 +36,7 @@ static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 #[derive(Debug, Clone)]
 pub struct Deepgram {
     #[cfg_attr(not(feature = "live"), allow(unused))]
-    api_key: Option<String>,
+    api_key: Option<RedactedString>,
     #[cfg_attr(not(any(feature = "live", feature = "prerecorded")), allow(unused))]
     base_url: Url,
     client: reqwest::Client,
@@ -197,7 +198,7 @@ impl Deepgram {
         };
 
         Deepgram {
-            api_key,
+            api_key: api_key.map(RedactedString),
             base_url,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
