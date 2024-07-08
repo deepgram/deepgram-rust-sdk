@@ -30,6 +30,8 @@ use crate::{Deepgram, DeepgramError, Result};
 
 use super::Transcription;
 
+static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
+
 #[derive(Debug)]
 pub struct StreamRequestBuilder<'a, S, E>
 where
@@ -40,6 +42,7 @@ where
     encoding: Option<String>,
     sample_rate: Option<u32>,
     channels: Option<u16>,
+    stream_url: Url,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -95,7 +98,18 @@ impl Transcription<'_> {
             encoding: None,
             sample_rate: None,
             channels: None,
+            stream_url: self.listen_stream_url(),
         }
+    }
+
+    fn listen_stream_url(&self) -> Url {
+        let mut url = self.0.base_url.join(LIVE_LISTEN_URL_PATH).unwrap();
+        match url.scheme() {
+            "http" | "ws" => url.set_scheme("ws").unwrap(),
+            "https" | "wss" => url.set_scheme("wss").unwrap(),
+            _ => panic!("base_url must have a scheme of http, https, ws, or wss"),
+        }
+        url
     }
 }
 
@@ -201,42 +215,43 @@ where
     E: Send + std::fmt::Debug,
 {
     pub async fn start(self) -> Result<Receiver<Result<StreamResponse>>> {
-        let StreamRequestBuilder {
-            config,
-            source,
-            encoding,
-            sample_rate,
-            channels,
-        } = self;
-        let mut source = source
-            .ok_or(DeepgramError::NoSource)?
-            .map(|res| res.map(|bytes| Message::binary(Vec::from(bytes.as_ref()))));
-
         // This unwrap is safe because we're parsing a static.
-        let mut base = Url::parse("wss://api.deepgram.com/v1/listen").unwrap();
+        let mut url = self.stream_url;
         {
-            let mut pairs = base.query_pairs_mut();
-            if let Some(encoding) = encoding {
-                pairs.append_pair("encoding", &encoding);
+            let mut pairs = url.query_pairs_mut();
+            if let Some(encoding) = &self.encoding {
+                pairs.append_pair("encoding", encoding);
             }
-            if let Some(sample_rate) = sample_rate {
+            if let Some(sample_rate) = self.sample_rate {
                 pairs.append_pair("sample_rate", &sample_rate.to_string());
             }
-            if let Some(channels) = channels {
+            if let Some(channels) = self.channels {
                 pairs.append_pair("channels", &channels.to_string());
             }
         }
 
-        let request = Request::builder()
-            .method("GET")
-            .uri(base.to_string())
-            .header("authorization", format!("token {}", config.api_key))
-            .header("sec-websocket-key", client::generate_key())
-            .header("host", "api.deepgram.com")
-            .header("connection", "upgrade")
-            .header("upgrade", "websocket")
-            .header("sec-websocket-version", "13")
-            .body(())?;
+        let mut source = self
+            .source
+            .ok_or(DeepgramError::NoSource)?
+            .map(|res| res.map(|bytes| Message::binary(Vec::from(bytes.as_ref()))));
+
+        let request = {
+            let builder = Request::builder()
+                .method("GET")
+                .uri(url.to_string())
+                .header("sec-websocket-key", client::generate_key())
+                .header("host", "api.deepgram.com")
+                .header("connection", "upgrade")
+                .header("upgrade", "websocket")
+                .header("sec-websocket-version", "13");
+
+            let builder = if let Some(api_key) = self.config.api_key.as_deref() {
+                builder.header("authorization", format!("token {}", api_key))
+            } else {
+                builder
+            };
+            builder.body(())?
+        };
         let (ws_stream, _) = tokio_tungstenite::connect_async(request).await?;
         let (mut write, mut read) = ws_stream.split();
         let (mut tx, rx) = mpsc::channel::<Result<StreamResponse>>(1);
@@ -286,5 +301,26 @@ where
         });
 
         Ok(rx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_stream_url() {
+        let dg = crate::Deepgram::new("token");
+        assert_eq!(
+            dg.transcription().listen_stream_url().to_string(),
+            "wss://api.deepgram.com/v1/listen",
+        );
+    }
+
+    #[test]
+    fn test_stream_url_custom_host() {
+        let dg = crate::Deepgram::with_base_url_and_api_key("http://localhost:8080", "token");
+        assert_eq!(
+            dg.transcription().listen_stream_url().to_string(),
+            "ws://localhost:8080/v1/listen",
+        );
     }
 }
