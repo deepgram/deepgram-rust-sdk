@@ -35,11 +35,8 @@ static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 #[derive(Debug, Clone)]
 pub struct Deepgram {
     #[cfg_attr(not(feature = "live"), allow(unused))]
-    api_key: String,
-    #[cfg_attr(
-        all(not(feature = "live"), not(feature = "prerecorded")),
-        allow(unused)
-    )]
+    api_key: Option<String>,
+    #[cfg_attr(not(any(feature = "live", feature = "prerecorded")), allow(unused))]
     base_url: Url,
     client: reqwest::Client,
 }
@@ -89,7 +86,7 @@ type Result<T> = std::result::Result<T, DeepgramError>;
 impl Deepgram {
     /// Construct a new Deepgram client.
     ///
-    /// The client will be pointed at the deepgram API.
+    /// The client will be pointed at Deepgram's hosted API.
     ///
     /// Create your first API key on the [Deepgram Console][console].
     ///
@@ -99,7 +96,8 @@ impl Deepgram {
     ///
     /// Panics under the same conditions as [`reqwest::Client::new`].
     pub fn new<K: AsRef<str>>(api_key: K) -> Self {
-        Self::with_base_url(api_key, DEEPGRAM_BASE_URL)
+        let api_key = Some(api_key.as_ref().to_owned());
+        Self::inner_constructor(DEEPGRAM_BASE_URL.try_into().unwrap(), api_key)
     }
 
     /// Construct a new Deepgram client with the specified base URL.
@@ -112,7 +110,11 @@ impl Deepgram {
     /// Admin features, such as billing, usage, and key management will
     /// still go through the hosted site at `https://api.deepgram.com`.
     ///
-    /// Create your first API key on the [Deepgram Console][console].
+    /// Self-hosted instances do not in general authenticate incoming
+    /// requests, so unlike in [`Deepgram::new`], so no api key needs to be
+    /// provided. The SDK will not include an `Authorization` header in its
+    /// requests. If an API key is required, consider using
+    /// [`Deepgram::with_base_url_and_api_key`].
     ///
     /// [console]: https://console.deepgram.com/
     ///
@@ -121,7 +123,6 @@ impl Deepgram {
     /// ```
     /// # use deepgram::Deepgram;
     /// let deepgram = Deepgram::with_base_url(
-    ///     "apikey12345",
     ///     "http://localhost:8080",
     /// );
     /// ```
@@ -130,15 +131,53 @@ impl Deepgram {
     ///
     /// Panics under the same conditions as [`reqwest::Client::new`], or if `base_url`
     /// is not a valid URL.
-    ///
-    ///
-
-    pub fn with_base_url<K, U>(api_key: K, base_url: U) -> Self
+    pub fn with_base_url<U>(base_url: U) -> Self
     where
-        K: AsRef<str>,
         U: TryInto<Url>,
         U::Error: std::fmt::Debug,
     {
+        let base_url = base_url.try_into().expect("base_url must be a valid Url");
+        Self::inner_constructor(base_url, None)
+    }
+
+    /// Construct a new Deepgram client with the specified base URL and
+    /// API Key.
+    ///
+    /// When using a self-hosted instance of deepgram, this will be the
+    /// host portion of your own instance. For instance, if you would
+    /// query your deepgram instance at `http://deepgram.internal/v1/listen`,
+    /// the base_url will be `http://deepgram.internal`.
+    ///
+    /// Admin features, such as billing, usage, and key management will
+    /// still go through the hosted site at `https://api.deepgram.com`.
+    ///
+    /// [console]: https://console.deepgram.com/
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// # use deepgram::Deepgram;
+    /// let deepgram = Deepgram::with_base_url_and_api_key(
+    ///     "http://localhost:8080",
+    ///     "apikey12345",
+    /// );
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics under the same conditions as [`reqwest::Client::new`], or if `base_url`
+    /// is not a valid URL.
+    pub fn with_base_url_and_api_key<U, K>(base_url: U, api_key: K) -> Self
+    where
+        U: TryInto<Url>,
+        U::Error: std::fmt::Debug,
+        K: AsRef<str>,
+    {
+        let base_url = base_url.try_into().expect("base_url must be a valid Url");
+        Self::inner_constructor(base_url, Some(api_key.as_ref().to_owned()))
+    }
+
+    fn inner_constructor(base_url: Url, api_key: Option<String>) -> Self {
         static USER_AGENT: &str = concat!(
             env!("CARGO_PKG_NAME"),
             "/",
@@ -148,15 +187,15 @@ impl Deepgram {
 
         let authorization_header = {
             let mut header = HeaderMap::new();
-            header.insert(
-                "Authorization",
-                HeaderValue::from_str(&format!("Token {}", api_key.as_ref()))
-                    .expect("Invalid API key"),
-            );
+            if let Some(api_key) = &api_key {
+                header.insert(
+                    "Authorization",
+                    HeaderValue::from_str(&format!("Token {}", api_key)).expect("Invalid API key"),
+                );
+            }
             header
         };
-        let api_key = api_key.as_ref().to_owned();
-        let base_url = base_url.try_into().expect("base_url must be a valid Url");
+
         Deepgram {
             api_key,
             base_url,

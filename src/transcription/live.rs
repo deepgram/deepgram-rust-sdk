@@ -235,16 +235,23 @@ where
             .ok_or(DeepgramError::NoSource)?
             .map(|res| res.map(|bytes| Message::binary(Vec::from(bytes.as_ref()))));
 
-        let request = Request::builder()
-            .method("GET")
-            .uri(url.to_string())
-            .header("authorization", format!("token {}", self.config.api_key))
-            .header("sec-websocket-key", client::generate_key())
-            .header("host", "api.deepgram.com")
-            .header("connection", "upgrade")
-            .header("upgrade", "websocket")
-            .header("sec-websocket-version", "13")
-            .body(())?;
+        let request = {
+            let builder = Request::builder()
+                .method("GET")
+                .uri(url.to_string())
+                .header("sec-websocket-key", client::generate_key())
+                .header("host", "api.deepgram.com")
+                .header("connection", "upgrade")
+                .header("upgrade", "websocket")
+                .header("sec-websocket-version", "13");
+
+            let builder = if let Some(api_key) = self.config.api_key.as_deref() {
+                builder.header("authorization", format!("token {}", api_key))
+            } else {
+                builder
+            };
+            builder.body(())?
+        };
         let (ws_stream, _) = tokio_tungstenite::connect_async(request).await?;
         let (mut write, mut read) = ws_stream.split();
         let (mut tx, rx) = mpsc::channel::<Result<StreamResponse>>(1);
@@ -310,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_stream_url_custom_host() {
-        let dg = crate::Deepgram::with_base_url("token", "http://localhost:8080");
+        let dg = crate::Deepgram::with_base_url_and_api_key("http://localhost:8080", "token");
         assert_eq!(
             dg.transcription().listen_stream_url().to_string(),
             "ws://localhost:8080/v1/listen",
