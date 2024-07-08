@@ -6,7 +6,9 @@
 
 use crate::Deepgram;
 
+#[cfg(feature = "live")]
 pub mod live;
+#[cfg(feature = "prerecorded")]
 pub mod prerecorded;
 
 /// Transcribe audio using Deepgram's automated speech recognition.
@@ -17,7 +19,7 @@ pub mod prerecorded;
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription
 #[derive(Debug, Clone)]
-pub struct Transcription<'a>(&'a Deepgram);
+pub struct Transcription<'a>(#[allow(unused)] &'a Deepgram);
 
 impl Deepgram {
     /// Construct a new [`Transcription`] from a [`Deepgram`].

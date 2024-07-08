@@ -31,6 +31,7 @@ mod response;
 /// Make transcriptions requests using [`Deepgram::transcription`].
 #[derive(Debug, Clone)]
 pub struct Deepgram {
+    #[cfg_attr(not(feature = "live"), allow(unused))]
     api_key: String,
     client: reqwest::Client,
 }
@@ -65,6 +66,7 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
+    #[cfg(feature = "live")]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] tungstenite::Error),
