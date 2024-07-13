@@ -56,10 +56,12 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Word {
     pub word: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub punctuated_word: Option<String>,
     pub start: f64,
     pub end: f64,
     pub confidence: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub speaker: Option<i32>,
 }
 
