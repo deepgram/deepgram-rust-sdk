@@ -96,7 +96,7 @@ pub enum StreamResponse {
         created: String,
         duration: f64,
         channels: u32,
-    }
+    },
 }
 
 #[pin_project]
@@ -118,7 +118,7 @@ impl Transcription<'_> {
     pub fn stream_request_with_options<'a, E, S>(
         &'a self, 
         options: Option<&'a Options>,
-    ) -> StreamRequestBuilder<'a, S, E> 
+    ) -> StreamRequestBuilder<'a, S, E>
     where
         S: Stream<Item = std::result::Result<Bytes, E>>,
     {

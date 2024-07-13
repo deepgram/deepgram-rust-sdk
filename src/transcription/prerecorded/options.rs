@@ -425,7 +425,7 @@ pub enum Utterances {
     /// Diabled
     Disabled,
     /// Enabled
-    Enabled { 
+    Enabled {
         /// utt_split
         utt_split: Option<f64>,
     },
@@ -441,7 +441,7 @@ pub enum Multichannel {
     /// Diabled
     Disabled,
     /// Enabled
-    Enabled { 
+    Enabled {
         /// models
         models: Option<Vec<Model>>,
     },
