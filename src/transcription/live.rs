@@ -60,12 +60,14 @@ pub struct Word {
     pub start: f64,
     pub end: f64,
     pub confidence: f64,
+    pub speaker: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Alternatives {
     pub transcript: String,
     pub words: Vec<Word>,
+    pub confidence: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -74,19 +76,44 @@ pub struct Channel {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelInfo {
+    name: String,
+    version: String,
+    arch: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Metadata {
+    request_id: String,
+    model_info: ModelInfo,
+    model_uuid: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StreamResponse {
     TranscriptResponse {
+        #[serde(rename = "type")]
+        r#type: String,
+        start: f64,
         duration: f64,
         is_final: bool,
+        speech_final: bool,
+        from_finalize: bool,
         channel: Channel,
+        metadata: Metadata,
+        channel_index: Vec<i32>,
     },
     UtteranceEndResponse {
+        #[serde(rename = "type")]
         r#type: String,
         channel: Vec<u8>,
         last_word_end: f64,
     },
     SpeechStartedResponse {
+        #[serde(rename = "type")]
         r#type: String,
         channel: Vec<u8>,
         timestamp: f64,
