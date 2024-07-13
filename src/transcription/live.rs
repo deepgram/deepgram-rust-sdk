@@ -63,10 +63,8 @@ pub struct Word {
     pub start: f64,
     pub end: f64,
     pub confidence: f64,
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    // pub speaker: Option<i32>,
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    // pub punctuated_word: Option<String>,
+    pub speaker: Option<i32>,
+    pub punctuated_word: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
