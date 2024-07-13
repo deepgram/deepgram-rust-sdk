@@ -26,6 +26,7 @@ mod redacted;
 mod response;
 pub mod scopes;
 pub mod transcription;
+pub mod speak;
 pub mod usage;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
