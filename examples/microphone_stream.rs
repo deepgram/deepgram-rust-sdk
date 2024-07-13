@@ -5,11 +5,13 @@ use bytes::{BufMut, Bytes, BytesMut};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::Sample;
 use crossbeam::channel::RecvError;
+use deepgram::{
+    transcription::prerecorded::options::{Language, Options},
+    Deepgram, DeepgramError,
+};
 use futures::channel::mpsc::{self, Receiver as FuturesReceiver};
 use futures::stream::StreamExt;
 use futures::SinkExt;
-
-use deepgram::{Deepgram, DeepgramError};
 
 fn microphone_as_stream() -> FuturesReceiver<Result<Bytes, RecvError>> {
     let (sync_tx, sync_rx) = crossbeam::channel::unbounded();
@@ -91,9 +93,14 @@ fn microphone_as_stream() -> FuturesReceiver<Result<Bytes, RecvError>> {
 async fn main() -> Result<(), DeepgramError> {
     let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap());
 
+    let options = Options::builder()
+        .smart_format(true)
+        .language(Language::en_US)
+        .build();
+
     let mut results = dg
         .transcription()
-        .stream_request()
+        .stream_request(&options)
         .stream(microphone_as_stream())
         // TODO Enum.
         .encoding("linear16".to_string())

@@ -8,10 +8,13 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-streaming
 
+use std::borrow::Cow;
 use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
+use serde_urlencoded;
+use serde_json::Value;
 
 use bytes::{Bytes, BytesMut};
 use futures::channel::mpsc::{self, Receiver};
@@ -27,7 +30,7 @@ use tungstenite::handshake::client;
 use url::Url;
 
 use crate::{Deepgram, DeepgramError, Result};
-
+use super::prerecorded::options::{Options, SerializableOptions};
 use super::Transcription;
 
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
@@ -38,16 +41,23 @@ where
     S: Stream<Item = std::result::Result<Bytes, E>>,
 {
     config: &'a Deepgram,
+    options: Option<&'a Options>,
     source: Option<S>,
     encoding: Option<String>,
     sample_rate: Option<u32>,
     channels: Option<u16>,
+    endpointing: Option<String>,
+    utterance_end_ms: Option<u16>,
+    interim_results: Option<bool>,
+    no_delay: Option<bool>,
+    vad_events: Option<bool>,
     stream_url: Url,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Word {
     pub word: String,
+    pub punctuated_word: Option<String>,
     pub start: f64,
     pub end: f64,
     pub confidence: f64,
@@ -72,12 +82,23 @@ pub enum StreamResponse {
         is_final: bool,
         channel: Channel,
     },
+    UtteranceEndResponse {
+        r#type: String,
+        channel: Vec<u8>,
+        last_word_end: f64
+    },
+    SpeechStartedResponse {
+        r#type: String,
+        channel: Vec<u8>,
+        timestamp: f64
+    },
     TerminalResponse {
         request_id: String,
         created: String,
         duration: f64,
         channels: u32,
     },
+    Other(Value), // Log unhandled messages if any
 }
 
 #[pin_project]
@@ -89,15 +110,25 @@ struct FileChunker {
 }
 
 impl Transcription<'_> {
-    pub fn stream_request<E, S: Stream<Item = std::result::Result<Bytes, E>>>(
-        &self,
-    ) -> StreamRequestBuilder<S, E> {
+    pub fn stream_request<'a, E, S>(
+        &'a self, 
+        options: &'a Options
+    ) -> StreamRequestBuilder<'a, S, E> 
+    where
+        S: Stream<Item = std::result::Result<Bytes, E>>,
+    {
         StreamRequestBuilder {
             config: self.0,
+            options: Some(options),
             source: None,
             encoding: None,
             sample_rate: None,
             channels: None,
+            endpointing: None,
+            utterance_end_ms: None,
+            interim_results: None,
+            no_delay: None,
+            vad_events: None,
             stream_url: self.listen_stream_url(),
         }
     }
@@ -182,6 +213,37 @@ where
 
         self
     }
+
+    pub fn endpointing(mut self, endpointing: String) -> Self {
+        self.endpointing = Some(endpointing);
+
+        self
+    }
+    
+    pub fn utterance_end_ms(mut self, utterance_end_ms: u16) -> Self {
+        self.utterance_end_ms = Some(utterance_end_ms);
+
+        self
+    }
+
+    pub fn interim_results(mut self, interim_results: bool) -> Self {
+        self.interim_results = Some(interim_results);
+
+        self
+    }
+    
+    pub fn no_delay(mut self, no_delay: bool) -> Self {
+        self.no_delay = Some(no_delay);
+
+        self
+    }
+    
+    pub fn vad_events(mut self, vad_events: bool) -> Self {
+        self.vad_events = Some(vad_events);
+
+        self
+    }
+
 }
 
 impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
@@ -209,6 +271,11 @@ impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
     }
 }
 
+fn options_to_query_string(options: &Options) -> String {
+    let serialized_options = SerializableOptions::from(options);
+    serde_urlencoded::to_string(&serialized_options).unwrap_or_default()
+}
+
 impl<S, E> StreamRequestBuilder<'_, S, E>
 where
     S: Stream<Item = std::result::Result<Bytes, E>> + Send + Unpin + 'static,
@@ -219,6 +286,24 @@ where
         let mut url = self.stream_url;
         {
             let mut pairs = url.query_pairs_mut();
+
+            // Add standard pre-recorded options
+            if let Some(options) = &self.options {
+                let query_string = options_to_query_string(options);
+                let query_pairs: Vec<(Cow<str>, Cow<str>)> = query_string.split('&')
+                    .map(|s| {
+                        let mut split = s.splitn(2, '=');
+                        (
+                            Cow::from(split.next().unwrap_or_default()),
+                            Cow::from(split.next().unwrap_or_default())
+                        )
+                    })
+                    .collect();
+    
+                for (key, value) in query_pairs {
+                    pairs.append_pair(&key, &value);
+                }
+            }
             if let Some(encoding) = &self.encoding {
                 pairs.append_pair("encoding", encoding);
             }
@@ -227,6 +312,21 @@ where
             }
             if let Some(channels) = self.channels {
                 pairs.append_pair("channels", &channels.to_string());
+            }
+            if let Some(endpointing) = self.endpointing {
+                pairs.append_pair("endpointing", &endpointing.to_string());
+            }
+            if let Some(utterance_end_ms) = self.utterance_end_ms {
+                pairs.append_pair("utterance_end_ms", &utterance_end_ms.to_string());
+            }
+            if let Some(interim_results) = self.interim_results {
+                pairs.append_pair("interim_results", &interim_results.to_string());
+            }
+            if let Some(no_delay) = self.no_delay {
+                pairs.append_pair("no_delay", &no_delay.to_string());
+            }
+            if let Some(vad_events) = self.vad_events {
+                pairs.append_pair("vad_events", &vad_events.to_string());
             }
         }
 

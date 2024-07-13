@@ -28,6 +28,9 @@ pub struct Options {
     tags: Vec<String>,
     detect_language: Option<bool>,
     query_params: Vec<(String, String)>,
+    encoding: Option<String>,
+    smart_format: Option<bool>,
+    filler_words: Option<bool>
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
@@ -412,16 +415,37 @@ pub struct Keyword {
     pub intensifier: Option<f64>,
 }
 
+/// Used as a parameter for [`OptionsBuilder::utterances`].
+///
+/// See the [Deepgram Utterances feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/utterances
 #[derive(Debug, PartialEq, Clone, Copy)]
-enum Utterances {
+pub enum Utterances {
+    /// Diabled
     Disabled,
-    Enabled { utt_split: Option<f64> },
+    /// Enabled
+    Enabled { 
+        /// utt_split
+        /// [docs]: https://developers.deepgram.com/docs/utterance-split
+        utt_split: Option<f64> 
+    },
 }
 
+/// Used as a parameter for [`OptionsBuilder::multichannel`].
+///
+/// See the [Deepgram multichannel feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/multichannel
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
-enum Multichannel {
+pub enum Multichannel {
+    /// Diabled
     Disabled,
-    Enabled { models: Option<Vec<Model>> },
+    /// Enabled
+    Enabled { 
+        /// models
+        models: Option<Vec<Model>> 
+    },
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -433,8 +457,9 @@ enum Multichannel {
 #[derive(Debug, PartialEq, Clone)]
 pub struct OptionsBuilder(Options);
 
+/// SerializableOptions
 #[derive(Debug, PartialEq, Clone)]
-pub(super) struct SerializableOptions<'a>(pub(super) &'a Options);
+pub struct SerializableOptions<'a>(pub(super) &'a Options);
 
 impl Options {
     /// Construct a new [`OptionsBuilder`].
@@ -466,6 +491,9 @@ impl OptionsBuilder {
             tags: Vec::new(),
             detect_language: None,
             query_params: Vec::new(),
+            encoding: None,
+            smart_format: None,
+            filler_words: None
         })
     }
 
@@ -1259,6 +1287,69 @@ impl OptionsBuilder {
         self
     }
 
+    /// Encoding is required when raw, headerless audio packets are sent to the 
+    /// streaming service. If containerized audio packets are sent to the 
+    /// streaming service, this feature should not be used.
+    ///
+    /// See the [Deepgram Encoding feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/encoding
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .encoding("linear16")
+    ///     .build();
+    /// ```
+    pub fn encoding(mut self, encoding: &str) -> Self {
+        self.0.encoding = Some(encoding.into());
+        self
+    }
+
+    /// Set the Smart Format feature.
+    ///
+    /// See the [Deepgram Smart Formatting feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/smart-format
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .smart_format(true)
+    ///     .build();
+    /// ```
+    pub fn smart_format(mut self, smart_format: bool) -> Self {
+        self.0.smart_format = Some(smart_format);
+        self
+    }
+
+    /// Set the Filler Words feature.
+    ///
+    /// See the [Deepgram Filler Words feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/filler-words
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .filler_words(true)
+    ///     .build();
+    /// ```
+    pub fn filler_words(mut self, filler_words: bool) -> Self {
+        self.0.filler_words = Some(filler_words);
+
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -1268,6 +1359,17 @@ impl OptionsBuilder {
 impl Default for OptionsBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<'a> SerializableOptions<'a> {
+    /// Used as a parameter for [`OptionsBuilder::keywords_with_intensifiers`].
+    ///
+    /// See the [Deepgram Keywords feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/documentation/features/keywords/
+    pub fn from(options: &'a Options) -> Self {
+        SerializableOptions(options)
     }
 }
 
@@ -1299,6 +1401,9 @@ impl Serialize for SerializableOptions<'_> {
             tags,
             detect_language,
             query_params,
+            encoding,
+            smart_format,
+            filler_words
         } = self.0;
 
         match multichannel {
@@ -1414,6 +1519,18 @@ impl Serialize for SerializableOptions<'_> {
 
         for (param, value) in query_params {
             seq.serialize_element(&(param, value))?;
+        }
+
+        if let Some(encoding) = encoding {
+            seq.serialize_element(&("encoding", encoding))?;
+        }
+
+        if let Some(smart_format) = smart_format {
+            seq.serialize_element(&("smart_format", smart_format))?;
+        }
+
+        if let Some(filler_words) = filler_words {
+            seq.serialize_element(&("filler_words", filler_words))?;
         }
 
         seq.end()
@@ -1979,6 +2096,40 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder().detect_language(true).build(),
             "detect_language=true",
+        );
+    }
+
+    #[test]
+    fn encoding() {
+        check_serialization(
+            &Options::builder().encoding("linear16").build(),
+            "encoding=linear16",
+        );
+    }
+
+    #[test]
+    fn smart_format() {
+        check_serialization(
+            &Options::builder().smart_format(false).build(),
+            "smart_format=false",
+        );
+
+        check_serialization(
+            &Options::builder().smart_format(true).build(),
+            "smart_format=true",
+        );
+    }
+
+    #[test]
+    fn filler_words() {
+        check_serialization(
+            &Options::builder().filler_words(false).build(),
+            "filler_words=false",
+        );
+
+        check_serialization(
+            &Options::builder().filler_words(true).build(),
+            "filler_words=true",
         );
     }
 }

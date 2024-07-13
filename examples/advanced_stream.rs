@@ -3,7 +3,10 @@ use std::time::Duration;
 
 use futures::stream::StreamExt;
 
-use deepgram::{transcription::prerecorded::options::{Language, Options}, Deepgram, DeepgramError};
+use deepgram::{
+    transcription::prerecorded::options::{Language, Options},
+    Deepgram, DeepgramError,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
@@ -13,12 +16,20 @@ async fn main() -> Result<(), DeepgramError> {
         .smart_format(true)
         .language(Language::en_US)
         .build();
-
+    
     let mut results = dg
         .transcription()
         .stream_request(&options)
+        .encoding("linear16".to_string())
+        .sample_rate(44100)
+        .channels(2)
+        .endpointing("300".to_string())
+        .interim_results(true)
+        .utterance_end_ms(1000)
+        .vad_events(true)
+        .no_delay(true)
         .file(
-            env::var("FILENAME").unwrap(),
+            "./examples/prerecorded_from_file/bueller.wav",
             3174,
             Duration::from_millis(16),
         )
