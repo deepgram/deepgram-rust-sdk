@@ -4,7 +4,7 @@
 //!
 //! [api]: https://developers.deepgram.com/documentation/features/
 
-use serde::{ser::SerializeSeq, Serialize};
+use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 /// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
@@ -34,8 +34,12 @@ pub struct Options {
     paragraphs: Option<bool>,
     detect_entities: Option<bool>,
     intents: Option<bool>,
+    custom_intent_mode: Option<CustomIntentMode>,
+    custom_intents: Vec<String>,
     sentiment: Option<bool>,
     topics: Option<bool>,
+    custom_topic_mode: Option<CustomTopicMode>,
+    custom_topics: Vec<String>,
     summarize: Option<String>,
 }
 
@@ -392,6 +396,36 @@ pub enum Redact {
     Other(String),
 }
 
+/// Used as a parameter for [`OptionsBuilder::custom_intent_mode`].
+///
+/// See the [Deepgram Intent Detection feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/intent-recognition#query-parameters
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum CustomIntentMode {
+    #[allow(missing_docs)]
+    Extended,
+
+    #[allow(missing_docs)]
+    Strict,
+}
+
+/// Used as a parameter for [`OptionsBuilder::custom_topic_mode`].
+///
+/// See the [Deepgram Topic Detection feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/topic-detection#query-parameters
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum CustomTopicMode {
+    #[allow(missing_docs)]
+    Extended,
+
+    #[allow(missing_docs)]
+    Strict,
+}
+
 /// Used as a parameter for [`OptionsBuilder::replace`].
 ///
 /// See the [Deepgram Find and Replace feature docs][docs] for more info.
@@ -502,8 +536,12 @@ impl OptionsBuilder {
             paragraphs: None,
             detect_entities: None,
             intents: None,
+            custom_intent_mode: None,
+            custom_intents: Vec::new(),
             sentiment: None,
             topics: None,
+            custom_topic_mode: None,
+            custom_topics: Vec::new(),
             summarize: None,
         })
     }
@@ -1424,6 +1462,57 @@ impl OptionsBuilder {
         self
     }
 
+    /// Set the Custom Intent Recognition Mode.
+    ///
+    /// See the [Deepgram Intent Recognition feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/intent-recognition#query-parameters
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .custom_intent_mode(CustomIntentMode::Extended)
+    ///     .build();
+    /// ```
+    pub fn custom_intent_mode(mut self, custom_intent_mode: CustomIntentMode) -> Self {
+        self.0.custom_intent_mode = Some(custom_intent_mode);
+
+        self
+    }
+
+    /// Set the Custom Intents feature.
+    ///
+    /// Not necessarily available for all languages.
+    ///
+    /// Calling this when already set will append to the existing custom intents, not overwrite them.
+    ///
+    /// See the [Deepgram Custom Intents feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/intent-recognition#query-parameters
+    ///
+    /// # Examples
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::{Options};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .custom_intents(["Intent 1"])
+    ///     .custom_intents(["Intent 2"])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .custom_intents(["Intent 1", "Intent 2"])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
+    pub fn custom_intents(mut self, custom_intent: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.0.custom_intents.extend(custom_intent.into_iter().map(Into::into));
+        self
+    }
+
     /// Set the Sentiment Analysis feature.
     ///
     /// See the [Deepgram Sentiment Analysis feature docs][docs] for more info.
@@ -1462,6 +1551,57 @@ impl OptionsBuilder {
     /// ```
     pub fn topics(mut self, topics: bool) -> Self {
         self.0.topics = Some(topics);
+
+        self
+    }
+
+    /// Set the Custom Topics feature.
+    ///
+    /// Not necessarily available for all languages.
+    ///
+    /// Calling this when already set will append to the existing custom topics, not overwrite them.
+    ///
+    /// See the [Deepgram Custom Topics feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/topic-detection#query-parameters
+    ///
+    /// # Examples
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::{Options};
+    /// #
+    /// let options1 = Options::builder()
+    ///     .custom_topics(["Topic 1"])
+    ///     .custom_topics(["Topic 2"])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .custom_topics(["Topic 1", "Topic 2"])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
+    pub fn custom_topics(mut self, custom_topic: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.0.custom_topics.extend(custom_topic.into_iter().map(Into::into));
+        self
+    }
+
+    /// Set the Custom Topics Recognition Mode.
+    ///
+    /// See the [Deepgram Topics Recognition feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/topic-detection#query-parameters
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .custom_topic_mode(CustomIntentMode::Extended)
+    ///     .build();
+    /// ```
+    pub fn custom_topic_mode(mut self, custom_topic_mode: CustomTopicMode) -> Self {
+        self.0.custom_topic_mode = Some(custom_topic_mode);
 
         self
     }
@@ -1543,8 +1683,12 @@ impl Serialize for SerializableOptions<'_> {
             paragraphs,
             detect_entities,
             intents,
+            custom_intent_mode,
+            custom_intents,
             sentiment,
             topics,
+            custom_topic_mode,
+            custom_topics,
             summarize,
         } = self.0;
 
@@ -1687,12 +1831,28 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("intents", intents))?;
         }
 
+        if let Some(custom_intent_mode) = custom_intent_mode {
+            seq.serialize_element(&("custom_intent_mode", custom_intent_mode.as_ref()))?;
+        }
+
+        for custom_intent in custom_intents {
+            seq.serialize_element(&("custom_intent", &custom_intent))?;
+        }
+
         if let Some(sentiment) = sentiment {
             seq.serialize_element(&("sentiment", sentiment))?;
         }
 
         if let Some(topics) = topics {
             seq.serialize_element(&("topics", topics))?;
+        }
+
+        if let Some(custom_topic_mode) = custom_topic_mode {
+            seq.serialize_element(&("custom_topic_mode", custom_topic_mode.as_ref()))?;
+        }
+
+        for custom_topic in custom_topics {
+            seq.serialize_element(&("custom_topic", &custom_topic))?;
         }
 
         if let Some(summarize) = summarize {
@@ -1824,6 +1984,28 @@ impl AsRef<str> for Redact {
     }
 }
 
+impl AsRef<str> for CustomIntentMode {
+    fn as_ref(&self) -> &str {
+        use CustomIntentMode::*;
+
+        match self {
+            Extended => "extended",
+            Strict => "strict",
+        }
+    }
+}
+
+impl AsRef<str> for CustomTopicMode {
+    fn as_ref(&self) -> &str {
+        use CustomTopicMode::*;
+
+        match self {
+            Extended => "extended",
+            Strict => "strict",
+        }
+    }
+}
+
 fn models_to_string(models: &[Model]) -> String {
     models
         .iter()
@@ -1948,12 +2130,16 @@ mod serialize_options_tests {
             .paragraphs(true)
             .detect_entities(true)
             .intents(true)
+            .custom_intent_mode(CustomIntentMode::Extended)
+            .custom_intents(["Phone repair", "Phone cancellation"])
             .sentiment(true)
             .topics(true)
+            .custom_topic_mode(CustomTopicMode::Strict)
+            .custom_topics(["Get support", "Complain"])
             .summarize("v2")
             .build();
 
-        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&sentiment=true&topics=true&summarize=v2");
+        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2");
     }
 
     #[test]

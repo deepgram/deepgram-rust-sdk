@@ -3,7 +3,7 @@ use std::env;
 use deepgram::{
     transcription::prerecorded::{
         audio_source::AudioSource,
-        options::{Language, Model, Options, Redact},
+        options::{CustomIntentMode, Language, Model, Options, Redact},
     },
     Deepgram, DeepgramError,
 };
@@ -32,8 +32,12 @@ async fn main() -> Result<(), DeepgramError> {
         .language(Language::en_US)
         .detect_entities(true)
         .intents(true)
+        .custom_intent_mode(CustomIntentMode::Extended)
+        .custom_intents(["Phone repair", "Phone cancellation"])
         .sentiment(true)
         .topics(true)
+        .custom_intent_mode(CustomIntentMode::Strict)
+        .custom_intents(["Get support", "Complain"])
         .summarize("v2")
         .build();
 
