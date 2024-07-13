@@ -79,59 +79,58 @@ pub struct Channel {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModelInfo {
-    name: String,
-    version: String,
-    arch: String,
+    pub name: String,
+    pub version: String,
+    pub arch: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Metadata {
-    request_id: String,
-    model_info: ModelInfo,
-    model_uuid: String,
+    pub request_id: String,
+    pub model_info: ModelInfo,
+    pub model_uuid: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TranscriptResponse {
     #[serde(rename = "type")]
-    r#type: String,
-    start: f64,
-    duration: f64,
-    is_final: bool,
-    speech_final: bool,
-    from_finalize: bool,
-    channel: Channel,
-    metadata: Metadata,
-    channel_index: Vec<i32>,
+    pub r#type: String,
+    pub start: f64,
+    pub duration: f64,
+    pub is_final: bool,
+    pub speech_final: bool,
+    pub from_finalize: bool,
+    pub channel: Channel,
+    pub metadata: Metadata,
+    pub channel_index: Vec<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UtteranceEndResponse {
     #[serde(rename = "type")]
-    r#type: String,
-    channel: Vec<u8>,
-    last_word_end: f64,
+    pub r#type: String,
+    pub channel: Vec<u8>,
+    pub last_word_end: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SpeechStartedResponse {
     #[serde(rename = "type")]
-    r#type: String,
-    channel: Vec<u8>,
-    timestamp: f64,
+    pub r#type: String,
+    pub channel: Vec<u8>,
+    pub timestamp: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TerminalResponse {
-    request_id: String,
-    created: String,
-    duration: f64,
-    channels: u32,
+    pub request_id: String,
+    pub created: String,
+    pub duration: f64,
+    pub channels: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
-#[non_exhaustive]
 pub enum StreamResponse {
     Transcript(TranscriptResponse),
     UtteranceEnd(UtteranceEndResponse),
