@@ -1471,6 +1471,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// # use deepgram::transcription::prerecorded::options::Options::CustomIntentMode;
     /// #
     /// let options = Options::builder()
@@ -1604,6 +1605,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
     /// # use deepgram::transcription::prerecorded::options::Options::CustomTopicMode;
     /// #
     /// let options = Options::builder()
