@@ -1946,9 +1946,14 @@ mod serialize_options_tests {
             .smart_format(true)
             .filler_words(true)
             .paragraphs(true)
+            .detect_entities(true)
+            .intents(true)
+            .sentiment(true)
+            .topics(true)
+            .summarize("v2")
             .build();
 
-        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true");
+        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&sentiment=true&topics=true&summarize=v2");
     }
 
     #[test]
