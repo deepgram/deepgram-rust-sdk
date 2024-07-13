@@ -12,9 +12,9 @@ use serde_urlencoded;
 use std::borrow::Cow;
 use std::path::Path;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
-use std::sync::Arc;
 
 use bytes::{Bytes, BytesMut};
 use futures::channel::mpsc::{self, Receiver};
@@ -24,12 +24,12 @@ use http::Request;
 use pin_project::pin_project;
 use serde::{Deserialize, Serialize};
 use tokio::fs::File;
+use tokio::sync::Mutex;
 use tokio::time;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
-use tokio::sync::Mutex;
 
 use super::prerecorded::options::{Options, SerializableOptions};
 use super::Transcription;
