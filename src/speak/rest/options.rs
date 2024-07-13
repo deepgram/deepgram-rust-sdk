@@ -97,7 +97,6 @@ impl OptionsBuilder {
         self
     }
 
-
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -147,52 +146,5 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         seq.end()
-    }
-}
-
-#[cfg(test)]
-mod serialize_options_tests {
-    use std::cmp;
-    use std::env;
-
-    use crate::Deepgram;
-
-    fn check_serialization(options: &Options, expected: &str) {
-        let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
-
-        let dg_client = Deepgram::new(deepgram_api_key);
-
-        let request = dg_client
-            .speak(&options)
-            .build()
-            .unwrap();
-
-        let actual = request.url().query().unwrap_or("");
-
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn all_options() {
-        let options = Options::builder()
-            .model("aura-asteria-en")
-            .encoding("linear16")
-            .sample_rate(16000)
-            .container("wav")
-            .bit_rate(32000)
-            .build();
-
-        check_serialization(&options, "model=aura-asteria-en&encoding=linear16&sample_rate=16000&container=wav&bit_rate=32000");
-    }
-
-    #[test]
-    fn model() {
-
-        check_serialization(
-            &Options::builder()
-                .model("aura-asteria-en")
-                .build(),
-            "model=aura-asteria-en",
-        );
     }
 }

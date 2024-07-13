@@ -76,7 +76,7 @@ mod tests {
     fn listen_url() {
         let dg = Deepgram::new("token");
         assert_eq!(
-            &dg.speak().speak_url().to_string(),
+            &dg.text_to_speech().speak_url().to_string(),
             "https://api.deepgram.com/v1/speak"
         );
     }
