@@ -8,12 +8,12 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-streaming
 
+use serde_urlencoded;
 use std::borrow::Cow;
 use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
-use serde_urlencoded;
 
 use bytes::{Bytes, BytesMut};
 use futures::channel::mpsc::{self, Receiver};
@@ -28,9 +28,9 @@ use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
 
-use crate::{Deepgram, DeepgramError, Result};
 use super::prerecorded::options::{Options, SerializableOptions};
 use super::Transcription;
+use crate::{Deepgram, DeepgramError, Result};
 
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
 
@@ -116,7 +116,7 @@ impl Transcription<'_> {
     }
 
     pub fn stream_request_with_options<'a, E, S>(
-        &'a self, 
+        &'a self,
         options: Option<&'a Options>,
     ) -> StreamRequestBuilder<'a, S, E>
     where
