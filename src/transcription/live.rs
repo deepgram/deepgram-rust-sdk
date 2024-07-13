@@ -110,16 +110,23 @@ struct FileChunker {
 }
 
 impl Transcription<'_> {
-    pub fn stream_request<'a, E, S>(
+    pub fn stream_request<'a, E, S>(&'a self) -> StreamRequestBuilder<'a, S, E> 
+    where
+        S: Stream<Item = std::result::Result<Bytes, E>>,
+    {
+        self.stream_request_with_options(None)
+    }
+
+    pub fn stream_request_with_options<'a, E, S>(
         &'a self, 
-        options: &'a Options
+        options: Option<&'a Options>
     ) -> StreamRequestBuilder<'a, S, E> 
     where
         S: Stream<Item = std::result::Result<Bytes, E>>,
     {
         StreamRequestBuilder {
             config: self.0,
-            options: Some(options),
+            options: options,
             source: None,
             encoding: None,
             sample_rate: None,

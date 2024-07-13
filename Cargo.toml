@@ -64,3 +64,7 @@ required-features = ["prerecorded"]
 [[example]]
 name = "simple_stream"
 required-features = ["live"]
+
+[[example]]
+name = "advanced_stream"
+required-features = ["live"]

@@ -19,7 +19,7 @@ async fn main() -> Result<(), DeepgramError> {
     
     let mut results = dg
         .transcription()
-        .stream_request(&options)
+        .stream_request_with_options(Some(&options))
         .encoding("linear16".to_string())
         .sample_rate(44100)
         .channels(2)

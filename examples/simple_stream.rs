@@ -3,20 +3,15 @@ use std::time::Duration;
 
 use futures::stream::StreamExt;
 
-use deepgram::{transcription::prerecorded::options::{Language, Options}, Deepgram, DeepgramError};
+use deepgram::{Deepgram, DeepgramError};
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
     let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap());
 
-    let options = Options::builder()
-        .smart_format(true)
-        .language(Language::en_US)
-        .build();
-
     let mut results = dg
         .transcription()
-        .stream_request(&options)
+        .stream_request()
         .file(
             env::var("FILENAME").unwrap(),
             3174,
