@@ -59,10 +59,10 @@ pub struct Word {
     pub start: f64,
     pub end: f64,
     pub confidence: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub speaker: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub punctuated_word: Option<String>,
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    // pub speaker: Option<i32>,
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    // pub punctuated_word: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -95,8 +95,8 @@ pub struct Metadata {
 #[serde(untagged)]
 pub enum StreamResponse {
     TranscriptResponse {
-        #[serde(rename = "type")]
-        r#type: String,
+        // #[serde(rename = "type")]
+        // r#type: String,
         start: f64,
         duration: f64,
         is_final: bool,
@@ -113,14 +113,14 @@ pub enum StreamResponse {
         channels: u32,
     },
     SpeechStartedResponse {
-        #[serde(rename = "type")]
-        r#type: String,
+        // #[serde(rename = "type")]
+        // r#type: String,
         channel: Vec<u8>,
         timestamp: f64,
     },
     UtteranceEndResponse {
-        #[serde(rename = "type")]
-        r#type: String,
+        // #[serde(rename = "type")]
+        // r#type: String,
         channel: Vec<u8>,
         last_word_end: f64,
     },
