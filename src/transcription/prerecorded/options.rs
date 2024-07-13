@@ -32,6 +32,11 @@ pub struct Options {
     smart_format: Option<bool>,
     filler_words: Option<bool>,
     paragraphs: Option<bool>,
+    detect_entities: Option<bool>,
+    intents: Option<bool>,
+    sentiment: Option<bool>,
+    topics: Option<bool>,
+    summarize: Option<String>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
@@ -495,6 +500,11 @@ impl OptionsBuilder {
             smart_format: None,
             filler_words: None,
             paragraphs: None,
+            detect_entities: None,
+            intents: None,
+            sentiment: None,
+            topics: None,
+            summarize: None,
         })
     }
 
@@ -1372,6 +1382,110 @@ impl OptionsBuilder {
         self
     }
 
+    /// Set the Detect Entities feature.
+    ///
+    /// See the [Deepgram Detect Entities feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/detect-entities
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .detect_entities(true)
+    ///     .build();
+    /// ```
+    pub fn detect_entities(mut self, detect_entities: bool) -> Self {
+        self.0.detect_entities = Some(detect_entities);
+
+        self
+    }
+
+    /// Set the Intent Recognition feature.
+    ///
+    /// See the [Deepgram Intent Recognition feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/intent-recognition
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .intents(true)
+    ///     .build();
+    /// ```
+    pub fn intents(mut self, intents: bool) -> Self {
+        self.0.intents = Some(intents);
+
+        self
+    }
+
+    /// Set the Sentiment Analysis feature.
+    ///
+    /// See the [Deepgram Sentiment Analysis feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/sentiment-analysis
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .sentiment(true)
+    ///     .build();
+    /// ```
+    pub fn sentiment(mut self, sentiment: bool) -> Self {
+        self.0.sentiment = Some(sentiment);
+
+        self
+    }
+
+    /// Set the Topic Detection feature.
+    ///
+    /// See the [Deepgram Topic Detection feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/topic-detection
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .topics(true)
+    ///     .build();
+    /// ```
+    pub fn topics(mut self, topics: bool) -> Self {
+        self.0.topics = Some(topics);
+
+        self
+    }
+
+    /// Set the Summarize feature.
+    ///
+    /// See the [Deepgram Summarize feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/summarization
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .summarize("v2")
+    ///     .build();
+    /// ```
+    pub fn summarize(mut self, summarize: &str) -> Self {
+        self.0.summarize = Some(summarize.into());
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -1427,6 +1541,11 @@ impl Serialize for SerializableOptions<'_> {
             smart_format,
             filler_words,
             paragraphs,
+            detect_entities,
+            intents,
+            sentiment,
+            topics,
+            summarize,
         } = self.0;
 
         match multichannel {
@@ -1558,6 +1677,26 @@ impl Serialize for SerializableOptions<'_> {
 
         if let Some(paragraphs) = paragraphs {
             seq.serialize_element(&("paragraphs", paragraphs))?;
+        }
+
+        if let Some(detect_entities) = detect_entities {
+            seq.serialize_element(&("detect_entities", detect_entities))?;
+        }
+
+        if let Some(intents) = intents {
+            seq.serialize_element(&("intents", intents))?;
+        }
+
+        if let Some(sentiment) = sentiment {
+            seq.serialize_element(&("sentiment", sentiment))?;
+        }
+
+        if let Some(topics) = topics {
+            seq.serialize_element(&("topics", topics))?;
+        }
+
+        if let Some(summarize) = summarize {
+            seq.serialize_element(&("summarize", summarize))?;
         }
 
         seq.end()

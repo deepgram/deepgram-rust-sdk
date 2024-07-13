@@ -77,6 +77,18 @@ pub struct ListenResults {
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/utterances/
     pub utterances: Option<Vec<Utterance>>,
+
+    #[allow(missing_docs)]
+    pub intents: Option<Intents>,
+
+    #[allow(missing_docs)]
+    pub sentiments: Option<Sentiments>,
+
+    #[allow(missing_docs)]
+    pub topics: Option<Topics>,
+
+    #[allow(missing_docs)]
+    pub summary: Option<Summary>,
 }
 
 /// Transcription results for a single audio channel.
@@ -191,6 +203,121 @@ pub struct Paragraphs {
     paragraphs: Vec<Paragraph>,
 }
 
+/// Entity Detection results.
+///
+/// See the [Deepgram API Reference][api]
+/// and the [Deepgram Search feature docs][docs] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+/// [docs]: https://developers.deepgram.com/docs/detect-entities
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Entity {
+    label: String,
+    value: String,
+    confidence: f64,
+    start_word: usize,
+    end_word: usize,
+}
+
+/// Intent
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Intent {
+    intent: String,
+    confidence_score: f64,
+}
+
+/// Segment
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Segment {
+    text: String,
+    start_word: usize,
+    end_word: usize,
+    intents: Vec<Intent>,
+}
+
+/// Intent Recognition results.
+///
+/// See the [Deepgram API Reference][api]
+/// and the [Deepgram Search feature docs][docs] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+/// [docs]: https://developers.deepgram.com/docs/intent-recognition
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Intents {
+    segments: Vec<Segment>,
+}
+
+/// SentimentSegment
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct SentimentSegment {
+    text: String,
+    start_word: usize,
+    end_word: usize,
+    sentiment: String,
+    sentiment_score: f64,
+}
+
+/// SentimentAverage
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct SentimentAverage {
+    sentiment: String,
+    sentiment_score: f64,
+}
+
+/// Sentiment Analysis results.
+///
+/// See the [Deepgram API Reference][api]
+/// and the [Deepgram Search feature docs][docs] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+/// [docs]: https://developers.deepgram.com/docs/sentiment-analysis
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Sentiments {
+    segments: Vec<SentimentSegment>,
+    average: SentimentAverage,
+}
+
+/// TopicDetail
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct TopicDetail {
+    topic: String,
+    confidence_score: f64,
+}
+
+/// TopicSegment
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct TopicSegment {
+    text: String,
+    start_word: usize,
+    end_word: usize,
+    topics: Vec<TopicDetail>,
+}
+
+/// Topics Detection results.
+///
+/// See the [Deepgram API Reference][api]
+/// and the [Deepgram Search feature docs][docs] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+/// [docs]: https://developers.deepgram.com/docs/topic-detection
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Topics {
+    segments: Vec<TopicSegment>,
+}
+
+/// Summary results.
+///
+/// See the [Deepgram API Reference][api]
+/// and the [Deepgram Search feature docs][docs] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+/// [docs]: https://developers.deepgram.com/docs/summarization
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Summary {
+    result: String,
+    short: String,
+}
+
 /// Transcript alternatives.
 ///
 /// See the [Deepgram API Reference][api] for more info.
@@ -210,6 +337,9 @@ pub struct ResultAlternative {
 
     #[allow(missing_docs)]
     pub paragraphs: Option<Paragraphs>,
+
+    #[allow(missing_docs)]
+    pub entities: Option<Vec<Entity>>,
 }
 
 /// A single transcribed word.

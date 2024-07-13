@@ -30,6 +30,11 @@ async fn main() -> Result<(), DeepgramError> {
         .smart_format(true)
         .encoding("linear16")
         .language(Language::en_US)
+        .detect_entities(true)
+        .intents(true)
+        .sentiment(true)
+        .topics(true)
+        .summarize("v2")
         .build();
 
     let response = dg_client
