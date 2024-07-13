@@ -123,7 +123,7 @@ pub enum StreamResponse {
         r#type: String,
         channel: Vec<u8>,
         last_word_end: f64,
-    }
+    },
 }
 
 #[pin_project]

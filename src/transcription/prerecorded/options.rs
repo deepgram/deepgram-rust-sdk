@@ -31,6 +31,7 @@ pub struct Options {
     encoding: Option<String>,
     smart_format: Option<bool>,
     filler_words: Option<bool>,
+    paragraphs: Option<bool>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
@@ -493,6 +494,7 @@ impl OptionsBuilder {
             encoding: None,
             smart_format: None,
             filler_words: None,
+            paragraphs: None,
         })
     }
 
@@ -1403,6 +1405,7 @@ impl Serialize for SerializableOptions<'_> {
             encoding,
             smart_format,
             filler_words,
+            paragraphs,
         } = self.0;
 
         match multichannel {
@@ -1530,6 +1533,10 @@ impl Serialize for SerializableOptions<'_> {
 
         if let Some(filler_words) = filler_words {
             seq.serialize_element(&("filler_words", filler_words))?;
+        }
+
+        if let Some(paragraphs) = paragraphs {
+            seq.serialize_element(&("paragraphs", paragraphs))?;
         }
 
         seq.end()

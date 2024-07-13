@@ -177,6 +177,9 @@ pub struct ResultAlternative {
 
     #[allow(missing_docs)]
     pub words: Vec<Word>,
+
+    #[allow(missing_docs)]
+    pub paragraphs: Option<Box<ResultAlternative>>,
 }
 
 /// A single transcribed word.
