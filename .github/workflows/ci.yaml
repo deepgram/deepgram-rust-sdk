@@ -73,8 +73,6 @@ jobs:
     - name: Install Rust Nightly
       run: rustup toolchain install nightly
     - name: Cargo Build
-      env:
-        RUSTFLAGS: -Z macro-backtrace
       run: rustup run nightly cargo build --all-targets -Z minimal-versions
     - name: Cargo Test
       run: rustup run nightly cargo test --all -Z minimal-versions

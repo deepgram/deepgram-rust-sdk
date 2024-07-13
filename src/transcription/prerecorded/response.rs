@@ -161,6 +161,36 @@ pub struct SearchResults {
     pub hits: Vec<Hit>,
 }
 
+/// Sentence
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Sentence {
+    text: String,
+    start: f64,
+    end: f64,
+}
+
+/// Paragraph
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Paragraph {
+    sentences: Vec<Sentence>,
+    num_words: usize,
+    start: f64,
+    end: f64,
+}
+
+/// Paragraph results.
+///
+/// See the [Deepgram API Reference][api]
+/// and the [Deepgram Search feature docs][docs] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
+/// [docs]: https://developers.deepgram.com/docs/paragraphs
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub struct Paragraphs {
+    transcript: String,
+    paragraphs: Vec<Paragraph>,
+}
+
 /// Transcript alternatives.
 ///
 /// See the [Deepgram API Reference][api] for more info.
@@ -179,7 +209,7 @@ pub struct ResultAlternative {
     pub words: Vec<Word>,
 
     #[allow(missing_docs)]
-    pub paragraphs: Option<Box<ResultAlternative>>,
+    pub paragraphs: Option<Paragraphs>,
 }
 
 /// A single transcribed word.

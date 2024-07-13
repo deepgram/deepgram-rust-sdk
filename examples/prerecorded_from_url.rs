@@ -21,6 +21,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let options = Options::builder()
         .punctuate(true)
+        .paragraphs(true)
         .language(Language::en_US)
         .build();
 
@@ -31,6 +32,8 @@ async fn main() -> Result<(), DeepgramError> {
 
     let transcript = &response.results.channels[0].alternatives[0].transcript;
     println!("{}", transcript);
+
+    println!("{:?}", response);
 
     Ok(())
 }

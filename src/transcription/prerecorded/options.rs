@@ -1351,6 +1351,27 @@ impl OptionsBuilder {
         self
     }
 
+    /// Set the Paragraphs feature.
+    ///
+    /// See the [Deepgram Paragraphs feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/paragraphs
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .paragraphs(true)
+    ///     .build();
+    /// ```
+    pub fn paragraphs(mut self, paragraphs: bool) -> Self {
+        self.0.paragraphs = Some(paragraphs);
+
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -2136,6 +2157,19 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder().filler_words(true).build(),
             "filler_words=true",
+        );
+    }
+
+    #[test]
+    fn paragraphs() {
+        check_serialization(
+            &Options::builder().paragraphs(false).build(),
+            "paragraphs=false",
+        );
+
+        check_serialization(
+            &Options::builder().paragraphs(true).build(),
+            "paragraphs=true",
         );
     }
 }
