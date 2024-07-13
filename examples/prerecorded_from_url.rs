@@ -20,7 +20,7 @@ async fn main() -> Result<(), DeepgramError> {
     let source = AudioSource::from_url(AUDIO_URL);
 
     let options = Options::builder()
-        .model(Model::CustomId(String::from("nova-2-general")),)
+        .model(Model::CustomId(String::from("nova-2-general")))
         .punctuate(true)
         .paragraphs(true)
         .redact([Redact::Pci, Redact::Other(String::from("cvv"))])
