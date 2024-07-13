@@ -1607,7 +1607,7 @@ impl OptionsBuilder {
     /// # use deepgram::transcription::prerecorded::options::{Options, CustomTopicMode};
     /// #
     /// let options = Options::builder()
-    ///     .custom_topic_mode(CustomIntentMode::Extended)
+    ///     .custom_topic_mode(CustomTopicMode::Extended)
     ///     .build();
     /// ```
     pub fn custom_topic_mode(mut self, custom_topic_mode: CustomTopicMode) -> Self {
