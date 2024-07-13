@@ -94,6 +94,7 @@ async fn main() -> Result<(), DeepgramError> {
     let mut results = dg
         .transcription()
         .stream_request()
+        .keep_alive()
         .stream(microphone_as_stream())
         // TODO Enum.
         .encoding("linear16".to_string())

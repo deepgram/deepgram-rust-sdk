@@ -14,6 +14,7 @@ use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
+use std::sync::Arc;
 
 use bytes::{Bytes, BytesMut};
 use futures::channel::mpsc::{self, Receiver};
@@ -23,10 +24,12 @@ use http::Request;
 use pin_project::pin_project;
 use serde::{Deserialize, Serialize};
 use tokio::fs::File;
+use tokio::time;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
+use tokio::sync::Mutex;
 
 use super::prerecorded::options::{Options, SerializableOptions};
 use super::Transcription;
@@ -51,6 +54,7 @@ where
     no_delay: Option<bool>,
     vad_events: Option<bool>,
     stream_url: Url,
+    keep_alive: Option<Arc<Mutex<Option<tokio::sync::mpsc::Sender<()>>>>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -162,6 +166,7 @@ impl Transcription<'_> {
             no_delay: None,
             vad_events: None,
             stream_url: self.listen_stream_url(),
+            keep_alive: None,
         }
     }
 
@@ -433,6 +438,26 @@ where
         });
 
         Ok(rx)
+    }
+
+    pub fn keep_alive(mut self) -> Self {
+        let (tx, _rx) = tokio::sync::mpsc::channel::<()>(1);
+        let keep_alive = Arc::new(Mutex::new(Some(tx)));
+        self.keep_alive = Some(keep_alive.clone());
+
+        tokio::spawn(async move {
+            let mut interval = time::interval(Duration::from_secs(10));
+            loop {
+                interval.tick().await;
+                if let Some(tx) = &*keep_alive.lock().await {
+                    if tx.send(()).await.is_err() {
+                        break;
+                    }
+                }
+            }
+        });
+
+        self
     }
 }
 
