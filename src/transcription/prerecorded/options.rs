@@ -30,7 +30,7 @@ pub struct Options {
     query_params: Vec<(String, String)>,
     encoding: Option<String>,
     smart_format: Option<bool>,
-    filler_words: Option<bool>
+    filler_words: Option<bool>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
@@ -427,8 +427,7 @@ pub enum Utterances {
     /// Enabled
     Enabled { 
         /// utt_split
-        /// [docs]: https://developers.deepgram.com/docs/utterance-split
-        utt_split: Option<f64> 
+        utt_split: Option<f64>,
     },
 }
 
@@ -444,7 +443,7 @@ pub enum Multichannel {
     /// Enabled
     Enabled { 
         /// models
-        models: Option<Vec<Model>> 
+        models: Option<Vec<Model>>,
     },
 }
 
@@ -493,7 +492,7 @@ impl OptionsBuilder {
             query_params: Vec::new(),
             encoding: None,
             smart_format: None,
-            filler_words: None
+            filler_words: None,
         })
     }
 
@@ -1287,8 +1286,8 @@ impl OptionsBuilder {
         self
     }
 
-    /// Encoding is required when raw, headerless audio packets are sent to the 
-    /// streaming service. If containerized audio packets are sent to the 
+    /// Encoding is required when raw, headerless audio packets are sent to the
+    /// streaming service. If containerized audio packets are sent to the
     /// streaming service, this feature should not be used.
     ///
     /// See the [Deepgram Encoding feature docs][docs] for more info.
@@ -1403,7 +1402,7 @@ impl Serialize for SerializableOptions<'_> {
             query_params,
             encoding,
             smart_format,
-            filler_words
+            filler_words,
         } = self.0;
 
         match multichannel {

@@ -16,7 +16,7 @@ async fn main() -> Result<(), DeepgramError> {
         .smart_format(true)
         .language(Language::en_US)
         .build();
-    
+
     let mut results = dg
         .transcription()
         .stream_request_with_options(Some(&options))

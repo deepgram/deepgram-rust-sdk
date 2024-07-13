@@ -13,8 +13,8 @@ use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
-use serde_urlencoded;
 use serde_json::Value;
+use serde_urlencoded;
 
 use bytes::{Bytes, BytesMut};
 use futures::channel::mpsc::{self, Receiver};
@@ -85,20 +85,19 @@ pub enum StreamResponse {
     UtteranceEndResponse {
         r#type: String,
         channel: Vec<u8>,
-        last_word_end: f64
+        last_word_end: f64,
     },
     SpeechStartedResponse {
         r#type: String,
         channel: Vec<u8>,
-        timestamp: f64
+        timestamp: f64,
     },
     TerminalResponse {
         request_id: String,
         created: String,
         duration: f64,
         channels: u32,
-    },
-    Other(Value), // Log unhandled messages if any
+    }
 }
 
 #[pin_project]
@@ -110,7 +109,7 @@ struct FileChunker {
 }
 
 impl Transcription<'_> {
-    pub fn stream_request<'a, E, S>(&'a self) -> StreamRequestBuilder<'a, S, E> 
+    pub fn stream_request<E, S>(&self) -> StreamRequestBuilder<'_, S, E>
     where
         S: Stream<Item = std::result::Result<Bytes, E>>,
     {
@@ -119,14 +118,14 @@ impl Transcription<'_> {
 
     pub fn stream_request_with_options<'a, E, S>(
         &'a self, 
-        options: Option<&'a Options>
+        options: Option<&'a Options>,
     ) -> StreamRequestBuilder<'a, S, E> 
     where
         S: Stream<Item = std::result::Result<Bytes, E>>,
     {
         StreamRequestBuilder {
             config: self.0,
-            options: options,
+            options,
             source: None,
             encoding: None,
             sample_rate: None,
@@ -226,7 +225,7 @@ where
 
         self
     }
-    
+
     pub fn utterance_end_ms(mut self, utterance_end_ms: u16) -> Self {
         self.utterance_end_ms = Some(utterance_end_ms);
 
@@ -238,19 +237,18 @@ where
 
         self
     }
-    
+
     pub fn no_delay(mut self, no_delay: bool) -> Self {
         self.no_delay = Some(no_delay);
 
         self
     }
-    
+
     pub fn vad_events(mut self, vad_events: bool) -> Self {
         self.vad_events = Some(vad_events);
 
         self
     }
-
 }
 
 impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
@@ -280,7 +278,7 @@ impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
 
 fn options_to_query_string(options: &Options) -> String {
     let serialized_options = SerializableOptions::from(options);
-    serde_urlencoded::to_string(&serialized_options).unwrap_or_default()
+    serde_urlencoded::to_string(serialized_options).unwrap_or_default()
 }
 
 impl<S, E> StreamRequestBuilder<'_, S, E>
@@ -297,16 +295,17 @@ where
             // Add standard pre-recorded options
             if let Some(options) = &self.options {
                 let query_string = options_to_query_string(options);
-                let query_pairs: Vec<(Cow<str>, Cow<str>)> = query_string.split('&')
+                let query_pairs: Vec<(Cow<str>, Cow<str>)> = query_string
+                    .split('&')
                     .map(|s| {
                         let mut split = s.splitn(2, '=');
                         (
                             Cow::from(split.next().unwrap_or_default()),
-                            Cow::from(split.next().unwrap_or_default())
+                            Cow::from(split.next().unwrap_or_default()),
                         )
                     })
                     .collect();
-    
+
                 for (key, value) in query_pairs {
                     pairs.append_pair(&key, &value);
                 }
