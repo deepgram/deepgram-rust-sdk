@@ -1509,12 +1509,12 @@ impl OptionsBuilder {
     /// assert_eq!(options1, options2);
     /// ```
     pub fn custom_intents(
-            mut self,
-            custom_intent: impl IntoIterator<Item = impl Into<String>>,
-        ) -> Self {
-            self.0
-                .custom_intents
-                .extend(custom_intent.into_iter().map(Into::into));
+        mut self,
+        custom_intent: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.0
+            .custom_intents
+            .extend(custom_intent.into_iter().map(Into::into));
         self
     }
 
@@ -1586,12 +1586,12 @@ impl OptionsBuilder {
     /// assert_eq!(options1, options2);
     /// ```
     pub fn custom_topics(
-            mut self,
-            custom_topic: impl IntoIterator<Item = impl Into<String>>,
-        ) -> Self {
-            self.0
-                .custom_topics
-                .extend(custom_topic.into_iter().map(Into::into));
+        mut self,
+        custom_topic: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.0
+            .custom_topics
+            .extend(custom_topic.into_iter().map(Into::into));
         self
     }
 
