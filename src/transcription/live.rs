@@ -76,7 +76,6 @@ pub struct Channel {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ModelInfo {
     name: String,
     version: String,
@@ -84,7 +83,6 @@ pub struct ModelInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Metadata {
     request_id: String,
     model_info: ModelInfo,
@@ -92,7 +90,6 @@ pub struct Metadata {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct TranscriptResponse {
     #[serde(rename = "type")]
     r#type: String,
@@ -107,7 +104,6 @@ pub struct TranscriptResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct UtteranceEndResponse {
     #[serde(rename = "type")]
     r#type: String,
@@ -116,7 +112,6 @@ pub struct UtteranceEndResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SpeechStartedResponse {
     #[serde(rename = "type")]
     r#type: String,
@@ -125,7 +120,6 @@ pub struct SpeechStartedResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct TerminalResponse {
     request_id: String,
     created: String,
