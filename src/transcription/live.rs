@@ -56,13 +56,9 @@ where
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Word {
     pub word: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub punctuated_word: Option<String>,
     pub start: f64,
     pub end: f64,
     pub confidence: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub speaker: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -78,64 +74,19 @@ pub struct Channel {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ModelInfo {
-    pub name: String,
-    pub version: String,
-    pub arch: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Metadata {
-    pub request_id: String,
-    pub model_info: ModelInfo,
-    pub model_uuid: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TranscriptResponse {
-    #[serde(rename = "type")]
-    pub r#type: String,
-    pub start: f64,
-    pub duration: f64,
-    pub is_final: bool,
-    pub speech_final: bool,
-    pub from_finalize: bool,
-    pub channel: Channel,
-    pub metadata: Metadata,
-    pub channel_index: Vec<i32>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UtteranceEndResponse {
-    #[serde(rename = "type")]
-    pub r#type: String,
-    pub channel: Vec<u8>,
-    pub last_word_end: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SpeechStartedResponse {
-    #[serde(rename = "type")]
-    pub r#type: String,
-    pub channel: Vec<u8>,
-    pub timestamp: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TerminalResponse {
-    pub request_id: String,
-    pub created: String,
-    pub duration: f64,
-    pub channels: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StreamResponse {
-    Transcript(TranscriptResponse),
-    UtteranceEnd(UtteranceEndResponse),
-    SpeechStarted(SpeechStartedResponse),
-    Terminal(TerminalResponse),
+    TranscriptResponse {
+        duration: f64,
+        is_final: bool,
+        channel: Channel,
+    },
+    TerminalResponse {
+        request_id: String,
+        created: String,
+        duration: f64,
+        channels: u32,
+    },
 }
 
 #[pin_project]
