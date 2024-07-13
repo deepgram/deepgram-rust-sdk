@@ -41,6 +41,8 @@ pub struct Options {
     custom_topic_mode: Option<CustomTopicMode>,
     custom_topics: Vec<String>,
     summarize: Option<String>,
+    dictation: Option<bool>,
+    measurements: Option<bool>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
@@ -543,6 +545,8 @@ impl OptionsBuilder {
             custom_topic_mode: None,
             custom_topics: Vec::new(),
             summarize: None,
+            dictation: None,
+            measurements: None,
         })
     }
 
@@ -1636,6 +1640,48 @@ impl OptionsBuilder {
         self
     }
 
+    /// Set the Language Detection feature.
+    ///
+    /// See the [Deepgram Language Detection feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/dictation
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .dictation(true)
+    ///     .build();
+    /// ```
+    pub fn dictation(mut self, dictation: bool) -> Self {
+        self.0.dictation = Some(dictation);
+
+        self
+    }
+
+    /// Set the Measurements feature.
+    ///
+    /// See the [Deepgram Measurements feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/measurements
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .measurements(true)
+    ///     .build();
+    /// ```
+    pub fn measurements(mut self, measurements: bool) -> Self {
+        self.0.measurements = Some(measurements);
+
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -1700,6 +1746,8 @@ impl Serialize for SerializableOptions<'_> {
             custom_topic_mode,
             custom_topics,
             summarize,
+            dictation,
+            measurements,
         } = self.0;
 
         match multichannel {
@@ -1867,6 +1915,14 @@ impl Serialize for SerializableOptions<'_> {
 
         if let Some(summarize) = summarize {
             seq.serialize_element(&("summarize", summarize))?;
+        }
+
+        if let Some(dictation) = dictation {
+            seq.serialize_element(&("dictation", dictation))?;
+        }
+
+        if let Some(measurements) = measurements {
+            seq.serialize_element(&("measurements", measurements))?;
         }
 
         seq.end()
@@ -2147,9 +2203,11 @@ mod serialize_options_tests {
             .custom_topic_mode(CustomTopicMode::Strict)
             .custom_topics(["Get support", "Complain"])
             .summarize("v2")
+            .dictation(true)
+            .measurements(true)
             .build();
 
-        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2");
+        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true");
     }
 
     #[test]

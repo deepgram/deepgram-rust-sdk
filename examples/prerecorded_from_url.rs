@@ -39,6 +39,8 @@ async fn main() -> Result<(), DeepgramError> {
         .custom_intent_mode(CustomIntentMode::Strict)
         .custom_intents(["Get support", "Complain"])
         .summarize("v2")
+        .dictation(true)
+        .measurements(true)
         .build();
 
     let response = dg_client
