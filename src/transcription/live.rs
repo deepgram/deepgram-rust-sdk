@@ -60,7 +60,7 @@ pub struct Word {
     pub start: f64,
     pub end: f64,
     pub confidence: f64,
-    pub speaker: i32,
+    pub speaker: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
