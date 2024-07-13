@@ -17,7 +17,7 @@ use uuid::Uuid;
 pub struct Response {
     #[allow(missing_docs)]
     pub request_id: Option<Uuid>,
-    
+
     #[allow(missing_docs)]
     pub metadata: Option<ListenMetadata>,
 
