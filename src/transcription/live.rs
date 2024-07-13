@@ -13,7 +13,6 @@ use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
-use serde_json::Value;
 use serde_urlencoded;
 
 use bytes::{Bytes, BytesMut};
