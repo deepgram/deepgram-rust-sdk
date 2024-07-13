@@ -129,6 +129,7 @@ pub struct TerminalResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+#[non_exhaustive]
 pub enum StreamResponse {
     Transcript(TranscriptResponse),
     UtteranceEnd(UtteranceEndResponse),
