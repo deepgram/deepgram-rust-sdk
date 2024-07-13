@@ -1471,8 +1471,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
-    /// # use deepgram::transcription::prerecorded::options::Options::CustomIntentMode;
+    /// # use deepgram::transcription::prerecorded::options::Options::{Options, CustomIntentMode};
     /// #
     /// let options = Options::builder()
     ///     .custom_intent_mode(CustomIntentMode::Extended)
@@ -1605,8 +1604,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
-    /// # use deepgram::transcription::prerecorded::options::Options::CustomTopicMode;
+    /// # use deepgram::transcription::prerecorded::options::Options::{Options, CustomTopicMode};
     /// #
     /// let options = Options::builder()
     ///     .custom_topic_mode(CustomIntentMode::Extended)
