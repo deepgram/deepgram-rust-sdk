@@ -16,6 +16,7 @@ pub struct Options {
     profanity_filter: Option<bool>,
     redact: Vec<Redact>,
     diarize: Option<bool>,
+    diarize_version: Option<String>,
     ner: Option<bool>,
     multichannel: Option<Multichannel>,
     alternatives: Option<usize>,
@@ -43,6 +44,9 @@ pub struct Options {
     summarize: Option<String>,
     dictation: Option<bool>,
     measurements: Option<bool>,
+    extra: Option<String>,
+    callback: Option<String>,
+    callback_method: Option<String>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
@@ -520,6 +524,7 @@ impl OptionsBuilder {
             profanity_filter: None,
             redact: Vec::new(),
             diarize: None,
+            diarize_version: None,
             ner: None,
             multichannel: None,
             alternatives: None,
@@ -547,6 +552,9 @@ impl OptionsBuilder {
             summarize: None,
             dictation: None,
             measurements: None,
+            extra: None,
+            callback: None,
+            callback_method: None,
         })
     }
 
@@ -736,6 +744,26 @@ impl OptionsBuilder {
     /// ```
     pub fn diarize(mut self, diarize: bool) -> Self {
         self.0.diarize = Some(diarize);
+        self
+    }
+
+    /// Set the Diarization Version feature.
+    ///
+    /// See the [Deepgram Diarization Version feature docs][docs] for more info.
+    ///
+    /// [docs]: https://deepgram.com/changelog/improved-speaker-diarization
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .diarize_version("2021-07-14.0")
+    ///     .build();
+    /// ```
+    pub fn diarize_version(mut self, diarize_version: &str) -> Self {
+        self.0.diarize_version = Some(diarize_version.into());
         self
     }
 
@@ -1682,6 +1710,66 @@ impl OptionsBuilder {
         self
     }
 
+    /// Deepgrams Extra Metadata feature
+    ///
+    /// See the [Deepgram Extra Metadata feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/extra-metadata
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .extra("key:value")
+    ///     .build();
+    /// ```
+    pub fn extra(mut self, extra: &str) -> Self {
+        self.0.extra = Some(extra.into());
+        self
+    }
+
+    /// Deepgrams Callback feature
+    ///
+    /// See the [Deepgram Callback feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/callback
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .callback("https://deepgram.com")
+    ///     .build();
+    /// ```
+    pub fn callback(mut self, callback: &str) -> Self {
+        self.0.callback = Some(callback.into());
+        self
+    }
+
+    /// Deepgrams Callback Method feature
+    ///
+    /// See the [Deepgram Callback Method feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/callback#pre-recorded-audio
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::transcription::prerecorded::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .callback_method("put")
+    ///     .build();
+    /// ```
+    pub fn callback_method(mut self, callback_method: &str) -> Self {
+        self.0.callback_method = Some(callback_method.into());
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -1721,6 +1809,7 @@ impl Serialize for SerializableOptions<'_> {
             profanity_filter,
             redact,
             diarize,
+            diarize_version,
             ner,
             multichannel,
             alternatives,
@@ -1748,6 +1837,9 @@ impl Serialize for SerializableOptions<'_> {
             summarize,
             dictation,
             measurements,
+            extra,
+            callback,
+            callback_method,
         } = self.0;
 
         match multichannel {
@@ -1790,6 +1882,10 @@ impl Serialize for SerializableOptions<'_> {
 
         if let Some(diarize) = diarize {
             seq.serialize_element(&("diarize", diarize))?;
+        }
+
+        if let Some(diarize_version) = diarize_version {
+            seq.serialize_element(&("diarize_version", diarize_version))?;
         }
 
         if let Some(ner) = ner {
@@ -1923,6 +2019,18 @@ impl Serialize for SerializableOptions<'_> {
 
         if let Some(measurements) = measurements {
             seq.serialize_element(&("measurements", measurements))?;
+        }
+
+        if let Some(extra) = extra {
+            seq.serialize_element(&("extra", extra))?;
+        }
+
+        if let Some(callback) = callback {
+            seq.serialize_element(&("callback", callback))?;
+        }
+
+        if let Some(callback_method) = callback_method {
+            seq.serialize_element(&("callback_method", callback_method))?;
         }
 
         seq.end()
@@ -2170,6 +2278,7 @@ mod serialize_options_tests {
             .profanity_filter(true)
             .redact([Redact::Pci, Redact::Ssn])
             .diarize(true)
+            .diarize_version("2021-07-14.0")
             .ner(true)
             .multichannel_with_models([
                 Model::EnhancedFinance,
@@ -2205,9 +2314,12 @@ mod serialize_options_tests {
             .summarize("v2")
             .dictation(true)
             .measurements(true)
+            .extra("key:value")
+            .callback("https://deepgram.com")
+            .callback_method("put")
             .build();
 
-        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true");
+        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback=https%3A%2F%2Fdeepgram.com&callback_method=put");
     }
 
     #[test]
