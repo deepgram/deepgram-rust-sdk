@@ -32,8 +32,7 @@ async fn main() -> Result<(), DeepgramError> {
         .prerecorded(source, &options)
         .await?;
 
-    let transcript = &response.results.channels[0].alternatives[0].transcript;
-    println!("{}", transcript);
+    println!("{:?}", response);
 
     Ok(())
 }
