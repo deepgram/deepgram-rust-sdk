@@ -92,38 +92,54 @@ pub struct Metadata {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TranscriptResponse {
+    #[serde(rename = "type")]
+    r#type: String,
+    start: f64,
+    duration: f64,
+    is_final: bool,
+    speech_final: bool,
+    from_finalize: bool,
+    channel: Channel,
+    metadata: Metadata,
+    channel_index: Vec<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UtteranceEndResponse {
+    #[serde(rename = "type")]
+    r#type: String,
+    channel: Vec<u8>,
+    last_word_end: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpeechStartedResponse {
+    #[serde(rename = "type")]
+    r#type: String,
+    channel: Vec<u8>,
+    timestamp: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TerminalResponse {
+    request_id: String,
+    created: String,
+    duration: f64,
+    channels: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StreamResponse {
-    TranscriptResponse {
-        #[serde(rename = "type")]
-        r#type: String,
-        start: f64,
-        duration: f64,
-        is_final: bool,
-        speech_final: bool,
-        from_finalize: bool,
-        channel: Channel,
-        metadata: Metadata,
-        channel_index: Vec<i32>,
-    },
-    UtteranceEndResponse {
-        #[serde(rename = "type")]
-        r#type: String,
-        channel: Vec<u8>,
-        last_word_end: f64,
-    },
-    SpeechStartedResponse {
-        #[serde(rename = "type")]
-        r#type: String,
-        channel: Vec<u8>,
-        timestamp: f64,
-    },
-    TerminalResponse {
-        request_id: String,
-        created: String,
-        duration: f64,
-        channels: u32,
-    },
+    Transcript(TranscriptResponse),
+    UtteranceEnd(UtteranceEndResponse),
+    SpeechStarted(SpeechStartedResponse),
+    Terminal(TerminalResponse),
 }
 
 #[pin_project]
