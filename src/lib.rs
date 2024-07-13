@@ -35,9 +35,7 @@ static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 /// Make transcriptions requests using [`Deepgram::transcription`].
 #[derive(Debug, Clone)]
 pub struct Deepgram {
-    #[cfg_attr(not(feature = "live"), allow(unused))]
     api_key: Option<RedactedString>,
-    #[cfg_attr(not(any(feature = "live", feature = "prerecorded")), allow(unused))]
     base_url: Url,
     client: reqwest::Client,
 }
@@ -72,7 +70,6 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
-    #[cfg(feature = "live")]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] tungstenite::Error),

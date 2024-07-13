@@ -6,9 +6,7 @@
 
 use crate::Deepgram;
 
-#[cfg(feature = "live")]
 pub mod live;
-#[cfg(feature = "prerecorded")]
 pub mod prerecorded;
 
 /// Transcribe audio using Deepgram's automated speech recognition.
