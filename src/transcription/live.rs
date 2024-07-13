@@ -99,8 +99,8 @@ pub struct Metadata {
 #[serde(untagged)]
 pub enum StreamResponse {
     TranscriptResponse {
-        // #[serde(rename = "type")]
-        // r#type: String,
+        #[serde(rename = "type")]
+        type_field: String,
         start: f64,
         duration: f64,
         is_final: bool,
@@ -117,14 +117,14 @@ pub enum StreamResponse {
         channels: u32,
     },
     SpeechStartedResponse {
-        // #[serde(rename = "type")]
-        // r#type: String,
+        #[serde(rename = "type")]
+        type_field: String,
         channel: Vec<u8>,
         timestamp: f64,
     },
     UtteranceEndResponse {
-        // #[serde(rename = "type")]
-        // r#type: String,
+        #[serde(rename = "type")]
+        type_field: String,
         channel: Vec<u8>,
         last_word_end: f64,
     },
