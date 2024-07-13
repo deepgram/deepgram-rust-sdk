@@ -73,7 +73,7 @@ jobs:
     - name: Install Rust Nightly
       run: rustup toolchain install nightly
     - name: Cargo Build
-      run: rustup run nightly cargo build --all-targets -Z minimal-versions
+      run: rustup run nightly cargo build --all-targets -Z minimal-versions -Z macro-backtrace
     - name: Cargo Test
       run: rustup run nightly cargo test --all -Z minimal-versions
     - name: Remove Dev Dependencies
