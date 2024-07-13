@@ -26,6 +26,7 @@ async fn main() -> Result<(), DeepgramError> {
         .redact([Redact::Pci, Redact::Other(String::from("cvv"))])
         .detect_language(true)
         .diarize(true)
+        .diarize_version("2021-07-14.0")
         .filler_words(true)
         .smart_format(true)
         .encoding("linear16")
@@ -41,6 +42,7 @@ async fn main() -> Result<(), DeepgramError> {
         .summarize("v2")
         .dictation(true)
         .measurements(true)
+        .extra("key:value")
         .build();
 
     let response = dg_client
