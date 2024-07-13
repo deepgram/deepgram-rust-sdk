@@ -59,6 +59,10 @@ pub struct Word {
     pub start: f64,
     pub end: f64,
     pub confidence: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speaker: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub punctuated_word: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -74,12 +78,33 @@ pub struct Channel {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ModelInfo {
+    pub name: String,
+    pub version: String,
+    pub arch: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Metadata {
+    pub request_id: String,
+    pub model_info: ModelInfo,
+    pub model_uuid: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum StreamResponse {
     TranscriptResponse {
+        #[serde(rename = "type")]
+        r#type: String,
+        start: f64,
         duration: f64,
         is_final: bool,
+        speech_final: bool,
+        from_finalize: bool,
         channel: Channel,
+        metadata: Metadata,
+        channel_index: Vec<i32>,
     },
     TerminalResponse {
         request_id: String,
@@ -87,6 +112,18 @@ pub enum StreamResponse {
         duration: f64,
         channels: u32,
     },
+    SpeechStartedResponse {
+        #[serde(rename = "type")]
+        r#type: String,
+        channel: Vec<u8>,
+        timestamp: f64,
+    },
+    UtteranceEndResponse {
+        #[serde(rename = "type")]
+        r#type: String,
+        channel: Vec<u8>,
+        last_word_end: f64,
+    }
 }
 
 #[pin_project]
