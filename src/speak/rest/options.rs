@@ -6,7 +6,7 @@
 
 use serde::{ser::SerializeSeq, Serialize};
 
-/// Used as a parameter for [`Speak::speak`](crate::speak::Speak::speak) and similar functions.
+/// Used as a parameter for [`Speak::speak_to_file`](crate::speak::Speak::speak_to_file) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options {
     model: Option<String>,
