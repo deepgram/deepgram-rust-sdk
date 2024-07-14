@@ -17,7 +17,7 @@ jobs:
         sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
         dpkg -L pkg-config
-        export PKG_CONFIG_PATH=/usr/bin/pkg-config:$PKG_CONFIG_PATH
+        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
         ls -la $PKG_CONFIG_PATH
     - name: Check no features
       run: cargo check --all-targets --no-default-features
