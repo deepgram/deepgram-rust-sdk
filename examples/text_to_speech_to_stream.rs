@@ -1,57 +1,87 @@
 use std::env;
+use audio::channel::LinearChannel;
+use audio::Buf;
 use deepgram::{speak::rest::options::Options, Deepgram, DeepgramError};
 use futures::stream::StreamExt;
-use rodio::{OutputStream, Sink, Source};
+use rodio::{OutputStream, Sink};
+use rodio::buffer::SamplesBuffer;
 use bytes::BytesMut;
-use std::time::{Duration, Instant};
-use std::vec::IntoIter;
+use std::time::Instant;
 
-pub struct Linear16Source {
-    samples: IntoIter<i16>,
+#[derive(Clone)]
+pub struct Linear16AudioSource {
     sample_rate: u32,
     channels: u16,
+    buffer: Vec<i16>,
 }
 
-impl Linear16Source {
-    pub fn new(data: Vec<u8>, sample_rate: u32, channels: u16) -> Self {
-        // Convert the raw bytes to i16 samples
-        let samples = data.chunks_exact(2)
-            .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
-            .collect::<Vec<_>>()
-            .into_iter();
-
-        Linear16Source {
-            samples,
+impl Linear16AudioSource {
+    pub fn new(sample_rate: u32, channels: u16) -> Self {
+        Self {
             sample_rate,
             channels,
+            buffer: Vec::new(),
         }
     }
-}
 
-impl Iterator for Linear16Source {
-    type Item = i16;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.samples.next()
-    }
-}
-
-impl Source for Linear16Source {
-    fn current_frame_len(&self) -> Option<usize> {
-        Some(self.samples.len())
+    pub fn push_samples(&mut self, samples: &[i16]) {
+        self.buffer.extend_from_slice(samples);
     }
 
-    fn channels(&self) -> u16 {
-        self.channels
-    }
-
-    fn sample_rate(&self) -> u32 {
+    pub fn sample_rate(&self) -> u32 {
         self.sample_rate
     }
 
-    fn total_duration(&self) -> Option<Duration> {
-        None
+    pub fn channels(&self) -> u16 {
+        self.channels
     }
+
+    pub fn take_buffer(&mut self) -> Vec<i16> {
+        std::mem::take(&mut self.buffer)
+    }
+}
+
+impl Buf for Linear16AudioSource {
+    type Sample = i16;
+
+    type Channel<'this> = LinearChannel<'this, i16>
+    where
+        Self: 'this;
+
+    type IterChannels<'this> = std::vec::IntoIter<LinearChannel<'this, i16>>
+    where
+        Self: 'this;
+
+    fn frames_hint(&self) -> Option<usize> {
+        Some(self.buffer.len() / self.channels as usize)
+    }
+
+    fn channels(&self) -> usize {
+        self.channels as usize
+    }
+
+    fn get_channel(&self, channel: usize) -> Option<Self::Channel<'_>> {
+        if channel < self.channels as usize {
+            Some(LinearChannel::new(&self.buffer[channel..]))
+        } else {
+            None
+        }
+    }
+
+    fn iter_channels(&self) -> Self::IterChannels<'_> {
+        (0..self.channels as usize)
+            .map(|channel| LinearChannel::new(&self.buffer[channel..]))
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+}
+
+pub fn play_audio(sink: &Sink, sample_rate: u32, channels: u16, samples: Vec<i16>) {
+    // Create a rodio source from the raw audio data
+    let source = SamplesBuffer::new(channels, sample_rate, samples);
+
+    // Play the audio
+    sink.append(source);
 }
 
 #[tokio::main]
@@ -76,7 +106,7 @@ async fn main() -> Result<(), DeepgramError> {
     // Record the start time
     let start_time = Instant::now();
 
-    let mut audio_stream = dg_client
+    let audio_stream = dg_client
         .text_to_speech()
         .speak_to_stream(text, &options)
         .await?;
@@ -85,57 +115,82 @@ async fn main() -> Result<(), DeepgramError> {
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
     let sink = Sink::try_new(&stream_handle).unwrap();
 
-    // Buffer to accumulate initial audio data
+    // Create the audio source
+    let mut source = Linear16AudioSource::new(sample_rate, channels);
+
+    // Use the audio_stream for streaming audio and play it
+    let mut stream = audio_stream;
     let mut buffer = BytesMut::new();
-    // Define a threshold for the initial buffer (e.g., 32000 bytes for 2 seconds)
-    let buffer_threshold = sample_rate as usize * 2 * channels as usize * 1; // 2 seconds of audio
+    let mut extra_byte: Option<u8> = None;
+
+    // Define a threshold for the buffer (e.g., 32000 bytes for 1 second)
+    let buffer_threshold = 0; // increase for slow networks
 
     // Flag to indicate if timing information has been printed
-    let mut timing_printed = false;
+    let mut time_to_first_byte_printed = false;
 
-    println!("1st while loop");
     // Accumulate initial buffer
-    while let Some(data) = audio_stream.next().await {
+    while let Some(data) = stream.next().await {
         // Print timing information if not already printed
-        if !timing_printed {
+        if !time_to_first_byte_printed {
             let elapsed_time = start_time.elapsed();
             println!("Time to first audio byte: {:.2?}", elapsed_time);
-            timing_printed = true;
+            time_to_first_byte_printed = true;
         }
 
         // Process and accumulate the audio data here
-        println!("Received {} bytes of audio data", data.len());
         buffer.extend_from_slice(&data);
+
+        // Prepend the extra byte if present
+        if let Some(byte) = extra_byte.take() {
+            let mut new_buffer = BytesMut::with_capacity(buffer.len() + 1);
+            new_buffer.extend_from_slice(&[byte]);
+            new_buffer.extend_from_slice(&buffer);
+            buffer = new_buffer;
+        }
 
         // Check if buffer has reached the initial threshold
         if buffer.len() >= buffer_threshold {
-            let source = Linear16Source::new(buffer.split().to_vec(), sample_rate, channels);
-            sink.append(source);
+            // Convert buffer to i16 samples and push to source
+            if buffer.len() % 2 != 0 {
+                extra_byte = Some(buffer.split_off(buffer.len() - 1)[0]);
+            }
 
-            // Start playing the audio and break to start streaming in smaller chunks
-            break;
+            let samples: Vec<i16> = buffer
+                .chunks_exact(2)
+                .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
+                .collect();
+            source.push_samples(&samples);
+
+
+            println!("Playing {} bytes of audio data", buffer.len());
+
+            // Start playing the audio
+            play_audio(&sink, sample_rate, channels, source.take_buffer());
+
+            // Clear the buffer
+            buffer.clear();
         }
     }
 
-    println!("2nd while loop");
-    // Continue streaming the audio in smaller chunks
-    while let Some(data) = audio_stream.next().await {
-        // Process and accumulate the audio data here
-        println!("Received {} bytes of audio data", data.len());
-        buffer.extend_from_slice(&data);
-
-        // Check if buffer has enough data to continue streaming
-        if buffer.len() >= buffer_threshold {
-            let source = Linear16Source::new(buffer.split().to_vec(), sample_rate, channels);
-            sink.append(source);
-        }
-    }
-
-    println!("play end of buffer");
     // Play any remaining buffered data
     if !buffer.is_empty() {
-        let source = Linear16Source::new(buffer.to_vec(), sample_rate, channels);
-        sink.append(source);
+        // Prepend the extra byte if present
+        if let Some(byte) = extra_byte {
+            let mut new_buffer = BytesMut::with_capacity(buffer.len() + 1);
+            new_buffer.extend_from_slice(&[byte]);
+            new_buffer.extend_from_slice(&buffer);
+            buffer = new_buffer;
+        }
+
+        let samples: Vec<i16> = buffer
+            .chunks_exact(2)
+            .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
+            .collect();
+        source.push_samples(&samples);
+
+        // Play the remaining audio
+        play_audio(&sink, sample_rate, channels, source.take_buffer());
     }
 
     println!("Received all audio data");
