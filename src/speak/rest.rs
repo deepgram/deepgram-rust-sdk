@@ -3,8 +3,8 @@ use futures::stream::{Stream, StreamExt};
 use options::{Options, SerializableOptions};
 use reqwest::RequestBuilder;
 use serde_json::Value;
-use tokio_stream::wrappers::ReceiverStream;
 use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use url::Url;
 
 use crate::DeepgramError;
@@ -37,7 +37,8 @@ impl<'a> Speak<'a> {
             .query(&SerializableOptions(options))
             .json(&payload);
 
-        self.send_and_save_response(request_builder, output_file).await
+        self.send_and_save_response(request_builder, output_file)
+            .await
     }
 
     async fn send_and_save_response(

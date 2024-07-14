@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install libasound2-dev
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install libasound2-dev
+        sudo apt-get install -y libasound2-dev pkg-config
     - name: Check no features
       run: cargo check --all-targets --no-default-features
     - name: Check prerecorded feature
@@ -25,30 +25,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install libasound2-dev
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install libasound2-dev
+        sudo apt-get install -y libasound2-dev pkg-config
     - name: Cargo Build
       run: cargo build --all-targets --all-features
   Clippy:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install libasound2-dev
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install libasound2-dev
+        sudo apt-get install -y libasound2-dev pkg-config
     - name: Cargo Clippy
       run: cargo clippy --all-targets --all-features
   Test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install libasound2-dev
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install libasound2-dev
+        sudo apt-get install -y libasound2-dev pkg-config
     - name: Cargo Test
       run: cargo test --all --all-features
   Format:
@@ -67,6 +67,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: sudo apt-get update
     - name: Install cargo-audit
       run: cargo install --locked cargo-audit
     - name: Remove Dev Dependencies
@@ -80,10 +82,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Install libasound2-dev
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install libasound2-dev
+        sudo apt-get install -y libasound2-dev pkg-config
     - name: Install Rust Nightly
       run: rustup toolchain install nightly
     - name: Cargo Build
@@ -101,6 +103,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: sudo apt-get update
     - name: Install cargo-semver-checks
       run: cargo install --locked cargo-semver-checks
     - name: Cargo SemVer Checks
