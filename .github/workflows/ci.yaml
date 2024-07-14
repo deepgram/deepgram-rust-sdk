@@ -15,8 +15,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
+        sudo apt-get install -y alsa pkg-config libasound2-dev
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Check no features
       run: cargo check --all-targets --no-default-features
@@ -31,8 +30,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
+        sudo apt-get install -y alsa pkg-config libasound2-dev
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Cargo Build
       run: cargo build --all-targets --all-features
@@ -43,8 +41,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
+        sudo apt-get install -y alsa pkg-config libasound2-dev
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Cargo Clippy
       run: cargo clippy --all-targets --all-features
@@ -55,8 +52,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
+        sudo apt-get install -y alsa pkg-config libasound2-dev
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Cargo Test
       run: cargo test --all --all-features
@@ -73,8 +69,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install libasound2-dev
-        sudo apt-get install -y alsa pkg-config
+        sudo apt-get install -y alsa pkg-config libasound2-dev
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Cargo Doc
       run: cargo doc --workspace --all-features
@@ -100,8 +95,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
+        sudo apt-get install -y alsa pkg-config libasound2-dev
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Install Rust Nightly
       run: rustup toolchain install nightly
