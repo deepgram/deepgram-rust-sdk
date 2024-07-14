@@ -21,7 +21,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     dg_client
         .text_to_speech()
-        .speak(text, &options, &output_file)
+        .speak(text, &options, output_file)
         .await?;
 
     Ok(())

@@ -10,7 +10,7 @@ pub mod rest;
 
 /// Generate speech from text using Deepgram's text to speech api.
 ///
-/// Constructed using [`Deepgram::speak`].
+/// Constructed using [`Deepgram::text_to_speech`].
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///

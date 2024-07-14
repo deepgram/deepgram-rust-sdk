@@ -9,12 +9,13 @@ use std::fs::File;
 use std::io::copy;
 use std::path::Path;
 use url::Url;
+use serde_json::json;
+use options::{Options, SerializableOptions};
 
 use super::Speak;
 
 pub mod options;
 
-use options::{Options, SerializableOptions};
 
 static DEEPGRAM_API_URL_SPEAK: &str = "v1/speak";
 
@@ -31,9 +32,10 @@ impl<'a> Speak<'a> {
             .client
             .post(self.speak_url())
             .query(&SerializableOptions(options))
-            .json(&serde_json::json!({ "text": text }));
+            .json(&json!({ "text": text }));
 
-        self.send_and_translate_response(request_builder, output_file).await
+        self.send_and_translate_response(request_builder, output_file)
+            .await
     }
 
     async fn send_and_translate_response(
@@ -42,24 +44,24 @@ impl<'a> Speak<'a> {
         output_file: &Path,
     ) -> crate::Result<()> {
         let mut response = request_builder.send().await?;
-    
+
         // Ensure the request was successful
         if response.status().is_success() {
             // Create the output file
             let mut file = File::create(output_file)?;
-    
+
             // Stream the response body to the file
             while let Some(chunk) = response.chunk().await? {
                 copy(&mut chunk.as_ref(), &mut file)?;
             }
-    
+
             println!("Audio saved to {:?}", output_file);
         } else {
             eprintln!("Failed to generate speech: {}", response.status());
             let error_text = response.text().await?;
             eprintln!("Error details: {}", error_text);
         }
-    
+
         Ok(())
     }
 
