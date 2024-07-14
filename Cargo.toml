@@ -32,9 +32,9 @@ url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
 proc-macro2 = "1.0.60"
+pkg-config = "0.3.30"
 
 [dev-dependencies]
-pkg-config = "0.3.30"
 cpal = "0.13"
 crossbeam = "0.8"
 
