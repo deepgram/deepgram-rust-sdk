@@ -3,8 +3,8 @@ use audio::Buf;
 use bytes::BytesMut;
 use deepgram::{speak::rest::options::Options, Deepgram, DeepgramError};
 use futures::stream::StreamExt;
-use rodio::{OutputStream, Sink};
 use rodio::buffer::SamplesBuffer;
+use rodio::{OutputStream, Sink};
 use std::env;
 use std::time::Instant;
 
