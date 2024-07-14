@@ -14,6 +14,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
     - name: Check no features
       run: cargo check --all-targets --no-default-features
@@ -28,6 +29,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
     - name: Cargo Build
       run: cargo build --all-targets --all-features
@@ -38,6 +40,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
     - name: Cargo Clippy
       run: cargo clippy --all-targets --all-features
@@ -48,6 +51,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
     - name: Cargo Test
       run: cargo test --all --all-features
@@ -85,6 +89,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
+        sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
     - name: Install Rust Nightly
       run: rustup toolchain install nightly

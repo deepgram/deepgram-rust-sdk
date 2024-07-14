@@ -1,11 +1,11 @@
-use std::env;
 use audio::channel::LinearChannel;
 use audio::Buf;
+use bytes::BytesMut;
 use deepgram::{speak::rest::options::Options, Deepgram, DeepgramError};
 use futures::stream::StreamExt;
 use rodio::{OutputStream, Sink};
 use rodio::buffer::SamplesBuffer;
-use bytes::BytesMut;
+use std::env;
 use std::time::Instant;
 
 #[derive(Clone)]
@@ -161,7 +161,6 @@ async fn main() -> Result<(), DeepgramError> {
                 .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
                 .collect();
             source.push_samples(&samples);
-
 
             println!("Playing {} bytes of audio data", buffer.len());
 
