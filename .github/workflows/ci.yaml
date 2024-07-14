@@ -16,6 +16,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
+        export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
     - name: Check no features
       run: cargo check --all-targets --no-default-features
     - name: Check prerecorded feature
@@ -31,6 +32,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
+        export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
     - name: Cargo Build
       run: cargo build --all-targets --all-features
   Clippy:
@@ -42,6 +44,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
+        export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
     - name: Cargo Clippy
       run: cargo clippy --all-targets --all-features
   Test:
@@ -53,6 +56,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
+        export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
     - name: Cargo Test
       run: cargo test --all --all-features
   Format:
@@ -91,6 +95,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -yqq alsa
         sudo apt-get install -y libasound2-dev pkg-config
+        export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
     - name: Install Rust Nightly
       run: rustup toolchain install nightly
     - name: Cargo Build
