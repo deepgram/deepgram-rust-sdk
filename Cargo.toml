@@ -34,7 +34,7 @@ uuid = { version = "1", features = ["serde"] }
 proc-macro2 = "1.0.60"
 
 [dev-dependencies]
-pkg-config = "0.3.27"
+pkg-config = "0.3.30"
 cpal = "0.13"
 crossbeam = "0.8"
 
