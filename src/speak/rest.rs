@@ -4,7 +4,6 @@
 //!
 //! [api]: https://developers.deepgram.com/reference/text-to-speech-api
 
-
 use options::{Options, SerializableOptions};
 use reqwest::RequestBuilder;
 use serde_json::json;
