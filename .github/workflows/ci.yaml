@@ -115,7 +115,10 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Install dependencies
-      run: sudo apt-get update
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y alsa pkg-config libasound2-dev
+        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Install cargo-semver-checks
       run: cargo install --locked cargo-semver-checks
     - name: Cargo SemVer Checks
