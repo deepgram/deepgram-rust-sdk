@@ -6,6 +6,7 @@
 
 use crate::Deepgram;
 
+/// This module provides the RESTful API client for interacting with the Deepgram Text to Speech services.
 pub mod rest;
 
 /// Generate speech from text using Deepgram's text to speech api.

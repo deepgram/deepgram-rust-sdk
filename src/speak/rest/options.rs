@@ -11,7 +11,7 @@ use serde::{ser::SerializeSeq, Serialize};
 pub struct Options {
     model: Option<String>,
     encoding: Option<String>,
-    sample_rate: Option<i32>,
+    sample_rate: Option<u32>,
     container: Option<String>,
     bit_rate: Option<i32>,
 }
@@ -72,7 +72,7 @@ impl OptionsBuilder {
     /// See the [Deepgram Sample Rate feature docs][docs] for more info.
     ///
     /// [docs]: https://developers.deepgram.com/docs/tts-sample-rate
-    pub fn sample_rate(mut self, sample_rate: i32) -> Self {
+    pub fn sample_rate(mut self, sample_rate: u32) -> Self {
         self.0.sample_rate = Some(sample_rate);
         self
     }

@@ -13,15 +13,18 @@ categories = ["api-bindings", "multimedia::audio"]
 
 [dependencies]
 # TODO Investigate which of these dependencies can go behind features.
+audio = "0.2.0"
 bytes = "1"
 futures = "0.3"
 http = "0.2"
 pin-project = "1"
 reqwest = { version = "0.11.22", default-features = false, features = ["json", "rustls-tls", "stream"] }
+rodio = "0.13"
 serde = { version = "1.0.25", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
 tokio = { version = "1.13.0", features = ["full"] }
+tokio-stream = "0.1"
 tokio-tungstenite = { version = "0.20.1", features = ["rustls-tls-webpki-roots"], optional = true }
 tokio-util = { version = "0.7.1", features = ["codec", "io"] }
 tungstenite = { version = "0.20.1", optional = true }
@@ -66,4 +69,8 @@ required-features = ["live"]
 
 [[example]]
 name = "text_to_speech_to_file"
+required-features = ["default"]
+
+[[example]]
+name = "text_to_speech_to_stream"
 required-features = ["default"]

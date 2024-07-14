@@ -1,4 +1,4 @@
-use std::{env, path::Path};
+use std::{env, path::Path, time::Instant};
 
 use deepgram::{speak::rest::options::Options, Deepgram, DeepgramError};
 
@@ -16,13 +16,19 @@ async fn main() -> Result<(), DeepgramError> {
         .container("wav")
         .build();
 
-    let text = "Hello, how can I help you today?";
+    let text = "Hello, how can I help you today? This is a longer sentence to increase the time taken to process the audio, so that the streaming shows the full delta vs downloading the whole file.";
     let output_file = Path::new("your_output_file.wav");
+
+    // Record the start time
+    let start_time = Instant::now();
 
     dg_client
         .text_to_speech()
-        .speak(text, &options, output_file)
+        .speak_to_file(text, &options, output_file)
         .await?;
+
+    let elapsed_time = start_time.elapsed();
+    println!("Time to download audio: {:.2?}", elapsed_time);
 
     Ok(())
 }
