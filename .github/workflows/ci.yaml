@@ -15,8 +15,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
-        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+        sudo apt-get install libasound2-dev
+        export PKG_CONFIG_PATH=/usr/bin/pkg-config:$PKG_CONFIG_PATH
         ls -la $PKG_CONFIG_PATH
     - name: Check no features
       run: cargo check --all-targets --no-default-features
@@ -32,8 +32,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
-        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+        sudo apt-get install libasound2-dev
+        export PKG_CONFIG_PATH=/usr/bin/pkg-config:$PKG_CONFIG_PATH
         ls -la $PKG_CONFIG_PATH
     - name: Cargo Build
       run: cargo build --all-targets --all-features
@@ -45,8 +45,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
-        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+        sudo apt-get install libasound2-dev
+        export PKG_CONFIG_PATH=/usr/bin/pkg-config:$PKG_CONFIG_PATH
         ls -la $PKG_CONFIG_PATH
     - name: Cargo Clippy
       run: cargo clippy --all-targets --all-features
@@ -58,8 +58,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
-        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+        sudo apt-get install libasound2-dev
+        export PKG_CONFIG_PATH=/usr/bin/pkg-config:$PKG_CONFIG_PATH
         ls -la $PKG_CONFIG_PATH
     - name: Cargo Test
       run: cargo test --all --all-features
@@ -98,8 +98,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -yqq alsa
-        sudo apt-get install -y libasound2-dev pkg-config
-        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+        sudo apt-get install libasound2-dev
+        export PKG_CONFIG_PATH=/usr/bin/pkg-config:$PKG_CONFIG_PATH
         ls -la $PKG_CONFIG_PATH
     - name: Install Rust Nightly
       run: rustup toolchain install nightly
