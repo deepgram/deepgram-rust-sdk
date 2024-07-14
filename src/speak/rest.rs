@@ -6,7 +6,7 @@
 
 use options::{Options, SerializableOptions};
 use reqwest::RequestBuilder;
-use serde_json::json;
+use serde_json::Value;
 use std::fs::File;
 use std::io::copy;
 use std::path::Path;
@@ -26,12 +26,19 @@ impl<'a> Speak<'a> {
         options: &Options,
         output_file: &Path,
     ) -> crate::Result<()> {
+        let payload = Value::Object(
+            [("text".to_string(), Value::String(text.to_string()))]
+                .iter()
+                .cloned()
+                .collect(),
+        );
+
         let request_builder = self
             .0
             .client
             .post(self.speak_url())
             .query(&SerializableOptions(options))
-            .json(&json!({ "text": text }));
+            .json(&payload);
 
         self.send_and_translate_response(request_builder, output_file)
             .await
