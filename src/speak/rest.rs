@@ -4,18 +4,18 @@
 //!
 //! [api]: https://developers.deepgram.com/reference/text-to-speech-api
 
+
+use options::{Options, SerializableOptions};
 use reqwest::RequestBuilder;
+use serde_json::json;
 use std::fs::File;
 use std::io::copy;
 use std::path::Path;
 use url::Url;
-use serde_json::json;
-use options::{Options, SerializableOptions};
 
 use super::Speak;
 
 pub mod options;
-
 
 static DEEPGRAM_API_URL_SPEAK: &str = "v1/speak";
 
