@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures::stream::StreamExt;
 
 use deepgram::{
-    transcription::prerecorded::options::{Language, Options},
+    transcription::common_options::{Language, Options},
     Deepgram, DeepgramError,
 };
 

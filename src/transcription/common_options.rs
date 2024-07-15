@@ -24,7 +24,7 @@ pub struct Options {
     search: Vec<String>,
     replace: Vec<Replace>,
     keywords: Vec<Keyword>,
-    keyword_boost_legacy: bool,
+    keyword_boost_legacy: Option<bool>,
     utterances: Option<Utterances>,
     tags: Vec<String>,
     detect_language: Option<bool>,
@@ -531,7 +531,7 @@ impl OptionsBuilder {
             search: Vec::new(),
             replace: Vec::new(),
             keywords: Vec::new(),
-            keyword_boost_legacy: false,
+            keyword_boost_legacy: None,
             utterances: None,
             tags: Vec::new(),
             detect_language: None,
@@ -1224,7 +1224,7 @@ impl OptionsBuilder {
     ///     .build();
     /// ```
     pub fn keyword_boost_legacy(mut self) -> Self {
-        self.0.keyword_boost_legacy = true;
+        self.0.keyword_boost_legacy = Some(true);
         self
     }
 
@@ -1910,7 +1910,7 @@ impl Serialize for SerializableOptions<'_> {
             }
         }
 
-        if *keyword_boost_legacy {
+        if Some(keyword_boost_legacy).is_some() {
             seq.serialize_element(&("keyword_boost", "legacy"))?;
         }
 
@@ -2205,8 +2205,17 @@ mod serialize_options_tests {
     use std::cmp;
     use std::env;
 
-    use super::{super::audio_source::AudioSource, *};
+    use crate::transcription::audio_source::AudioSource;
     use crate::Deepgram;
+
+    use super::CustomIntentMode;
+    use super::CustomTopicMode;
+    use super::Keyword;
+    use super::Language;
+    use super::Model;
+    use super::Options;
+    use super::Redact;
+    use super::Replace;
 
     fn check_serialization(options: &Options, expected: &str) {
         let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();

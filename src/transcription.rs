@@ -9,6 +9,9 @@ use crate::Deepgram;
 pub mod live;
 pub mod prerecorded;
 
+pub mod common_options;
+pub mod audio_source;
+
 /// Transcribe audio using Deepgram's automated speech recognition.
 ///
 /// Constructed using [`Deepgram::transcription`].

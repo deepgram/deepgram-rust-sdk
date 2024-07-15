@@ -1,10 +1,7 @@
 use std::env;
 
 use deepgram::{
-    transcription::prerecorded::{
-        audio_source::AudioSource,
-        options::{CustomIntentMode, Language, Model, Options, Redact},
-    },
+    transcription::{common_options::{CustomIntentMode, Language, Model, Options, Redact}, audio_source::AudioSource},
     Deepgram, DeepgramError,
 };
 

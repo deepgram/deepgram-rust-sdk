@@ -1,11 +1,7 @@
 use std::env;
 
 use deepgram::{
-    transcription::prerecorded::{
-        audio_source::AudioSource,
-        options::{Language, Options},
-        response::Response,
-    },
+    transcription::{audio_source::AudioSource, common_options::{Language, Options}, prerecorded::response::Response},
     Deepgram,
 };
 

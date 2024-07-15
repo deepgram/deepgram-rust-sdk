@@ -7,15 +7,12 @@
 use reqwest::RequestBuilder;
 use url::Url;
 
-use super::Transcription;
+use super::{audio_source::AudioSource, Transcription};
 use crate::send_and_translate_response;
 
-pub mod audio_source;
-pub mod options;
 pub mod response;
 
-use audio_source::AudioSource;
-use options::{Options, SerializableOptions};
+use super::common_options::{Options, SerializableOptions};
 use response::{CallbackResponse, Response};
 
 static DEEPGRAM_API_URL_LISTEN: &str = "v1/listen";

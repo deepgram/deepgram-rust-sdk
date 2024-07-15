@@ -8,6 +8,7 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-streaming
 
+use response::StreamResponse;
 use serde_urlencoded;
 use std::borrow::Cow;
 use std::path::Path;
@@ -22,7 +23,6 @@ use futures::stream::StreamExt;
 use futures::{SinkExt, Stream};
 use http::Request;
 use pin_project::pin_project;
-use serde::{Deserialize, Serialize};
 use tokio::fs::File;
 use tokio::sync::Mutex;
 use tokio::time;
@@ -31,11 +31,13 @@ use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
 
-use super::prerecorded::options::{Options, SerializableOptions};
+use super::common_options::{Options, SerializableOptions};
 use super::Transcription;
 use crate::{Deepgram, DeepgramError, Result};
 
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
+
+pub mod response;
 
 #[derive(Debug)]
 pub struct StreamRequestBuilder<'a, S, E>
@@ -55,77 +57,6 @@ where
     vad_events: Option<bool>,
     stream_url: Url,
     keep_alive: Option<Arc<Mutex<Option<tokio::sync::mpsc::Sender<()>>>>>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Word {
-    pub word: String,
-    pub start: f64,
-    pub end: f64,
-    pub confidence: f64,
-    pub speaker: Option<i32>,
-    pub punctuated_word: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Alternatives {
-    pub transcript: String,
-    pub words: Vec<Word>,
-    pub confidence: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Channel {
-    pub alternatives: Vec<Alternatives>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ModelInfo {
-    pub name: String,
-    pub version: String,
-    pub arch: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Metadata {
-    pub request_id: String,
-    pub model_info: ModelInfo,
-    pub model_uuid: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum StreamResponse {
-    TranscriptResponse {
-        #[serde(rename = "type")]
-        type_field: String,
-        start: f64,
-        duration: f64,
-        is_final: bool,
-        speech_final: bool,
-        from_finalize: bool,
-        channel: Channel,
-        metadata: Metadata,
-        channel_index: Vec<i32>,
-    },
-    TerminalResponse {
-        request_id: String,
-        created: String,
-        duration: f64,
-        channels: u32,
-    },
-    SpeechStartedResponse {
-        #[serde(rename = "type")]
-        type_field: String,
-        channel: Vec<u8>,
-        timestamp: f64,
-    },
-    UtteranceEndResponse {
-        #[serde(rename = "type")]
-        type_field: String,
-        channel: Vec<u8>,
-        last_word_end: f64,
-    },
 }
 
 #[pin_project]

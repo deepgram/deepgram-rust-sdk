@@ -1,10 +1,7 @@
 use std::env;
 
 use deepgram::{
-    transcription::prerecorded::{
-        audio_source::AudioSource,
-        options::{Language, Options},
-    },
+    transcription::{common_options::{Language, Options}, audio_source::AudioSource},
     Deepgram, DeepgramError,
 };
 use tokio::fs::File;
