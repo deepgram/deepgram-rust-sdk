@@ -32,7 +32,20 @@ async fn main() -> Result<(), DeepgramError> {
         .prerecorded(source, &options)
         .await?;
 
-    println!("{:?}", response);
+    if let Some(transcript) = response.results
+        .as_ref()
+        .and_then(|result| result.channels.get(0))
+        .and_then(|channel| channel.alternatives.get(0))
+        .map(|alternative| &alternative.transcript) {
+        
+        // Now you can use the `transcript` variable safely here.
+        println!("Transcript: {}", transcript);
+    } else {
+        // Handle callback responses
+        println!("{:?}", response);
+    }
+
+    
 
     Ok(())
 }
