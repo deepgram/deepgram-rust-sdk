@@ -859,9 +859,9 @@ impl OptionsBuilder {
     /// # use std::env;
     /// #
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{
+    /// #     transcription::{
     /// #         audio_source::AudioSource,
-    /// #         options::{Model, Options},
+    /// #         common_options::{Model, Options},
     /// #     },
     /// #     Deepgram,
     /// # };

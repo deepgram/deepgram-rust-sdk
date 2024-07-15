@@ -215,7 +215,7 @@ impl Transcription<'_> {
     /// #     transcription::{
     /// #         audio_source::AudioSource,
     /// #         common_options::{Language, Options},
-    /// #         prerecorded::{response::Response},
+    /// #         prerecorded::response::{Response, CallbackResponse},
     /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
