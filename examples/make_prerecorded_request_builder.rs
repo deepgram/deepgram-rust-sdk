@@ -1,7 +1,11 @@
 use std::env;
 
 use deepgram::{
-    transcription::{audio_source::AudioSource, common_options::{Language, Options}, prerecorded::response::Response},
+    transcription::{
+        audio_source::AudioSource,
+        common_options::{Language, Options},
+        prerecorded::response::Response,
+    },
     Deepgram,
 };
 
@@ -37,7 +41,7 @@ async fn main() -> reqwest::Result<()> {
     let transcript = &response.results.channels[0].alternatives[0].transcript;
     println!("{}", transcript);
 
-    println!("{:?}", response); 
+    println!("{:?}", response);
 
     Ok(())
 }

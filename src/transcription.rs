@@ -11,8 +11,8 @@ pub mod live;
 #[cfg(feature = "prerecorded")]
 pub mod prerecorded;
 
-pub mod common_options;
 pub mod audio_source;
+pub mod common_options;
 
 /// Transcribe audio using Deepgram's automated speech recognition.
 ///
