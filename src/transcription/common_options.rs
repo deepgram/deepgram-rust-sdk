@@ -1910,7 +1910,7 @@ impl Serialize for SerializableOptions<'_> {
             }
         }
 
-        if Some(keyword_boost_legacy).is_some() {
+        if keyword_boost_legacy.unwrap_or(false) {
             seq.serialize_element(&("keyword_boost", "legacy"))?;
         }
 
