@@ -2300,7 +2300,7 @@ mod serialize_options_tests {
             .callback_method("put")
             .build();
 
-        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback=https%3A%2F%2Fdeepgram.com&callback_method=put");
+        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
     }
 
     #[test]
