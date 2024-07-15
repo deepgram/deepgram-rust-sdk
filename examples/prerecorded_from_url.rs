@@ -2,8 +2,8 @@ use std::env;
 
 use deepgram::{
     transcription::{
-        common_options::{CustomIntentMode, Language, Model, Options, Redact},
         audio_source::AudioSource,
+        common_options::{CustomIntentMode, Language, Model, Options, Redact},
     },
     Deepgram, DeepgramError,
 };

@@ -2,8 +2,8 @@ use std::env;
 
 use deepgram::{
     transcription::{
+        audio_source::AudioSource,
         common_options::{Language, Options},
-        audio_source::AudioSource
     },
     Deepgram, DeepgramError,
 };
