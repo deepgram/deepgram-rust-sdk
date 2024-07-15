@@ -73,7 +73,6 @@ pub struct ListenResults {
     pub channels: Vec<ChannelResult>,
 
     /// [`None`] unless the [Utterances feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`common_options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/utterances/
     pub utterances: Option<Vec<Utterance>>,
@@ -102,7 +101,6 @@ pub struct ListenResults {
 #[non_exhaustive]
 pub struct ChannelResult {
     /// [`None`] unless the [Search feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`common_options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/search/
     pub search: Option<Vec<SearchResults>>,
@@ -113,7 +111,6 @@ pub struct ChannelResult {
     ///  [BCP-47][bcp47] language tag for the dominant language identified in the channel.
     ///
     /// [`None`] unless the [Language Detection feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`common_options::OptionsBuilder`).
     ///
     /// [bcp47]: https://tools.ietf.org/html/bcp47
     /// [docs]: https://developers.deepgram.com/docs/language-detection/
@@ -147,7 +144,6 @@ pub struct Utterance {
     pub words: Vec<Word>,
 
     /// [`None`] unless the [Diarization feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`super::options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/diarize/
     pub speaker: Option<usize>,
@@ -363,13 +359,11 @@ pub struct Word {
     pub confidence: f64,
 
     /// [`None`] unless the [Diarization feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`common_options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/diarize/
     pub speaker: Option<usize>,
 
     /// [`None`] unless the [Punctuation feature][docs] is set.
-    /// Features can be set using an [`OptionsBuilder`](`common_options::OptionsBuilder`).
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/punctuate/
     pub punctuated_word: Option<String>,
