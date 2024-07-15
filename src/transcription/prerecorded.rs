@@ -31,9 +31,9 @@ impl Transcription<'_> {
     /// # use std::env;
     /// #
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{
+    /// #     transcription::{
     /// #         audio_source::AudioSource,
-    /// #         options::{Language, Options},
+    /// #         common_options::{Language, Options},
     /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
@@ -85,9 +85,9 @@ impl Transcription<'_> {
     /// # use std::env;
     /// #
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{
+    /// #     transcription::{
     /// #         audio_source::AudioSource,
-    /// #         options::{Language, Options},
+    /// #         common_options::{Language, Options},
     /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
@@ -144,10 +144,10 @@ impl Transcription<'_> {
     /// # use std::env;
     /// #
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{
+    /// #     transcription::{
     /// #         audio_source::AudioSource,
-    /// #         options::{Language, Options},
-    /// #         response::Response,
+    /// #         common_options::{Language, Options},
+    /// #         prerecorded::{response::Response},
     /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
@@ -212,10 +212,10 @@ impl Transcription<'_> {
     /// # use std::env;
     /// #
     /// # use deepgram::{
-    /// #     transcription::prerecorded::{
+    /// #     transcription::{
     /// #         audio_source::AudioSource,
-    /// #         options::{Language, Options},
-    /// #         response::CallbackResponse,
+    /// #         common_options::{Language, Options},
+    /// #         prerecorded::{response::Response},
     /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
