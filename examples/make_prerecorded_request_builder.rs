@@ -38,17 +38,10 @@ async fn main() -> reqwest::Result<()> {
     // That way it knows what type to deserialize the JSON into
     let response: Response = customized_request_builder.send().await?.json().await?;
 
-    if let Some(transcript) = response.results
-        .as_ref()
-        .and_then(|result| result.channels.get(0))
-        .and_then(|channel| channel.alternatives.get(0))
-        .map(|alternative| &alternative.transcript) {
-        
-        println!("Transcript: {}", transcript);
-    } else {
-        // Handle callback responses
-        println!("{:?}", response);
-    }
+    let transcript = &response.results.channels[0].alternatives[0].transcript;
+    println!("{}", transcript);
+
+    println!("{:?}", response); 
 
     Ok(())
 }

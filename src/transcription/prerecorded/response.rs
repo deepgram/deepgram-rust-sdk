@@ -16,13 +16,10 @@ use uuid::Uuid;
 #[non_exhaustive]
 pub struct Response {
     #[allow(missing_docs)]
-    pub request_id: Option<Uuid>,
+    pub metadata: ListenMetadata,
 
     #[allow(missing_docs)]
-    pub metadata: Option<ListenMetadata>,
-
-    #[allow(missing_docs)]
-    pub results: Option<ListenResults>,
+    pub results: ListenResults,
 }
 
 /// Returned by [`Transcription::prerecorded_callback`](crate::transcription::Transcription::prerecorded_callback).

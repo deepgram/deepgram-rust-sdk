@@ -45,7 +45,6 @@ pub struct Options {
     dictation: Option<bool>,
     measurements: Option<bool>,
     extra: Option<String>,
-    callback: Option<String>,
     callback_method: Option<String>,
 }
 
@@ -553,7 +552,6 @@ impl OptionsBuilder {
             dictation: None,
             measurements: None,
             extra: None,
-            callback: None,
             callback_method: None,
         })
     }
@@ -1730,26 +1728,6 @@ impl OptionsBuilder {
         self
     }
 
-    /// Deepgrams Callback feature
-    ///
-    /// See the [Deepgram Callback feature docs][docs] for more info.
-    ///
-    /// [docs]: https://developers.deepgram.com/docs/callback
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use deepgram::transcription::prerecorded::options::Options;
-    /// #
-    /// let options = Options::builder()
-    ///     .callback("https://deepgram.com")
-    ///     .build();
-    /// ```
-    pub fn callback(mut self, callback: &str) -> Self {
-        self.0.callback = Some(callback.into());
-        self
-    }
-
     /// Deepgrams Callback Method feature
     ///
     /// See the [Deepgram Callback Method feature docs][docs] for more info.
@@ -1838,7 +1816,6 @@ impl Serialize for SerializableOptions<'_> {
             dictation,
             measurements,
             extra,
-            callback,
             callback_method,
         } = self.0;
 
@@ -2023,10 +2000,6 @@ impl Serialize for SerializableOptions<'_> {
 
         if let Some(extra) = extra {
             seq.serialize_element(&("extra", extra))?;
-        }
-
-        if let Some(callback) = callback {
-            seq.serialize_element(&("callback", callback))?;
         }
 
         if let Some(callback_method) = callback_method {
@@ -2315,7 +2288,6 @@ mod serialize_options_tests {
             .dictation(true)
             .measurements(true)
             .extra("key:value")
-            .callback("https://deepgram.com")
             .callback_method("put")
             .build();
 
