@@ -6,7 +6,9 @@
 
 use crate::Deepgram;
 
+#[cfg(feature = "live")]
 pub mod live;
+#[cfg(feature = "prerecorded")]
 pub mod prerecorded;
 
 pub mod common_options;
