@@ -2183,6 +2183,7 @@ mod models_to_string_tests {
 #[cfg(test)]
 mod serialize_options_tests {
     use std::cmp;
+    #[cfg(any(feature = "prerecorded"))]
     use std::env;
 
     #[cfg(any(feature = "prerecorded"))]
