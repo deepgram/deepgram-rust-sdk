@@ -408,6 +408,7 @@ pub enum Redact {
 /// [docs]: https://developers.deepgram.com/docs/intent-recognition#query-parameters
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
+#[serde(rename_all = "snake_case")]
 pub enum CustomIntentMode {
     #[allow(missing_docs)]
     Extended,

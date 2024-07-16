@@ -10,6 +10,7 @@
 
 use response::StreamResponse;
 use serde_urlencoded;
+use serde::Serialize;
 use std::borrow::Cow;
 use std::path::Path;
 use std::pin::Pin;
@@ -50,13 +51,33 @@ where
     encoding: Option<String>,
     sample_rate: Option<u32>,
     channels: Option<u16>,
-    endpointing: Option<String>,
+    endpointing: Option<Endpointing>,
     utterance_end_ms: Option<u16>,
     interim_results: Option<bool>,
     no_delay: Option<bool>,
     vad_events: Option<bool>,
     stream_url: Url,
     keep_alive: Option<Arc<Mutex<Option<tokio::sync::mpsc::Sender<()>>>>>,
+}
+
+#[derive(Debug)]
+pub enum Endpointing {
+    Enabled,
+    Disabled,
+    CustomDuration(std::time::Duration),
+}
+
+impl Serialize for Endpointing {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Endpointing::Enabled => serializer.serialize_str("enabled"),            
+            Endpointing::Disabled => serializer.serialize_str("disabled"),
+            Endpointing::CustomDuration(d) => serializer.serialize_str(&format!("custom_duration:{}", d.as_millis())),
+        }
+    }
 }
 
 #[pin_project]
@@ -180,7 +201,7 @@ where
         self
     }
 
-    pub fn endpointing(mut self, endpointing: String) -> Self {
+    pub fn endpointing(mut self, endpointing: Endpointing) -> Self {
         self.endpointing = Some(endpointing);
 
         self
