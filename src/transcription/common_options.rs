@@ -1964,7 +1964,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(custom_intent_mode) = custom_intent_mode {
-            seq.serialize_element(&("custom_intent_mode", custom_intent_mode.as_ref()))?;
+            seq.serialize_element(&("custom_intent_mode", custom_intent_mode))?;
         }
 
         for custom_intent in custom_intents {
@@ -1980,7 +1980,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(custom_topic_mode) = custom_topic_mode {
-            seq.serialize_element(&("custom_topic_mode", custom_topic_mode.as_ref()))?;
+            seq.serialize_element(&("custom_topic_mode", custom_topic_mode))?;
         }
 
         for custom_topic in custom_topics {
