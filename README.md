@@ -21,12 +21,6 @@ You can learn more about the Deepgram API at [developers.deepgram.com](https://d
 
 This SDK is still very much work-in-progress. The interface is subject to rapid change.
 
-## Build the SDK
-
-```sh
-cargo build
-```
-
 ## Install
 
 From within your Cargo project directory, run the following command:
@@ -52,6 +46,13 @@ Interested in contributing? We ❤️ pull requests!
 To make sure our community is safe for all, be sure to review and agree to our
 [Code of Conduct](./CODE_OF_CONDUCT.md). Then see the
 [Contributing Guidelines](./CONTRIBUTING.md) for more information.
+
+
+### Build the SDK
+
+```sh
+cargo build
+```
 
 ## Getting Help
 
