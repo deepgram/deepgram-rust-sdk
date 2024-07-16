@@ -2197,6 +2197,7 @@ mod serialize_options_tests {
     use super::Redact;
     use super::Replace;
 
+    #[cfg(any(feature = "prerecorded"))]
     fn check_serialization(options: &Options, expected: &str) {
         let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
 
