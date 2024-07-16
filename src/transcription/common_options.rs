@@ -423,7 +423,7 @@ pub enum CustomIntentMode {
 /// [docs]: https://developers.deepgram.com/docs/topic-detection#query-parameters
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize)]
 #[non_exhaustive]
-#[serde(rename_all="snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum CustomTopicMode {
     #[allow(missing_docs)]
     Extended,
