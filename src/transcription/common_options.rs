@@ -421,8 +421,9 @@ pub enum CustomIntentMode {
 /// See the [Deepgram Topic Detection feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/docs/topic-detection#query-parameters
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize)]
 #[non_exhaustive]
+#[serde(rename_all="snake_case")]
 pub enum CustomTopicMode {
     #[allow(missing_docs)]
     Extended,
@@ -467,11 +468,11 @@ pub struct Keyword {
 /// [docs]: https://developers.deepgram.com/docs/utterances
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Utterances {
-    /// Diabled
+    #[allow(missing_docs)]
     Disabled,
-    /// Enabled
+    #[allow(missing_docs)]
     Enabled {
-        /// utt_split
+        #[allow(missing_docs)]
         utt_split: Option<f64>,
     },
 }
@@ -483,11 +484,11 @@ pub enum Utterances {
 /// [docs]: https://developers.deepgram.com/docs/multichannel
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum Multichannel {
-    /// Diabled
+    #[allow(missing_docs)]
     Disabled,
-    /// Enabled
+    #[allow(missing_docs)]
     Enabled {
-        /// models
+        #[allow(missing_docs)]
         models: Option<Vec<Model>>,
     },
 }
@@ -503,7 +504,7 @@ pub struct OptionsBuilder(Options);
 
 /// SerializableOptions
 #[derive(Debug, PartialEq, Clone)]
-pub struct SerializableOptions<'a>(pub(super) &'a Options);
+pub(crate) struct SerializableOptions<'a>(pub(super) &'a Options);
 
 impl Options {
     /// Construct a new [`OptionsBuilder`].
@@ -2114,30 +2115,6 @@ impl AsRef<str> for Language {
             Self::zh_Hant => "zh-Hant",
             Self::zh_TW => "zh-TW",
             Self::Other(bcp_47_tag) => bcp_47_tag,
-        }
-    }
-}
-
-impl AsRef<str> for Redact {
-    fn as_ref(&self) -> &str {
-        use Redact::*;
-
-        match self {
-            Pci => "pci",
-            Numbers => "numbers",
-            Ssn => "ssn",
-            Other(id) => id,
-        }
-    }
-}
-
-impl AsRef<str> for CustomIntentMode {
-    fn as_ref(&self) -> &str {
-        use CustomIntentMode::*;
-
-        match self {
-            Extended => "extended",
-            Strict => "strict",
         }
     }
 }
