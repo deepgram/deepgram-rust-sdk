@@ -2185,6 +2185,7 @@ mod serialize_options_tests {
     use std::cmp;
     use std::env;
 
+    #[cfg(any(feature = "prerecorded"))]
     use crate::transcription::audio_source::AudioSource;
     use crate::Deepgram;
 
@@ -2231,6 +2232,7 @@ mod serialize_options_tests {
         (limited_letters, expected)
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn all_options() {
         let options = Options::builder()
@@ -2284,6 +2286,7 @@ mod serialize_options_tests {
         check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn model() {
         check_serialization(&Options::builder().model(Model::Base).build(), "model=base");
@@ -2296,6 +2299,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn version() {
         check_serialization(
@@ -2304,6 +2308,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn language() {
         check_serialization(
@@ -2317,6 +2322,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn punctuate() {
         check_serialization(
@@ -2330,6 +2336,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn profanity_filter() {
         check_serialization(
@@ -2343,6 +2350,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn redact() {
         check_serialization(&Options::builder().redact([]).build(), "");
@@ -2374,6 +2382,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn diarize() {
         check_serialization(&Options::builder().diarize(true).build(), "diarize=true");
@@ -2381,6 +2390,7 @@ mod serialize_options_tests {
         check_serialization(&Options::builder().diarize(false).build(), "diarize=false");
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn ner() {
         check_serialization(&Options::builder().ner(true).build(), "ner=true");
@@ -2388,6 +2398,7 @@ mod serialize_options_tests {
         check_serialization(&Options::builder().ner(false).build(), "ner=false");
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn multichannel() {
         check_serialization(
@@ -2412,6 +2423,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn alternatives() {
         check_serialization(
@@ -2420,6 +2432,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn numerals() {
         check_serialization(&Options::builder().numerals(true).build(), "numerals=true");
@@ -2430,6 +2443,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn search() {
         check_serialization(&Options::builder().search([]).build(), "");
@@ -2447,6 +2461,7 @@ mod serialize_options_tests {
         }
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn replace() {
         check_serialization(&Options::builder().replace([]).build(), "");
@@ -2498,6 +2513,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn keywords() {
         check_serialization(&Options::builder().keywords([]).build(), "");
@@ -2561,6 +2577,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn utterances() {
         check_serialization(
@@ -2579,6 +2596,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn tag() {
         check_serialization(&Options::builder().tag(["Tag 1"]).build(), "tag=Tag+1");
@@ -2589,6 +2607,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn detect_language() {
         check_serialization(
@@ -2602,6 +2621,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn encoding() {
         check_serialization(
@@ -2610,6 +2630,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn smart_format() {
         check_serialization(
@@ -2623,6 +2644,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn filler_words() {
         check_serialization(
@@ -2636,6 +2658,7 @@ mod serialize_options_tests {
         );
     }
 
+    #[cfg(any(feature = "prerecorded"))]
     #[test]
     fn paragraphs() {
         check_serialization(
