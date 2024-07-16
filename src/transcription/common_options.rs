@@ -2119,13 +2119,15 @@ impl AsRef<str> for Language {
     }
 }
 
-impl AsRef<str> for CustomTopicMode {
+impl AsRef<str> for Redact {
     fn as_ref(&self) -> &str {
-        use CustomTopicMode::*;
+        use Redact::*;
 
         match self {
-            Extended => "extended",
-            Strict => "strict",
+            Pci => "pci",
+            Numbers => "numbers",
+            Ssn => "ssn",
+            Other(id) => id,
         }
     }
 }

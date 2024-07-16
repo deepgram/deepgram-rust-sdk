@@ -22,7 +22,7 @@ pub mod common_options;
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription
 #[derive(Debug, Clone)]
-pub struct Transcription<'a>(#[allow(unused)] &'a Deepgram);
+pub struct Transcription<'a>(&'a Deepgram);
 
 impl Deepgram {
     /// Construct a new [`Transcription`] from a [`Deepgram`].
