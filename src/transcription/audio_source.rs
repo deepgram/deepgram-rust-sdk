@@ -12,6 +12,7 @@ use serde::Serialize;
 #[derive(Debug)]
 pub struct AudioSource(InternalAudioSource);
 
+#[cfg(any(feature = "prerecorded", feature = "live"))]
 #[derive(Debug)]
 enum InternalAudioSource {
     Url(String),
@@ -21,6 +22,7 @@ enum InternalAudioSource {
     },
 }
 
+#[cfg(any(feature = "prerecorded", feature = "live"))]
 impl AudioSource {
     /// Constructs an [`AudioSource`] that will instruct Deepgram to download the audio from the specified URL.
     pub fn from_url(url: impl Into<String>) -> Self {
