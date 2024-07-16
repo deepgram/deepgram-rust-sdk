@@ -10,7 +10,6 @@
 
 use response::StreamResponse;
 use serde_urlencoded;
-use serde::Serialize;
 use std::borrow::Cow;
 use std::path::Path;
 use std::pin::Pin;
@@ -51,7 +50,7 @@ where
     encoding: Option<String>,
     sample_rate: Option<u32>,
     channels: Option<u16>,
-    endpointing: Option<Endpointing>,
+    endpointing: Option<String>,
     utterance_end_ms: Option<u16>,
     interim_results: Option<bool>,
     no_delay: Option<bool>,
@@ -60,6 +59,7 @@ where
     keep_alive: Option<Arc<Mutex<Option<tokio::sync::mpsc::Sender<()>>>>>,
 }
 
+/*
 #[derive(Debug)]
 pub enum Endpointing {
     Enabled,
@@ -68,7 +68,7 @@ pub enum Endpointing {
 }
 
 impl Serialize for Endpointing {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<<S as response::_::_serde::Serializer>::Ok, <S as Serializer>::Error>
     where
         S: serde::Serializer,
     {
@@ -79,6 +79,7 @@ impl Serialize for Endpointing {
         }
     }
 }
+*/
 
 #[pin_project]
 struct FileChunker {
@@ -201,7 +202,7 @@ where
         self
     }
 
-    pub fn endpointing(mut self, endpointing: Endpointing) -> Self {
+    pub fn endpointing(mut self, endpointing: String) -> Self {
         self.endpointing = Some(endpointing);
 
         self

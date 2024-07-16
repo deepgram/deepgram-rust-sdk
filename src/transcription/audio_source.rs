@@ -8,6 +8,7 @@ use reqwest::{header::CONTENT_TYPE, RequestBuilder};
 use serde::Serialize;
 
 /// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
+#[cfg(any(feature = "prerecorded", feature = "live"))]
 #[derive(Debug)]
 pub struct AudioSource(InternalAudioSource);
 
