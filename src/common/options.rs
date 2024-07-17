@@ -41,7 +41,7 @@ pub struct Options {
     topics: Option<bool>,
     custom_topic_mode: Option<CustomTopicMode>,
     custom_topics: Vec<String>,
-    summarize: Option<String>,
+    summarize: Option<bool>,
     dictation: Option<bool>,
     measurements: Option<bool>,
     extra: Option<Extra>,
@@ -163,31 +163,6 @@ impl Endpointing {
         match self {
             Endpointing::Enabled(value) => value.to_string(),
             Endpointing::CustomValue(value) => value.to_string(),
-        }
-    }
-}
-
-/// Endpointing value
-///
-/// See the [Deepgram Endpointing feature docs][docs] for more info.
-///
-/// [docs]: https://developers.deepgram.com/docs/endpointing
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
-pub enum Summarize {
-    #[allow(missing_docs)]
-    Enabled(bool),
-
-    #[allow(missing_docs)]
-    V2,
-}
-
-/// Endpointing impl
-impl Summarize {
-    #[allow(missing_docs)]
-    pub fn as_str(&self) -> String {
-        match self {
-            Summarize::Enabled(value) => value.to_string(),
-            Summarize::V2 => "v2".to_string(),
         }
     }
 }
@@ -1841,11 +1816,11 @@ impl OptionsBuilder {
     /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
-    ///     .summarize(Summarize:V2)
+    ///     .summarize(true)
     ///     .build();
     /// ```
-    pub fn summarize(mut self, summarize: Summarize) -> Self {
-        self.0.summarize = Some(summarize.as_str());
+    pub fn summarize(mut self, summarize: bool) -> Self {
+        self.0.summarize = Some(summarize);
         self
     }
 
@@ -2172,7 +2147,9 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(summarize) = summarize {
-            seq.serialize_element(&("summarize", summarize.as_str()))?;
+            if *summarize {
+                seq.serialize_element(&("summarize", "v2"))?;
+            }
         }
 
         if let Some(dictation) = dictation {
@@ -2383,7 +2360,6 @@ mod serialize_options_tests {
     use super::Options;
     use super::Redact;
     use super::Replace;
-    use super::Summarize;
 
     fn check_serialization(options: &Options, expected: &str) {
         let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
@@ -2462,7 +2438,7 @@ mod serialize_options_tests {
             .topics(true)
             .custom_topic_mode(CustomTopicMode::Strict)
             .custom_topics(["Get support", "Complain"])
-            .summarize(Summarize::V2)
+            .summarize(true)
             .dictation(true)
             .measurements(true)
             .extra(Extra::new("key", "value"))
