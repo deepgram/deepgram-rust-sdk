@@ -8,7 +8,9 @@
 
 use std::io;
 
+#[cfg(feature = "listen")]
 use common::redacted_string::RedactedString;
+
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     RequestBuilder,
