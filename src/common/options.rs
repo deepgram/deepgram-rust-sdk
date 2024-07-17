@@ -4,6 +4,8 @@
 //!
 //! [api]: https://developers.deepgram.com/documentation/features/
 
+use std::collections::HashMap;
+
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 /// Used as a parameter for [`Transcription::prerecorded`](crate::listen::speech_to_text::Transcription::prerecorded) and similar functions.
@@ -44,7 +46,7 @@ pub struct Options {
     summarize: Option<bool>,
     dictation: Option<bool>,
     measurements: Option<bool>,
-    extra: Option<Extra>,
+    extra: Option<HashMap<String, String>>,
     callback_method: Option<CallbackMethod>,
 }
 
@@ -164,43 +166,6 @@ impl Endpointing {
             Endpointing::Enabled(value) => value.to_string(),
             Endpointing::CustomValue(value) => value.to_string(),
         }
-    }
-}
-
-/// Extra Metadata value
-///
-/// See the [Deepgram Extra Metadata feature docs][docs] for more info.
-///
-/// [docs]: https://developers.deepgram.com/docs/extra-metadata
-#[derive(Debug, PartialEq, Clone)]
-pub struct Extra {
-    key: String,
-    value: String,
-}
-
-/// Extra Metadata impl
-impl Extra {
-    #[allow(missing_docs)]
-    pub fn new(key: &str, value: &str) -> Self {
-        Self {
-            key: key.to_string(),
-            value: value.to_string(),
-        }
-    }
-
-    #[allow(missing_docs)]
-    pub fn as_str(&self) -> String {
-        format!("{}:{}", self.key, self.value)
-    }
-}
-
-impl Serialize for Extra {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let output = format!("{}:{}", self.key, self.value);
-        serializer.serialize_str(&output)
     }
 }
 
@@ -1876,12 +1841,13 @@ impl OptionsBuilder {
     ///
     /// ```
     /// # use deepgram::common::options::Options;
+    /// # use std::collections::HashMap;
     /// #
     /// let options = Options::builder()
-    ///     .extra(Extra::new("key", "value"))
+    ///     .extra(HashMap::from([("key1".to_string(), "value1".to_string()), ("key2".to_string(), "value2".to_string())]))
     ///     .build();
     /// ```
-    pub fn extra(mut self, extra: Extra) -> Self {
+    pub fn extra(mut self, extra: HashMap<String, String>) -> Self {
         self.0.extra = Some(extra);
         self
     }
@@ -2161,7 +2127,15 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(extra) = extra {
-            seq.serialize_element(&("extra", extra))?;
+            let mut extra_string = String::new();
+
+            for (i, (key, value)) in extra.iter().enumerate() {
+                if i > 0 {
+                    extra_string.push('&');
+                }
+                seq.serialize_element(&("extra", format!("{}:{}", key, value)))?;
+            }
+
         }
 
         if let Some(callback_method) = callback_method {
@@ -2343,6 +2317,7 @@ mod models_to_string_tests {
 #[cfg(test)]
 mod serialize_options_tests {
     use std::cmp;
+    use std::collections::HashMap;
     use std::env;
 
     use crate::common::audio_source::AudioSource;
@@ -2353,7 +2328,6 @@ mod serialize_options_tests {
     use super::CustomTopicMode;
     use super::DetectLanguage;
     use super::Encoding;
-    use super::Extra;
     use super::Keyword;
     use super::Language;
     use super::Model;
@@ -2441,11 +2415,11 @@ mod serialize_options_tests {
             .summarize(true)
             .dictation(true)
             .measurements(true)
-            .extra(Extra::new("key", "value"))
+            .extra(HashMap::from([("key1".to_string(), "value1".to_string()), ("key2".to_string(), "value2".to_string())]))
             .callback_method(CallbackMethod::PUT)
             .build();
 
-        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en&detect_language=en&detect_language=es&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
+        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en&detect_language=en&detect_language=es&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key1%3Avalue1&extra=key2%3Avalue2&callback_method=put");
     }
 
     #[test]

@@ -1,9 +1,9 @@
-use std::env;
+use std::{collections::HashMap, env};
 
 use deepgram::{
     common::{
         audio_source::AudioSource,
-        options::{CustomIntentMode, DetectLanguage, Encoding, Extra, Language, Model, Options, Redact},
+        options::{CustomIntentMode, DetectLanguage, Encoding, Language, Model, Options, Redact},
     },
     Deepgram, DeepgramError,
 };
@@ -43,7 +43,7 @@ async fn main() -> Result<(), DeepgramError> {
         .summarize(true)
         .dictation(true)
         .measurements(true)
-        .extra(Extra::new("key", "value"))
+        .extra(HashMap::from([("key1".to_string(), "value1".to_string()), ("key2".to_string(), "value2".to_string())]))
         .build();
 
     let response = dg_client
