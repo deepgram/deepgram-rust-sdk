@@ -13,7 +13,6 @@ use serde_urlencoded;
 use std::borrow::Cow;
 use std::path::Path;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
@@ -24,7 +23,6 @@ use futures::{SinkExt, Stream};
 use http::Request;
 use pin_project::pin_project;
 use tokio::fs::File;
-use tokio::sync::Mutex;
 use tokio::time;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_util::io::ReaderStream;
@@ -55,7 +53,7 @@ where
     no_delay: Option<bool>,
     vad_events: Option<bool>,
     stream_url: Url,
-    keep_alive: Option<Arc<Mutex<Option<tokio::sync::mpsc::Sender<()>>>>>,
+    keep_alive: Option<bool>,
 }
 
 #[pin_project]
@@ -369,21 +367,26 @@ where
     }
 
     pub fn keep_alive(mut self) -> Self {
-        let (tx, _rx) = tokio::sync::mpsc::channel::<()>(1);
-        let keep_alive = Arc::new(Mutex::new(Some(tx)));
-        self.keep_alive = Some(keep_alive.clone());
-
-        tokio::spawn(async move {
-            let mut interval = time::interval(Duration::from_secs(10));
-            loop {
-                interval.tick().await;
-                if let Some(tx) = &*keep_alive.lock().await {
-                    if tx.send(()).await.is_err() {
-                        break;
+        tokio::spawn({
+            async move {
+                let mut interval = time::interval(Duration::from_secs(10));
+                loop {
+                    interval.tick().await;
+                    let (mut tx, _rx) = mpsc::channel(1);
+                    let keep_alive_message = Message::Text("{\"type\": \"KeepAlive\"}".to_string());
+                    if let Err(e) = tx.send(keep_alive_message).await {
+                        if e.is_disconnected() {
+                            println!("Keep Alive waiting for connection",);
+                        } else {
+                            println!("Error Sending Keep Alive: {:?}", e);
+                            break;
+                        }
                     }
                 }
             }
         });
+
+        self.keep_alive = Some(true);
 
         self
     }
