@@ -112,8 +112,8 @@ impl Endpointing {
     #[allow(missing_docs)]
     pub fn as_str(&self) -> String {
         match self {
-            Endpointing::True(_value) => format!("true"),
-            Endpointing::False(_value) => format!("false"),
+            Endpointing::True(_value) => "true".to_string(),
+            Endpointing::False(_value) => "false".to_string(),
             Endpointing::CustomValue(value) => format!("{}", value),
         }
     }
