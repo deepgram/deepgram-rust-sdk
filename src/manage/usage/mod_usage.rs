@@ -48,8 +48,9 @@ impl Usage<'_> {
     /// ```no_run
     /// # use std::env;
     /// #
-    /// # use deepgram::{manage::
-    /// #     usage::{get_fields_options, get_usage_options, list_requests_options},
+    /// # use deepgram::{
+    /// #         manage::usage::get_fields_options, get_usage_options, list_requests_options,
+    /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
     /// #
@@ -101,8 +102,9 @@ impl Usage<'_> {
     /// ```no_run
     /// # use std::env;
     /// #
-    /// # use deepgram::{manage::
-    /// #     usage::{get_fields_options, get_usage_options, list_requests_options},
+    /// # use deepgram::{
+    /// #         manage::usage::get_fields_options, get_usage_options, list_requests_options,
+    /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
     /// #
@@ -147,8 +149,9 @@ impl Usage<'_> {
     /// ```no_run
     /// # use std::env;
     /// #
-    /// # use deepgram::{manage::
-    /// #     usage::{get_fields_options, get_usage_options, list_requests_options},
+    /// # use deepgram::{
+    /// #         manage::usage::get_fields_options, get_usage_options, list_requests_options,
+    /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
     /// #
@@ -197,8 +200,9 @@ impl Usage<'_> {
     /// ```no_run
     /// # use std::env;
     /// #
-    /// # use deepgram::{manage::
-    /// #     usage::{get_fields_options, get_usage_options, list_requests_options},
+    /// # use deepgram::{
+    /// #         manage::usage::get_fields_options, get_usage_options, list_requests_options,
+    /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
     /// #
