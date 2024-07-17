@@ -6,8 +6,9 @@
 
 use crate::{send_and_translate_response, Deepgram};
 
-use crate::common::response::Message;
 use crate::manage::members::response;
+
+use super::response::Message;
 
 /// Manage the members of a Deepgram Project.
 ///

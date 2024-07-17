@@ -1,5 +1,3 @@
-//! Response module
-
 use serde::{Deserialize, Serialize};
 
 /// Success message.

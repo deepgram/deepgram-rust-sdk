@@ -3,6 +3,18 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Success message.
+///
+/// See the [Deepgram API Reference][api] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#invitations
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct Message {
+    #[allow(missing_docs)]
+    pub message: String,
+}
+
 /// Returned by [`Members::list_members`](super::mod_members::Members::list_members).
 ///
 /// See the [Deepgram API Reference][api] for more info.

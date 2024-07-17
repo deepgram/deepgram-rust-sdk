@@ -12,7 +12,7 @@ use crate::{
     send_and_translate_response, Deepgram,
 };
 
-use crate::common::response::Message;
+use super::response::Message;
 
 /// Manage the keys for a Deepgram Project.
 ///

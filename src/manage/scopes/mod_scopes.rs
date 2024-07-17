@@ -6,10 +6,11 @@
 
 use serde::Serialize;
 
-use crate::common::response::Message;
 use crate::{send_and_translate_response, Deepgram};
 
 use crate::manage::scopes::response;
+
+use super::response::Message;
 
 /// Manage the permissions of a Deepgram Project.
 ///
