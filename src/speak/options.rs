@@ -19,7 +19,7 @@ pub struct Options {
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// Use it to set of Deepgram's features, excluding the Callback feature.
-/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::transcription::Transcription::prerecorded_callback).
+/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::listen::speech_to_text::Transcription::prerecorded_callback).
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
