@@ -177,7 +177,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::{Method, Options};
+    /// # use deepgram::manage::usage::get_usage_options::{Method, Options};
     /// #
     /// let options = Options::builder()
     ///     .method([Method::Sync, Method::Streaming])
@@ -185,7 +185,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::{Method, Options};
+    /// # use deepgram::manage::usage::get_usage_options::{Method, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .method([Method::Sync])
