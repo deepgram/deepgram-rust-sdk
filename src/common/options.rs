@@ -145,18 +145,61 @@ impl Endpointing {
     }
 }
 
+/// Endpointing value
+///
+/// See the [Deepgram Endpointing feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/endpointing
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+pub enum Summarize {
+    #[allow(missing_docs)]
+    Enabled(bool),
+
+    #[allow(missing_docs)]
+    V2,
+}
+
+/// Endpointing impl
+impl Summarize {
+    #[allow(missing_docs)]
+    pub fn as_str(&self) -> String {
+        match self {
+            Summarize::Enabled(value) => {
+                if *value {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            },
+            Summarize::V2 => "v2".to_string(),
+        }
+    }
+}
+
+/// Extra Metadata value
+///
+/// See the [Deepgram Extra Metadata feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/extra-metadata
 #[derive(Debug, PartialEq, Clone)]
-struct Extra {
+pub struct Extra {
     key: String,
     value: String,
 }
 
+/// Extra Metadata impl
 impl Extra {
+    #[allow(missing_docs)]
     pub fn new(key: &str, value: &str) -> Self {
         Self {
             key: key.to_string(),
             value: value.to_string(),
         }
+    }
+
+    #[allow(missing_docs)]
+    pub fn as_str(&self) -> String {
+        format!("{}:{}", self.key, self.value)
     }
 }
 
@@ -1782,11 +1825,11 @@ impl OptionsBuilder {
     /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
-    ///     .summarize("v2")
+    ///     .summarize(Summarize:V2)
     ///     .build();
     /// ```
-    pub fn summarize(mut self, summarize: &str) -> Self {
-        self.0.summarize = Some(summarize.into());
+    pub fn summarize(mut self, summarize: Summarize) -> Self {
+        self.0.summarize = Some(summarize.as_str());
         self
     }
 
@@ -1844,11 +1887,11 @@ impl OptionsBuilder {
     /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
-    ///     .extra("MyKey", "MyValue")
+    ///     .extra(Extra::new("key", "value"))
     ///     .build();
     /// ```
-    pub fn extra(mut self, key: &str, value: &str) -> Self {
-        self.0.extra = Some(Extra::new(key, value));
+    pub fn extra(mut self, extra: Extra) -> Self {
+        self.0.extra = Some(extra);
         self
     }
 
@@ -2111,7 +2154,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(summarize) = summarize {
-            seq.serialize_element(&("summarize", summarize))?;
+            seq.serialize_element(&("summarize", summarize.as_str()))?;
         }
 
         if let Some(dictation) = dictation {
@@ -2321,6 +2364,7 @@ mod serialize_options_tests {
     use super::Options;
     use super::Redact;
     use super::Replace;
+    use super::Summarize;
 
     fn check_serialization(options: &Options, expected: &str) {
         let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
@@ -2398,10 +2442,10 @@ mod serialize_options_tests {
             .topics(true)
             .custom_topic_mode(CustomTopicMode::Strict)
             .custom_topics(["Get support", "Complain"])
-            .summarize("v2")
+            .summarize(Summarize::V2)
             .dictation(true)
             .measurements(true)
-            .extra("MyKey", "MyValue")
+            .extra(Extra::new("key", "value"))
             .callback_method(CallbackMethod::PUT)
             .build();
 

@@ -3,7 +3,7 @@ use std::env;
 use deepgram::{
     common::{
         audio_source::AudioSource,
-        options::{CustomIntentMode, Encoding, Language, Model, Options, Redact},
+        options::{CustomIntentMode, Encoding, Extra, Language, Model, Options, Redact, Summarize},
     },
     Deepgram, DeepgramError,
 };
@@ -39,10 +39,10 @@ async fn main() -> Result<(), DeepgramError> {
         .topics(true)
         .custom_intent_mode(CustomIntentMode::Strict)
         .custom_intents(["Get support", "Complain"])
-        .summarize("v2")
+        .summarize(Summarize::V2)
         .dictation(true)
         .measurements(true)
-        .extra("MyKey", "MyValue")
+        .extra(Extra::new("key", "value"))
         .build();
 
     let response = dg_client
