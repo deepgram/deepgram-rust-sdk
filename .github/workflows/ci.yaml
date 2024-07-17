@@ -19,10 +19,12 @@ jobs:
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Check no features
       run: cargo check --all-targets --no-default-features
-    - name: Check prerecorded feature
-      run: cargo check --all-targets --no-default-features --features=prerecorded
-    - name: Check live feature
-      run: cargo check --all-targets --no-default-features --features=live
+    - name: Check listen feature
+      run: cargo check --all-targets --no-default-features --features=listen
+    - name: Check speak feature
+      run: cargo check --all-targets --no-default-features --features=speak
+    - name: Check manage feature
+      run: cargo check --all-targets --no-default-features --features=manage
   Build:
     runs-on: ubuntu-latest
     steps:
