@@ -45,7 +45,31 @@ pub struct Options {
     dictation: Option<bool>,
     measurements: Option<bool>,
     extra: Option<Extra>,
-    callback_method: Option<String>,
+    callback_method: Option<CallbackMethod>,
+}
+
+/// Callback Method value
+///
+/// See the [Deepgram Callback Method feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/callback#pre-recorded-audio
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum CallbackMethod {
+    /// POST Callback Method
+    POST,
+    /// PUT Callback Method
+    PUT,
+}
+
+/// Encoding Impl
+impl CallbackMethod {
+    pub(crate) fn as_str(&self) -> &str {
+        match self {
+            CallbackMethod::POST => "post",
+            CallbackMethod::PUT => "put",
+        }
+    }
 }
 
 /// Encoding value
@@ -1840,11 +1864,11 @@ impl OptionsBuilder {
     /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
-    ///     .callback_method("put")
+    ///     .callback_method(CallbackMethod::PUT)
     ///     .build();
     /// ```
-    pub fn callback_method(mut self, callback_method: &str) -> Self {
-        self.0.callback_method = Some(callback_method.into());
+    pub fn callback_method(mut self, callback_method: CallbackMethod) -> Self {
+        self.0.callback_method = Some(callback_method);
         self
     }
 
@@ -2103,7 +2127,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(callback_method) = callback_method {
-            seq.serialize_element(&("callback_method", callback_method))?;
+            seq.serialize_element(&("callback_method", callback_method.as_str()))?;
         }
 
         seq.end()
@@ -2286,6 +2310,7 @@ mod serialize_options_tests {
     use crate::common::audio_source::AudioSource;
     use crate::Deepgram;
 
+    use super::CallbackMethod;
     use super::CustomIntentMode;
     use super::CustomTopicMode;
     use super::Encoding;
@@ -2377,7 +2402,7 @@ mod serialize_options_tests {
             .dictation(true)
             .measurements(true)
             .extra("MyKey", "MyValue")
-            .callback_method("put")
+            .callback_method(CallbackMethod::PUT)
             .build();
 
         check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
