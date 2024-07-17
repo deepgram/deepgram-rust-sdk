@@ -76,7 +76,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_keys::options::Options;
+    /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options1 = Options::builder("Old comment", ["member"])
     ///     .comment("New comment")
@@ -98,7 +98,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_keys::options::Options;
+    /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options = Options::builder("New Key", ["member"])
     ///     .tag(["Tag 1", "Tag 2"])
@@ -106,7 +106,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::manage::mod_keys::options::Options;
+    /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options1 = Options::builder("New Key", ["member"])
     ///     .tag(["Tag 1"])
@@ -131,7 +131,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_keys::options::Options;
+    /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options = Options::builder("New Key", ["member"])
     ///     .scopes(["admin"])
@@ -139,7 +139,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::manage::mod_keys::options::Options;
+    /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options1 = Options::builder("New Key", ["member"])
     ///     .scopes(["admin"])
@@ -161,7 +161,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_keys::options::Options;
+    /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options = Options::builder("New Key", ["member"])
     ///     .expiration_date("2038-01-19")
@@ -169,7 +169,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::manage::mod_keys::options::Options;
+    /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options1 = Options::builder("New Key", ["member"])
     ///     .time_to_live_in_seconds(7776000)
@@ -194,7 +194,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_keys::options::Options;
+    /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options = Options::builder("New Key", ["member"])
     ///     .time_to_live_in_seconds(7776000)
@@ -202,7 +202,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::manage::mod_keys::options::Options;
+    /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options1 = Options::builder("New Key", ["member"])
     ///     .expiration_date("2038-01-19")

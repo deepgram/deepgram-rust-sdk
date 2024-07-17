@@ -53,7 +53,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::projects::options::Options;
+    /// # use deepgram::manage::projects::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .name("The Transcribinator")
@@ -69,7 +69,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::projects::options::Options;
+    /// # use deepgram::manage::projects::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .company("Doofenshmirtz Evil Incorporated")

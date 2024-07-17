@@ -94,7 +94,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .start("1970-01-01")
@@ -110,7 +110,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .end("2038-01-19")
@@ -126,7 +126,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .accessor("12345678-1234-1234-1234-1234567890ab")
@@ -144,7 +144,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .tag(["Tag 1", "Tag 2"])
@@ -152,7 +152,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .tag(["Tag 1"])
@@ -210,7 +210,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .model([
@@ -221,7 +221,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .model(["4899aa60-f723-4517-9815-2042acc12a82"])
@@ -247,7 +247,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .multichannel(true)
@@ -263,7 +263,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .interim_results(true)
@@ -279,7 +279,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .punctuate(true)
@@ -295,7 +295,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .ner(true)
@@ -311,7 +311,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .utterances(true)
@@ -327,7 +327,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .replace(true)
@@ -343,7 +343,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .profanity_filter(true)
@@ -359,7 +359,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .keywords(true)
@@ -375,7 +375,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .diarize(true)
@@ -391,7 +391,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .search(true)
@@ -407,7 +407,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .redact(true)
@@ -423,7 +423,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .alternatives(true)
@@ -439,7 +439,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::get_usage_options::Options;
+    /// # use deepgram::manage::usage::get_usage_options::Options;
     /// #
     /// let options = Options::builder()
     ///     .numerals(true)

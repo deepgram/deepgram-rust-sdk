@@ -53,7 +53,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::list_requests_options::Options;
+    /// # use deepgram::manage::usage::list_requests_options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .start("1970-01-01")
@@ -69,7 +69,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::list_requests_options::Options;
+    /// # use deepgram::manage::usage::list_requests_options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .end("2038-01-19")
