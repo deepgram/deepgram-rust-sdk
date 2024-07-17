@@ -4,7 +4,7 @@
 
 //! Official Rust SDK for Deepgram's automated speech recognition APIs.
 //!
-//! Get started transcribing with a [`Transcription`](transcription::Transcription) object.
+//! Get started transcribing with a [`Transcription`](listen::speech_to_text::Transcription) object.
 
 use std::io;
 

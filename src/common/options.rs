@@ -6,7 +6,7 @@
 
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
-/// Used as a parameter for [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded) and similar functions.
+/// Used as a parameter for [`Transcription::prerecorded`](crate::listen::speech_to_text::Transcription::prerecorded) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options {
     model: Option<Model>,
@@ -497,7 +497,7 @@ pub enum Multichannel {
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// Use it to set of Deepgram's features, excluding the Callback feature.
-/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::transcription::Transcription::prerecorded_callback).
+/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::listen::speech_to_text::Transcription::prerecorded_callback).
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
