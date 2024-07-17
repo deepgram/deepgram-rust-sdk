@@ -43,7 +43,10 @@ async fn main() -> Result<(), DeepgramError> {
         .summarize(true)
         .dictation(true)
         .measurements(true)
-        .extra(HashMap::from([("key1".to_string(), "value1".to_string()), ("key2".to_string(), "value2".to_string())]))
+        .extra(HashMap::from([
+            ("key1".to_string(), "value1".to_string()),
+            ("key2".to_string(), "value2".to_string())
+        ]))
         .build();
 
     let response = dg_client

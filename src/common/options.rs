@@ -61,7 +61,7 @@ pub enum DetectLanguage {
     Enabled(bool),
 
     #[allow(missing_docs)]
-    Restricted(Vec<Language>)
+    Restricted(Vec<Language>),
 }
 
 /// DetectLanguage Impl
@@ -69,11 +69,10 @@ impl DetectLanguage {
     pub(crate) fn to_key_value_pairs(&self) -> Vec<(&str, String)> {
         match self {
             DetectLanguage::Enabled(value) => vec![("detect_language", value.to_string())],
-            DetectLanguage::Restricted(languages) => {
-                languages.iter()
-                         .map(|lang| ("detect_language", lang.as_ref().to_string()))
-                         .collect()
-            },
+            DetectLanguage::Restricted(languages) => languages
+                .iter()
+                .map(|lang| ("detect_language", lang.as_ref().to_string()))
+                .collect(),
         }
     }
 }
@@ -2135,7 +2134,6 @@ impl Serialize for SerializableOptions<'_> {
                 }
                 seq.serialize_element(&("extra", format!("{}:{}", key, value)))?;
             }
-
         }
 
         if let Some(callback_method) = callback_method {
@@ -2415,7 +2413,10 @@ mod serialize_options_tests {
             .summarize(true)
             .dictation(true)
             .measurements(true)
-            .extra(HashMap::from([("key1".to_string(), "value1".to_string()), ("key2".to_string(), "value2".to_string())]))
+            .extra(HashMap::from([
+                ("key1".to_string(), "value1".to_string()),
+                ("key2".to_string(), "value2".to_string())
+            ]))
             .callback_method(CallbackMethod::PUT)
             .build();
 
@@ -2730,12 +2731,16 @@ mod serialize_options_tests {
     #[test]
     fn detect_language() {
         check_serialization(
-            &Options::builder().detect_language(DetectLanguage::Enabled(false)).build(),
+            &Options::builder()
+                .detect_language(DetectLanguage::Enabled(false))
+                .build(),
             "detect_language=false",
         );
 
         check_serialization(
-            &Options::builder().detect_language(DetectLanguage::Enabled(true)).build(),
+            &Options::builder()
+                .detect_language(DetectLanguage::Enabled(true))
+                .build(),
             "detect_language=true",
         );
     }
