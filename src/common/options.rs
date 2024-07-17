@@ -1450,7 +1450,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::common::options::Options;
+    /// # use deepgram::common::options::{DetectLanguage, Options};
     /// #
     /// let options = Options::builder()
     ///     .detect_language(DetectLanguage::Enabled(true))
@@ -1861,7 +1861,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::common::options::Options;
+    /// # use deepgram::common::options::{Options, CallbackMethod};
     /// #
     /// let options = Options::builder()
     ///     .callback_method(CallbackMethod::PUT)
