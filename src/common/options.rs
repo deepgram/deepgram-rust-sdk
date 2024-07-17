@@ -27,7 +27,7 @@ pub struct Options {
     keyword_boost_legacy: Option<bool>,
     utterances: Option<Utterances>,
     tags: Vec<String>,
-    detect_language: Option<bool>,
+    detect_language: Option<DetectLanguage>,
     query_params: Vec<(String, String)>,
     encoding: Option<Encoding>,
     smart_format: Option<bool>,
@@ -46,6 +46,39 @@ pub struct Options {
     measurements: Option<bool>,
     extra: Option<Extra>,
     callback_method: Option<CallbackMethod>,
+}
+
+/// Detect Language value
+///
+/// See the [Deepgram Detect Language feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/language-detection
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub enum DetectLanguage {
+    #[allow(missing_docs)]
+    Enabled(bool),
+
+    #[allow(missing_docs)]
+    Restricted(Vec<Language>)
+}
+
+/// DetectLanguage Impl
+impl DetectLanguage {
+    pub(crate) fn to_string(&self) -> String {
+        match self {
+            DetectLanguage::Enabled(value) => {
+                if *value {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            },
+            DetectLanguage::Restricted(languages) => {
+                let languages_str: Vec<String> = languages.iter().map(|lang| lang.as_ref().to_string()).collect();
+                languages_str.join(",")
+            },
+        }
+    }
 }
 
 /// Callback Method value
@@ -131,7 +164,7 @@ pub enum Endpointing {
 /// Endpointing impl
 impl Endpointing {
     #[allow(missing_docs)]
-    pub fn as_str(&self) -> String {
+    pub fn to_string(&self) -> String {
         match self {
             Endpointing::Enabled(value) => {
                 if *value {
@@ -1497,10 +1530,10 @@ impl OptionsBuilder {
     /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
-    ///     .detect_language(true)
+    ///     .detect_language(DetectLanguage::Enabled(true))
     ///     .build();
     /// ```
-    pub fn detect_language(mut self, detect_language: bool) -> Self {
+    pub fn detect_language(mut self, detect_language: DetectLanguage) -> Self {
         self.0.detect_language = Some(detect_language);
 
         self
@@ -2098,7 +2131,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(detect_language) = detect_language {
-            seq.serialize_element(&("detect_language", detect_language))?;
+            seq.serialize_element(&("detect_language", detect_language.to_string()))?;
         }
 
         for (param, value) in query_params {
@@ -2356,6 +2389,7 @@ mod serialize_options_tests {
     use super::CallbackMethod;
     use super::CustomIntentMode;
     use super::CustomTopicMode;
+    use super::DetectLanguage;
     use super::Encoding;
     use super::Extra;
     use super::Keyword;
@@ -2760,12 +2794,12 @@ mod serialize_options_tests {
     #[test]
     fn detect_language() {
         check_serialization(
-            &Options::builder().detect_language(false).build(),
+            &Options::builder().detect_language(DetectLanguage::Enabled(false)).build(),
             "detect_language=false",
         );
 
         check_serialization(
-            &Options::builder().detect_language(true).build(),
+            &Options::builder().detect_language(DetectLanguage::Enabled(true)).build(),
             "detect_language=true",
         );
     }

@@ -279,7 +279,7 @@ where
                 pairs.append_pair("channels", &channels.to_string());
             }
             if let Some(endpointing) = self.endpointing {
-                pairs.append_pair("endpointing", &endpointing.as_str());
+                pairs.append_pair("endpointing", &endpointing.to_string());
             }
             if let Some(utterance_end_ms) = self.utterance_end_ms {
                 pairs.append_pair("utterance_end_ms", &utterance_end_ms.to_string());
