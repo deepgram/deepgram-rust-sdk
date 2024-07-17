@@ -19,9 +19,10 @@ futures = "0.3"
 http = "0.2"
 pin-project = "1"
 reqwest = { version = "0.11.22", default-features = false, features = ["json", "rustls-tls", "stream"] }
-rodio = "0.17.0"
+rodio = { version = "0.17.0", optional = true }
 serde = { version = "1.0.25", features = ["derive"] }
 serde_json = "1"
+serde_urlencoded = "0.7"
 thiserror = "1"
 tokio = { version = "1.38.0", features = ["full"] }
 tokio-stream = "0.1.15"
@@ -32,45 +33,54 @@ url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
 proc-macro2 = "1.0.60"
-pkg-config = "0.3.30"
+pkg-config = { version = "0.3.30", optional = true }
 
 [dev-dependencies]
 cpal = "0.13"
 crossbeam = "0.8"
 
 [features]
-default = ["prerecorded", "live"]
-live = ["dep:tungstenite", "dep:tokio-tungstenite"]
-prerecorded = []
+default = ["manage", "listen", "speak"]
+manage = []
+listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
+speak = ["dep:rodio", "dep:pkg-config"]
 
 [[example]]
 name = "prerecorded_from_file"
-required-features = ["prerecorded"]
+path = "examples/transcription/prerecorded/prerecorded_from_file/prerecorded_from_file.rs"
+required-features = ["listen"]
 
 [[example]]
 name = "callback"
-required-features = ["prerecorded"]
+path = "examples/transcription/prerecorded/callback/callback.rs"
+required-features = ["listen"]
 
 [[example]]
 name = "make_prerecorded_request_builder"
-required-features = ["prerecorded"]
+path = "examples/transcription/prerecorded/make_prerecorded_request_builder/make_prerecorded_request_builder.rs"
+required-features = ["listen"]
 
 [[example]]
 name = "microphone_stream"
-required-features = ["live"]
+path = "examples/transcription/prerecorded/microphone_stream/microphone_stream.rs"
+required-features = ["listen"]
 
 [[example]]
 name = "prerecorded_from_url"
-required-features = ["prerecorded"]
+path = "examples/transcription/prerecorded/prerecorded_from_url/prerecorded_from_url.rs"
+required-features = ["listen"]
 
 [[example]]
 name = "simple_stream"
-required-features = ["live"]
+path = "examples/transcription/live/simple_stream/simple_stream.rs"
+required-features = ["listen"]
 
 [[example]]
 name = "text_to_speech_to_file"
-required-features = ["default"]
+path = "examples/speak/text_to_speech_to_file/text_to_speech_to_file.rs"
+required-features = ["speak"]
 
 [[example]]
 name = "text_to_speech_to_stream"
-required-features = ["default"]
+path = "examples/speak/text_to_speech_to_stream/text_to_speech_to_stream.rs"
+required-features = ["speak"]

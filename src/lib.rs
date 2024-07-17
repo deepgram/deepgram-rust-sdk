@@ -8,7 +8,7 @@
 
 use std::io;
 
-use redacted::RedactedString;
+use common::redacted_string::RedactedString;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     RequestBuilder,
@@ -17,17 +17,13 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 use url::Url;
 
-pub mod billing;
-pub mod invitations;
-pub mod keys;
-pub mod members;
-pub mod projects;
-mod redacted;
-mod response;
-pub mod scopes;
+pub mod common;
+#[cfg(feature = "manage")]
+pub mod manage;
+#[cfg(feature = "listen")]
+pub mod listen;
+#[cfg(feature = "speak")]
 pub mod speak;
-pub mod transcription;
-pub mod usage;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 
@@ -73,7 +69,6 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
-    #[cfg(feature = "live")]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] tungstenite::Error),

@@ -1,6 +1,7 @@
+//! Rest TTS module
+
 use bytes::Bytes;
 use futures::stream::{Stream, StreamExt};
-use options::{Options, SerializableOptions};
 use reqwest::RequestBuilder;
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -9,9 +10,7 @@ use url::Url;
 
 use crate::DeepgramError;
 
-use super::Speak;
-
-pub mod options;
+use super::{options::{Options, SerializableOptions}, text_to_speech::Speak};
 
 static DEEPGRAM_API_URL_SPEAK: &str = "v1/speak";
 

@@ -46,6 +46,12 @@ To make sure our community is safe for all, be sure to review and agree to our
 [Code of Conduct](./CODE_OF_CONDUCT.md). Then see the
 [Contributing Guidelines](./CONTRIBUTING.md) for more information.
 
+### Build the SDK
+
+```sh
+cargo build
+```
+
 ## Getting Help
 
 We love to hear from you so if you have questions, comments or find a bug in the
