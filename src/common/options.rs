@@ -2126,12 +2126,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(extra) = extra {
-            let mut extra_string = String::new();
-
-            for (i, (key, value)) in extra.iter().enumerate() {
-                if i > 0 {
-                    extra_string.push('&');
-                }
+            for (_i, (key, value)) in extra.iter().enumerate() {
                 seq.serialize_element(&("extra", format!("{}:{}", key, value)))?;
             }
         }
