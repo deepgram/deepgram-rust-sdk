@@ -64,12 +64,13 @@ pub enum DetectLanguage {
 
 /// DetectLanguage Impl
 impl DetectLanguage {
-    pub(crate) fn to_string(&self) -> String {
+    pub(crate) fn to_key_value_pairs(&self) -> Vec<(&str, String)> {
         match self {
-            DetectLanguage::Enabled(value) => value.to_string(),
+            DetectLanguage::Enabled(value) => vec![("detect_language", value.to_string())],
             DetectLanguage::Restricted(languages) => {
-                let languages_str: Vec<String> = languages.iter().map(|lang| lang.as_ref().to_string()).collect();
-                languages_str.join(",")
+                languages.iter()
+                         .map(|lang| ("detect_language", lang.as_ref().to_string()))
+                         .collect()
             },
         }
     }
@@ -161,7 +162,7 @@ impl Endpointing {
     pub fn to_string(&self) -> String {
         match self {
             Endpointing::Enabled(value) => value.to_string(),
-            Endpointing::CustomValue(value) => format!("{}", value),
+            Endpointing::CustomValue(value) => value.to_string(),
         }
     }
 }
@@ -2027,6 +2028,12 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("language", language.as_ref()))?;
         }
 
+        if let Some(detect_language) = detect_language {
+            for (_key, value) in detect_language.to_key_value_pairs() {
+                seq.serialize_element(&("detect_language", value))?;
+            }
+        }
+
         if let Some(punctuate) = punctuate {
             seq.serialize_element(&("punctuate", punctuate))?;
         }
@@ -2110,10 +2117,6 @@ impl Serialize for SerializableOptions<'_> {
 
         for element in tags {
             seq.serialize_element(&("tag", element))?;
-        }
-
-        if let Some(detect_language) = detect_language {
-            seq.serialize_element(&("detect_language", detect_language.to_string()))?;
         }
 
         for (param, value) in query_params {
@@ -2420,7 +2423,8 @@ mod serialize_options_tests {
         let options = Options::builder()
             .model(Model::Base)
             .version("1.2.3")
-            .language(Language::en_US)
+            .language(Language::en)
+            .detect_language(DetectLanguage::Restricted(vec![Language::en, Language::es]))
             .punctuate(true)
             .profanity_filter(true)
             .redact([Redact::Pci, Redact::Ssn])
@@ -2465,7 +2469,7 @@ mod serialize_options_tests {
             .callback_method(CallbackMethod::PUT)
             .build();
 
-        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en-US&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
+        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en&detect_language=en&detect_language=es&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
     }
 
     #[test]
