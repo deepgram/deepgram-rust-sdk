@@ -1,3 +1,3 @@
 //! Invitations module
 
-pub mod invitations;
+pub mod mod_invitations;

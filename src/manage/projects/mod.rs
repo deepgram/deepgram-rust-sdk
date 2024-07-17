@@ -1,5 +1,5 @@
 //! Projects module
 
-pub mod projects;
+pub mod mod_projects;
 pub mod options;
 pub mod response;

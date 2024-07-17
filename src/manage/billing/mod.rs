@@ -1,4 +1,4 @@
 //! Billing module
 
-pub mod billing;
+pub mod mod_billing;
 pub mod response;

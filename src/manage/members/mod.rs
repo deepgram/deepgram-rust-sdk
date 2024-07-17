@@ -1,4 +1,4 @@
 //! Members module
 
-pub mod members;
+pub mod mod_members;
 pub mod response;

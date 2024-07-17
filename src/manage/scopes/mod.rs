@@ -1,4 +1,4 @@
 //! Scopes module
 
-pub mod scopes;
+pub mod mod_scopes;
 pub mod response;
