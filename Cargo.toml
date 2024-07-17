@@ -61,11 +61,6 @@ path = "examples/transcription/prerecorded/make_prerecorded_request_builder/make
 required-features = ["listen"]
 
 [[example]]
-name = "microphone_stream"
-path = "examples/transcription/prerecorded/microphone_stream/microphone_stream.rs"
-required-features = ["listen"]
-
-[[example]]
 name = "prerecorded_from_url"
 path = "examples/transcription/prerecorded/prerecorded_from_url/prerecorded_from_url.rs"
 required-features = ["listen"]
@@ -73,6 +68,11 @@ required-features = ["listen"]
 [[example]]
 name = "simple_stream"
 path = "examples/transcription/live/simple_stream/simple_stream.rs"
+required-features = ["listen"]
+
+[[example]]
+name = "microphone_stream"
+path = "examples/transcription/live/microphone_stream/microphone_stream.rs"
 required-features = ["listen"]
 
 [[example]]
