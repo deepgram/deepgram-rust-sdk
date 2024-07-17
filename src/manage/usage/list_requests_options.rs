@@ -122,7 +122,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::manage::mod_usage::list_requests_options::{Options, Status};
+    /// # use deepgram::manage::usage::list_requests_options::{Options, Status};
     /// #
     /// let options1 = Options::builder()
     ///     .status(Status::Succeeded)
