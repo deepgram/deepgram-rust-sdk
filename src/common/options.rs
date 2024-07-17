@@ -66,13 +66,7 @@ pub enum DetectLanguage {
 impl DetectLanguage {
     pub(crate) fn to_string(&self) -> String {
         match self {
-            DetectLanguage::Enabled(value) => {
-                if *value {
-                    "true".to_string()
-                } else {
-                    "false".to_string()
-                }
-            },
+            DetectLanguage::Enabled(value) => value.to_string(),
             DetectLanguage::Restricted(languages) => {
                 let languages_str: Vec<String> = languages.iter().map(|lang| lang.as_ref().to_string()).collect();
                 languages_str.join(",")
@@ -166,13 +160,7 @@ impl Endpointing {
     #[allow(missing_docs)]
     pub fn to_string(&self) -> String {
         match self {
-            Endpointing::Enabled(value) => {
-                if *value {
-                    "true".to_string()
-                } else {
-                    "false".to_string()
-                }
-            },
+            Endpointing::Enabled(value) => value.to_string(),
             Endpointing::CustomValue(value) => format!("{}", value),
         }
     }
@@ -197,13 +185,7 @@ impl Summarize {
     #[allow(missing_docs)]
     pub fn as_str(&self) -> String {
         match self {
-            Summarize::Enabled(value) => {
-                if *value {
-                    "true".to_string()
-                } else {
-                    "false".to_string()
-                }
-            },
+            Summarize::Enabled(value) => value.to_string(),
             Summarize::V2 => "v2".to_string(),
         }
     }
