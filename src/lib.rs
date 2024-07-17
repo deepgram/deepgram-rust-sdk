@@ -6,8 +6,8 @@
 //!
 //! Get started transcribing with a [`Transcription`](listen::speech_to_text::Transcription) object.
 
-use std::io;
 use core::fmt;
+use std::io;
 use std::ops::Deref;
 
 use reqwest::{
@@ -53,8 +53,9 @@ impl Deref for RedactedString {
 pub struct Deepgram {
     #[cfg_attr(not(feature = "listen"), allow(unused))]
     api_key: Option<RedactedString>,
-    #[cfg_attr(not(any(feature = "listen")), allow(unused))]
+    #[cfg_attr(not(feature = "listen"), allow(unused))]
     base_url: Url,
+    #[cfg_attr(not(feature = "listen"), allow(unused))]
     client: reqwest::Client,
 }
 
@@ -98,6 +99,7 @@ pub enum DeepgramError {
     SerdeError(#[from] serde_json::Error),
 }
 
+#[cfg_attr(not(feature = "listen"), allow(unused))]
 type Result<T> = std::result::Result<T, DeepgramError>;
 
 impl Deepgram {
@@ -230,6 +232,7 @@ impl Deepgram {
 ///
 /// If there is an error, it translates it into a [`DeepgramError::DeepgramApiError`].
 /// Otherwise, it deserializes the JSON accordingly.
+#[cfg_attr(not(feature = "listen"), allow(unused))]
 async fn send_and_translate_response<R: DeserializeOwned>(
     request_builder: RequestBuilder,
 ) -> crate::Result<R> {
