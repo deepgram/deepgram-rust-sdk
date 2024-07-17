@@ -201,8 +201,19 @@ impl Deepgram {
             header
         };
 
+        let api_key = api_key.map(|key| {
+            #[cfg(feature = "listen")]
+            {
+                RedactedString::new(key)
+            }
+            #[cfg(not(feature = "listen"))]
+            {
+                RedactedString(key.to_string())
+            }
+        });
+
         Deepgram {
-            api_key: api_key.map(RedactedString),
+            api_key,
             base_url,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
