@@ -4,7 +4,8 @@ use deepgram::{
     common::{
         audio_source::AudioSource,
         options::{CustomIntentMode, Language, Model, Options, Redact},
-    }, Deepgram, DeepgramError,
+    }, 
+    Deepgram, DeepgramError,
 };
 
 static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";

@@ -11,9 +11,7 @@ use url::Url;
 use crate::DeepgramError;
 
 use super::{
-    options::{
-        Options, SerializableOptions,
-    }, 
+    options::{Options, SerializableOptions}, 
     text_to_speech::Speak,
 };
 

@@ -1,7 +1,11 @@
 use std::env;
 
 use deepgram::{
-    common::{audio_source::AudioSource, options::{Language, Options}}, Deepgram, DeepgramError
+    common::{
+        audio_source::AudioSource,
+        options::{Language, Options},
+    },
+    Deepgram, DeepgramError,
 };
 use tokio::fs::File;
 
