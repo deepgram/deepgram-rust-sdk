@@ -1,4 +1,4 @@
-//! Set options for [`Keys::create`](super::Keys::create).
+//! Set options for [`Keys::create`](super::mod_keys::Keys::create).
 //!
 //! See the [Deepgram API Reference][api] for more info.
 //!
@@ -6,7 +6,7 @@
 
 use serde::Serialize;
 
-/// Used as a parameter for [`Keys::create`](super::Keys::create).
+/// Used as a parameter for [`Keys::create`](super::mod_keys::Keys::create).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///

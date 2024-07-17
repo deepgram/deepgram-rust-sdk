@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Returned by [`Keys::list`](super::Keys::list).
+/// Returned by [`Keys::list`](super::mod_keys::Keys::list).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -15,7 +15,7 @@ pub struct MembersAndApiKeys {
     pub api_keys: Vec<MemberAndApiKey>,
 }
 
-/// Returned by [`Keys::get`](super::Keys::get).
+/// Returned by [`Keys::get`](super::mod_keys::Keys::get).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -78,7 +78,7 @@ pub struct ApiKey {
     pub expiration_date: Option<String>,
 }
 
-/// Returned by [`Keys::create`](super::Keys::create).
+/// Returned by [`Keys::create`](super::mod_keys::Keys::create).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///

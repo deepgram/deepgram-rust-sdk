@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Returned by [`Projects::list`](super::Projects::list).
+/// Returned by [`Projects::list`](super::mod_projects::Projects::list).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -15,7 +15,7 @@ pub struct Projects {
     pub projects: Vec<Project>,
 }
 
-/// Returned by [`Projects::get`](super::Projects::get).
+/// Returned by [`Projects::get`](super::mod_projects::Projects::get).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
