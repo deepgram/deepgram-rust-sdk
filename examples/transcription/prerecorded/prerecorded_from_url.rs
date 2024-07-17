@@ -42,7 +42,7 @@ async fn main() -> Result<(), DeepgramError> {
         .summarize("v2")
         .dictation(true)
         .measurements(true)
-        .extra("key:value")
+        .extra("MyKey", "MyValue")
         .build();
 
     let response = dg_client

@@ -44,7 +44,7 @@ pub struct Options {
     summarize: Option<String>,
     dictation: Option<bool>,
     measurements: Option<bool>,
-    extra: Option<String>,
+    extra: Option<Extra>,
     callback_method: Option<String>,
 }
 
@@ -98,10 +98,7 @@ impl Encoding {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum Endpointing {
     #[allow(missing_docs)]
-    True(bool),
-
-    #[allow(missing_docs)]
-    False(bool),
+    Enabled(bool),
 
     #[allow(missing_docs)]
     CustomValue(u128),
@@ -112,10 +109,40 @@ impl Endpointing {
     #[allow(missing_docs)]
     pub fn as_str(&self) -> String {
         match self {
-            Endpointing::True(_value) => "true".to_string(),
-            Endpointing::False(_value) => "false".to_string(),
+            Endpointing::Enabled(value) => {
+                if *value {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            },
             Endpointing::CustomValue(value) => format!("{}", value),
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+struct Extra {
+    key: String,
+    value: String,
+}
+
+impl Extra {
+    pub fn new(key: &str, value: &str) -> Self {
+        Self {
+            key: key.to_string(),
+            value: value.to_string(),
+        }
+    }
+}
+
+impl Serialize for Extra {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let output = format!("{}:{}", self.key, self.value);
+        serializer.serialize_str(&output)
     }
 }
 
@@ -1793,11 +1820,11 @@ impl OptionsBuilder {
     /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
-    ///     .extra("key:value")
+    ///     .extra("MyKey", "MyValue")
     ///     .build();
     /// ```
-    pub fn extra(mut self, extra: &str) -> Self {
-        self.0.extra = Some(extra.into());
+    pub fn extra(mut self, key: &str, value: &str) -> Self {
+        self.0.extra = Some(Extra::new(key, value));
         self
     }
 
@@ -2262,6 +2289,7 @@ mod serialize_options_tests {
     use super::CustomIntentMode;
     use super::CustomTopicMode;
     use super::Encoding;
+    use super::Extra;
     use super::Keyword;
     use super::Language;
     use super::Model;
@@ -2348,7 +2376,7 @@ mod serialize_options_tests {
             .summarize("v2")
             .dictation(true)
             .measurements(true)
-            .extra("key:value")
+            .extra("MyKey", "MyValue")
             .callback_method("put")
             .build();
 
