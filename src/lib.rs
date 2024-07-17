@@ -69,6 +69,7 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
+    #[cfg(feature = "listen")]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] tungstenite::Error),
