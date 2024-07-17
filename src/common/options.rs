@@ -574,7 +574,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Model, Options};
+    /// # use deepgram::common::options::{Model, Options};
     /// #
     /// let options = Options::builder()
     ///     .model(Model::Nova2)
@@ -582,7 +582,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Model, Options};
+    /// # use deepgram::common::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .multichannel_with_models([Model::Nova2Meeting, Model::Nova2Phonecall])
@@ -615,7 +615,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .version("12345678-1234-1234-1234-1234567890ab")
@@ -635,7 +635,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Language, Options};
+    /// # use deepgram::common::options::{Language, Options};
     /// #
     /// let options = Options::builder()
     ///     .language(Language::en_US)
@@ -655,7 +655,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .punctuate(true)
@@ -677,7 +677,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .profanity_filter(true)
@@ -701,7 +701,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Options, Redact};
+    /// # use deepgram::common::options::{Options, Redact};
     /// #
     /// let options = Options::builder()
     ///     .redact([Redact::Pci, Redact::Ssn])
@@ -709,7 +709,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Options, Redact};
+    /// # use deepgram::common::options::{Options, Redact};
     /// #
     /// let options1 = Options::builder()
     ///     .redact([Redact::Pci])
@@ -736,7 +736,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .diarize(true)
@@ -756,7 +756,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .diarize_version("2021-07-14.0")
@@ -778,7 +778,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .ner(true)
@@ -802,7 +802,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .multichannel(true)
@@ -810,7 +810,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Model, Options};
+    /// # use deepgram::common::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .model(Model::Nova2)
@@ -850,7 +850,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Model, Options};
+    /// # use deepgram::common::options::{Model, Options};
     /// #
     /// let options = Options::builder()
     ///     .multichannel_with_models([Model::Meeting, Model::Phonecall])
@@ -906,7 +906,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Model, Options};
+    /// # use deepgram::common::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .model(Model::Nova2)
@@ -923,7 +923,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Model, Options};
+    /// # use deepgram::common::options::{Model, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .multichannel_with_models([Model::Nova2Meeting])
@@ -963,7 +963,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .alternatives(3)
@@ -985,7 +985,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .numerals(true)
@@ -1007,7 +1007,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .search(["hello", "world"])
@@ -1015,7 +1015,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .search(["hello"])
@@ -1044,7 +1044,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Options, Replace};
+    /// # use deepgram::common::options::{Options, Replace};
     /// #
     /// let options = Options::builder()
     ///     .replace([
@@ -1061,7 +1061,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Options, Replace};
+    /// # use deepgram::common::options::{Options, Replace};
     /// #
     /// let options1 = Options::builder()
     ///     .replace([Replace {
@@ -1108,7 +1108,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .keywords(["hello", "world"])
@@ -1116,7 +1116,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .keywords(["hello"])
@@ -1152,7 +1152,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Keyword, Options};
+    /// # use deepgram::common::options::{Keyword, Options};
     /// #
     /// let options = Options::builder()
     ///     .keywords_with_intensifiers([
@@ -1169,7 +1169,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Keyword, Options};
+    /// # use deepgram::common::options::{Keyword, Options};
     /// #
     /// let options1 = Options::builder()
     ///     .keywords_with_intensifiers([
@@ -1218,7 +1218,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .keywords(["hello", "world"])
@@ -1241,7 +1241,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .utterances(true)
@@ -1270,7 +1270,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .utterances_with_utt_split(0.9)
@@ -1294,7 +1294,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .tag(["Tag 1", "Tag 2"])
@@ -1302,7 +1302,7 @@ impl OptionsBuilder {
     /// ```
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options1 = Options::builder()
     ///     .tag(["Tag 1"])
@@ -1329,7 +1329,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .detect_language(true)
@@ -1351,7 +1351,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     ///
     /// use std::collections::HashMap;
     /// let mut params = HashMap::new(); // Could also be a Vec<(String, String)>
@@ -1379,7 +1379,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .encoding("linear16")
@@ -1399,7 +1399,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .smart_format(true)
@@ -1419,7 +1419,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .filler_words(true)
@@ -1440,7 +1440,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .paragraphs(true)
@@ -1461,7 +1461,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .detect_entities(true)
@@ -1482,7 +1482,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .intents(true)
@@ -1503,7 +1503,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Options, CustomIntentMode};
+    /// # use deepgram::common::options::{Options, CustomIntentMode};
     /// #
     /// let options = Options::builder()
     ///     .custom_intent_mode(CustomIntentMode::Extended)
@@ -1527,7 +1527,7 @@ impl OptionsBuilder {
     ///
     /// # Examples
     /// ```
-    /// # use deepgram::transcription::common_options::{Options};
+    /// # use deepgram::common::options::{Options};
     /// #
     /// let options1 = Options::builder()
     ///     .custom_intents(["Intent 1"])
@@ -1559,7 +1559,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .sentiment(true)
@@ -1580,7 +1580,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .topics(true)
@@ -1604,7 +1604,7 @@ impl OptionsBuilder {
     ///
     /// # Examples
     /// ```
-    /// # use deepgram::transcription::common_options::{Options};
+    /// # use deepgram::common::options::{Options};
     /// #
     /// let options1 = Options::builder()
     ///     .custom_topics(["Topic 1"])
@@ -1636,7 +1636,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::{Options, CustomTopicMode};
+    /// # use deepgram::common::options::{Options, CustomTopicMode};
     /// #
     /// let options = Options::builder()
     ///     .custom_topic_mode(CustomTopicMode::Extended)
@@ -1657,7 +1657,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .summarize("v2")
@@ -1677,7 +1677,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .dictation(true)
@@ -1698,7 +1698,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .measurements(true)
@@ -1719,7 +1719,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .extra("key:value")
@@ -1739,7 +1739,7 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::transcription::common_options::Options;
+    /// # use deepgram::common::options::Options;
     /// #
     /// let options = Options::builder()
     ///     .callback_method("put")
