@@ -145,7 +145,7 @@ pub struct Utterance {
 
     /// [`None`] unless the [Diarization feature][docs] is set.
     ///
-    /// [docs]: https://developers.deepgram.com/documentation/features/diarize/
+    /// [docs]: https://developers.deepgram.com/docs/diarization
     pub speaker: Option<usize>,
 
     #[allow(missing_docs)]
