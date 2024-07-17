@@ -22,6 +22,9 @@ pub mod common;
 #[cfg(feature = "listen")]
 use common::redacted_string::RedactedString;
 
+#[cfg(not(feature = "listen"))]
+type RedactedString = String;
+
 #[cfg(feature = "listen")]
 pub mod listen;
 #[cfg(feature = "manage")]
