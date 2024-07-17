@@ -7,6 +7,8 @@
 //! Get started transcribing with a [`Transcription`](listen::speech_to_text::Transcription) object.
 
 use std::io;
+use core::fmt;
+use std::ops::Deref;
 
 use reqwest::{
     header::{HeaderMap, HeaderValue},
@@ -18,13 +20,6 @@ use url::Url;
 
 #[cfg(feature = "listen")]
 pub mod common;
-
-#[cfg(feature = "listen")]
-use common::redacted_string::RedactedString;
-
-#[cfg(not(feature = "listen"))]
-type RedactedString = String;
-
 #[cfg(feature = "listen")]
 pub mod listen;
 #[cfg(feature = "manage")]
@@ -33,6 +28,23 @@ pub mod manage;
 pub mod speak;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RedactedString(pub String);
+
+impl fmt::Debug for RedactedString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("***")
+    }
+}
+
+impl Deref for RedactedString {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// A client for the Deepgram API.
 ///
@@ -201,19 +213,8 @@ impl Deepgram {
             header
         };
 
-        let api_key = api_key.map(|key| {
-            #[cfg(feature = "listen")]
-            {
-                RedactedString::new(key)
-            }
-            #[cfg(not(feature = "listen"))]
-            {
-                RedactedString(key.to_string())
-            }
-        });
-
         Deepgram {
-            api_key,
+            api_key: api_key.map(RedactedString),
             base_url,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
