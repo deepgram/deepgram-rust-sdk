@@ -102,7 +102,7 @@ pub struct ListenResults {
 pub struct ChannelResult {
     /// [`None`] unless the [Search feature][docs] is set.
     ///
-    /// [docs]: https://developers.deepgram.com/documentation/features/search/
+    /// [docs]: https://developers.deepgram.com/docs/search/
     pub search: Option<Vec<SearchResults>>,
 
     #[allow(missing_docs)]
