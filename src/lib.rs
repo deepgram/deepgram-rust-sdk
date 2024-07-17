@@ -8,7 +8,7 @@
 
 use std::io;
 
-#[cfg(feature = "listen")]
+#[allow(unused)]
 use common::redacted_string::RedactedString;
 
 use reqwest::{
