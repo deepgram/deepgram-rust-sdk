@@ -56,6 +56,7 @@ pub struct Options {
 ///
 /// [docs]: https://developers.deepgram.com/docs/language-detection
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[non_exhaustive]
 pub enum DetectLanguage {
     #[allow(missing_docs)]
     Enabled(bool),
@@ -84,6 +85,7 @@ impl DetectLanguage {
 /// [docs]: https://developers.deepgram.com/docs/callback#pre-recorded-audio
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum CallbackMethod {
     /// POST Callback Method
     POST,
@@ -108,6 +110,7 @@ impl CallbackMethod {
 /// [docs]: https://developers.deepgram.com/docs/encoding
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum Encoding {
     /// 16-bit, little endian, signed PCM WAV data
     Linear16,
@@ -149,6 +152,7 @@ impl Encoding {
 ///
 /// [docs]: https://developers.deepgram.com/docs/endpointing
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[non_exhaustive]
 pub enum Endpointing {
     #[allow(missing_docs)]
     Enabled(bool),
@@ -588,6 +592,7 @@ pub struct Keyword {
 ///
 /// [docs]: https://developers.deepgram.com/docs/utterances
 #[derive(Debug, PartialEq, Clone, Copy)]
+#[non_exhaustive]
 pub enum Utterances {
     #[allow(missing_docs)]
     Disabled,
@@ -604,6 +609,7 @@ pub enum Utterances {
 ///
 /// [docs]: https://developers.deepgram.com/docs/multichannel
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[non_exhaustive]
 pub enum Multichannel {
     #[allow(missing_docs)]
     Disabled,

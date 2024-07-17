@@ -62,6 +62,7 @@ pub struct Deepgram {
 /// Errors that may arise from the [`deepgram`](crate) crate.
 // TODO sub-errors for the different types?
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum DeepgramError {
     /// No source was provided to the request builder.
     #[error("No source was provided to the request builder.")]

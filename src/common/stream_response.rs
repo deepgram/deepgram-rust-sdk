@@ -91,6 +91,7 @@ pub struct Metadata {
 /// Possible websocket message types
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
+#[non_exhaustive]
 pub enum StreamResponse {
     #[allow(missing_docs)]
     TranscriptResponse {
