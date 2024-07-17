@@ -4,7 +4,7 @@ use deepgram::{
     common::{
         audio_source::AudioSource,
         options::{Language, Options},
-    }, 
+    },
     Deepgram, DeepgramError,
 };
 

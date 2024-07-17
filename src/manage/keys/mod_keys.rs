@@ -6,8 +6,8 @@
 
 use crate::{
     manage::keys::{
-        response::{MemberAndApiKey, MembersAndApiKeys, NewApiKey},
         options::{Options, SerializableOptions},
+        response::{MemberAndApiKey, MembersAndApiKeys, NewApiKey},
     },
     send_and_translate_response, Deepgram,
 };
