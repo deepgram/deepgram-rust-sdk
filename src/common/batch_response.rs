@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Returned by [`Transcription::prerecorded`](crate::transcription::Transcription::prerecorded).
+/// Returned by [`Transcription::prerecorded`](crate::listen::speech_to_text::Transcription::prerecorded).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -22,7 +22,7 @@ pub struct Response {
     pub results: ListenResults,
 }
 
-/// Returned by [`Transcription::prerecorded_callback`](crate::transcription::Transcription::prerecorded_callback).
+/// Returned by [`Transcription::prerecorded_callback`](crate::listen::speech_to_text::Transcription::prerecorded_callback).
 ///
 /// See the [Deepgram Callback feature docs][docs] for more info.
 ///
