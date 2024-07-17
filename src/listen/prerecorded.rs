@@ -147,7 +147,7 @@ impl Transcription<'_> {
     /// #     common::{
     /// #         audio_source::AudioSource,
     /// #         options::{Language, Options},
-    /// #         batch_response::{response::Response},
+    /// #         batch_response::{Response},
     /// #     },
     /// #     Deepgram, DeepgramError,
     /// # };
