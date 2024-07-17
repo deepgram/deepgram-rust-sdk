@@ -1843,7 +1843,7 @@ impl OptionsBuilder {
     /// # use std::collections::HashMap;
     /// #
     /// let options = Options::builder()
-    ///     .extra(HashMap::from([("key1".to_string(), "value1".to_string()), ("key2".to_string(), "value2".to_string())]))
+    ///     .extra(HashMap::from([("key".to_string(), "value".to_string())]))
     ///     .build();
     /// ```
     pub fn extra(mut self, extra: HashMap<String, String>) -> Self {
@@ -2408,14 +2408,11 @@ mod serialize_options_tests {
             .summarize(true)
             .dictation(true)
             .measurements(true)
-            .extra(HashMap::from([
-                ("key1".to_string(), "value1".to_string()),
-                ("key2".to_string(), "value2".to_string())
-            ]))
+            .extra(HashMap::from([("key".to_string(), "value".to_string())]))
             .callback_method(CallbackMethod::PUT)
             .build();
 
-        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en&detect_language=en&detect_language=es&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key1%3Avalue1&extra=key2%3Avalue2&callback_method=put");
+        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en&detect_language=en&detect_language=es&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
     }
 
     #[test]
