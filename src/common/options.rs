@@ -161,7 +161,7 @@ pub enum Endpointing {
 /// Endpointing impl
 impl Endpointing {
     #[allow(missing_docs)]
-    pub fn to_string(&self) -> String {
+    pub fn to_str(&self) -> String {
         match self {
             Endpointing::Enabled(value) => value.to_string(),
             Endpointing::CustomValue(value) => value.to_string(),
