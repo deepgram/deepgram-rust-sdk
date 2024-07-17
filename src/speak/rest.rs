@@ -10,7 +10,12 @@ use url::Url;
 
 use crate::DeepgramError;
 
-use super::{options::{Options, SerializableOptions}, text_to_speech::Speak};
+use super::{
+    options::{
+        Options, SerializableOptions,
+    }, 
+    text_to_speech::Speak,
+};
 
 static DEEPGRAM_API_URL_SPEAK: &str = "v1/speak";
 

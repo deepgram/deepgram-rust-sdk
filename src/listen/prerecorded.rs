@@ -10,8 +10,8 @@ use url::Url;
 use crate::common::audio_source::AudioSource;
 use crate::send_and_translate_response;
 
-use crate::common::options::{Options, SerializableOptions};
 use crate::common::batch_response::{CallbackResponse, Response};
+use crate::common::options::{Options, SerializableOptions};
 
 use super::speech_to_text::Transcription;
 

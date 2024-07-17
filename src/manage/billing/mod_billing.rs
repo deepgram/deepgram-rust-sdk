@@ -4,7 +4,10 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#billing
 
-use crate::{manage::billing::response::{Balance, Balances}, send_and_translate_response, Deepgram};
+use crate::{
+    manage::billing::response::{Balance, Balances},
+    send_and_translate_response, Deepgram,
+};
 
 /// Get the outstanding balances for a Deepgram Project.
 ///

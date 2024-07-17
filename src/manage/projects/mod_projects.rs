@@ -6,9 +6,8 @@
 
 use crate::{send_and_translate_response, Deepgram};
 
-use crate::manage::projects::response::{self, Project};
 use crate::common::response::Message;
-
+use crate::manage::projects::response::{self, Project};
 use crate::manage::projects::options::{Options, SerializableOptions};
 
 /// Manage Deepgram Projects.

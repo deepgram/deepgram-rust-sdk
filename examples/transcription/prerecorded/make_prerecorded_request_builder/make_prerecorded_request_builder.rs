@@ -1,7 +1,12 @@
 use std::env;
 
 use deepgram::{
-    common::{audio_source::AudioSource, batch_response::Response, options::{Language, Options}}, Deepgram
+    common::{
+        audio_source::AudioSource,
+        batch_response::Response,
+        options::{Language, Options},
+    },
+    Deepgram,
 };
 
 static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";

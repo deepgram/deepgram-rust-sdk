@@ -4,7 +4,10 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#keys
 
-use crate::{manage::keys::response::{MemberAndApiKey, MembersAndApiKeys, NewApiKey}, send_and_translate_response, Deepgram};
+use crate::{
+    manage::keys::response::{MemberAndApiKey, MembersAndApiKeys, NewApiKey},
+    send_and_translate_response, Deepgram,
+};
 use crate::manage::keys::options::{Options, SerializableOptions};
 
 use crate::common::response::Message;

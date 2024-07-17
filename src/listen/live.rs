@@ -72,7 +72,7 @@ impl Serialize for Endpointing {
         S: serde::Serializer,
     {
         match self {
-            Endpointing::Enabled => serializer.serialize_str("enabled"),            
+            Endpointing::Enabled => serializer.serialize_str("enabled"),
             Endpointing::Disabled => serializer.serialize_str("disabled"),
             Endpointing::CustomDuration(d) => serializer.serialize_str(&format!("custom_duration:{}", d.as_millis())),
         }

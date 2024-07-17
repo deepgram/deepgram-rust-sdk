@@ -6,8 +6,8 @@
 
 use crate::{send_and_translate_response, Deepgram};
 
-use crate::manage::members::response;
 use crate::common::response::Message;
+use crate::manage::members::response;
 
 /// Manage the members of a Deepgram Project.
 ///
@@ -108,11 +108,7 @@ impl Members<'_> {
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn remove_member(
-        &self,
-        project_id: &str,
-        member_id: &str,
-    ) -> crate::Result<Message> {
+    pub async fn remove_member(&self, project_id: &str, member_id: &str) -> crate::Result<Message> {
         let url = format!(
             "https://api.deepgram.com/v1/projects/{}/members/{}",
             project_id, member_id,
