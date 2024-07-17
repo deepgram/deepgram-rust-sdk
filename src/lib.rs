@@ -8,7 +8,6 @@
 
 use std::io;
 
-use common::redacted_string::RedactedString;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     RequestBuilder,
@@ -19,6 +18,10 @@ use url::Url;
 
 #[cfg(feature = "listen")]
 pub mod common;
+
+#[cfg(feature = "listen")]
+use common::redacted_string::RedactedString;
+
 #[cfg(feature = "listen")]
 pub mod listen;
 #[cfg(feature = "manage")]
