@@ -8,9 +8,7 @@
 
 use std::io;
 
-#[allow(unused)]
 use common::redacted_string::RedactedString;
-
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     RequestBuilder,
@@ -21,10 +19,10 @@ use url::Url;
 
 #[cfg(feature = "listen")]
 pub mod common;
-#[cfg(feature = "manage")]
-pub mod manage;
 #[cfg(feature = "listen")]
 pub mod listen;
+#[cfg(feature = "manage")]
+pub mod manage;
 #[cfg(feature = "speak")]
 pub mod speak;
 
