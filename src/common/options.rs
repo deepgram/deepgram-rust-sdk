@@ -29,7 +29,7 @@ pub struct Options {
     tags: Vec<String>,
     detect_language: Option<bool>,
     query_params: Vec<(String, String)>,
-    encoding: Option<String>,
+    encoding: Option<Encoding>,
     smart_format: Option<bool>,
     filler_words: Option<bool>,
     paragraphs: Option<bool>,
@@ -46,6 +46,77 @@ pub struct Options {
     measurements: Option<bool>,
     extra: Option<String>,
     callback_method: Option<String>,
+}
+
+/// Encoding value
+///
+/// See the [Deepgram Encoding feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/encoding
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum Encoding {
+    /// 16-bit, little endian, signed PCM WAV data
+    Linear16,
+    /// Free Lossless Audio Codec (FLAC) encoded data
+    Flac,
+    /// Mu-law encoded WAV data
+    Mulaw,
+    /// Adaptive Multi-Rate (AMR) narrowband codec
+    AmrNb,
+    /// Adaptive Multi-Rate (AMR) wideband codec
+    AmrWb,
+    /// Ogg Opus
+    Opus,
+    /// Speex
+    Speex,
+    /// G729 low-bandwidth (required for both raw and containerized audio)
+    G729,
+}
+
+/// Encoding Impl
+impl Encoding {
+    pub(crate) fn as_str(&self) -> &str {
+        match self {
+            Encoding::Linear16 => "linear16",
+            Encoding::Flac => "flac",
+            Encoding::Mulaw => "mulaw",
+            Encoding::AmrNb => "amr-nb",
+            Encoding::AmrWb => "amr-wb",
+            Encoding::Opus => "opus",
+            Encoding::Speex => "speex",
+            Encoding::G729 => "g729",
+        }
+    }
+}
+
+/// Endpointing value
+///
+/// See the [Deepgram Endpointing feature docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/endpointing
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+pub enum Endpointing {
+    #[allow(missing_docs)]
+    True(bool),
+
+    #[allow(missing_docs)]
+    False(bool),
+
+    #[allow(missing_docs)]
+    CustomValue(u128),
+}
+
+/// Endpointing impl
+impl Endpointing {
+    #[allow(missing_docs)]
+    pub fn as_str(&self) -> String {
+        match self {
+            Endpointing::True(_value) => format!("true"),
+            Endpointing::False(_value) => format!("false"),
+            Endpointing::CustomValue(value) => format!("{}", value),
+        }
+    }
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
@@ -1379,14 +1450,14 @@ impl OptionsBuilder {
     /// # Examples
     ///
     /// ```
-    /// # use deepgram::common::options::Options;
+    /// # use deepgram::common::options::{Options, Encoding};
     /// #
     /// let options = Options::builder()
-    ///     .encoding("linear16")
+    ///     .encoding(Encoding::Linear16)
     ///     .build();
     /// ```
-    pub fn encoding(mut self, encoding: &str) -> Self {
-        self.0.encoding = Some(encoding.into());
+    pub fn encoding(mut self, encoding: Encoding) -> Self {
+        self.0.encoding = Some(encoding);
         self
     }
 
@@ -1941,7 +2012,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(encoding) = encoding {
-            seq.serialize_element(&("encoding", encoding))?;
+            seq.serialize_element(&("encoding", encoding.as_str()))?;
         }
 
         if let Some(smart_format) = smart_format {
@@ -2190,6 +2261,7 @@ mod serialize_options_tests {
 
     use super::CustomIntentMode;
     use super::CustomTopicMode;
+    use super::Encoding;
     use super::Keyword;
     use super::Language;
     use super::Model;
@@ -2261,7 +2333,7 @@ mod serialize_options_tests {
             }])
             .utterances_with_utt_split(0.9)
             .tag(["Tag 1"])
-            .encoding("linear16")
+            .encoding(Encoding::Linear16)
             .smart_format(true)
             .filler_words(true)
             .paragraphs(true)
@@ -2604,7 +2676,7 @@ mod serialize_options_tests {
     #[test]
     fn encoding() {
         check_serialization(
-            &Options::builder().encoding("linear16").build(),
+            &Options::builder().encoding(Encoding::Linear16).build(),
             "encoding=linear16",
         );
     }

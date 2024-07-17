@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures::stream::StreamExt;
 
 use deepgram::{
-    common::options::{Language, Options},
+    common::options::{Encoding, Endpointing, Language, Options},
     Deepgram, DeepgramError,
 };
 
@@ -24,10 +24,10 @@ async fn main() -> Result<(), DeepgramError> {
         .transcription()
         .stream_request_with_options(Some(&options))
         .keep_alive()
-        .encoding("linear16".to_string())
+        .encoding(Encoding::Linear16)
         .sample_rate(44100)
         .channels(2)
-        .endpointing("300".to_string())
+        .endpointing(Endpointing::CustomValue(300))
         .interim_results(true)
         .utterance_end_ms(1000)
         .vad_events(true)

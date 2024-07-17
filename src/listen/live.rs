@@ -31,7 +31,7 @@ use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
 
-use crate::common::options::{Options, SerializableOptions};
+use crate::common::options::{Encoding, Endpointing, Options, SerializableOptions};
 use crate::{Deepgram, DeepgramError, Result};
 
 use super::speech_to_text::Transcription;
@@ -46,10 +46,10 @@ where
     config: &'a Deepgram,
     options: Option<&'a Options>,
     source: Option<S>,
-    encoding: Option<String>,
+    encoding: Option<Encoding>,
     sample_rate: Option<u32>,
     channels: Option<u16>,
-    endpointing: Option<String>,
+    endpointing: Option<Endpointing>,
     utterance_end_ms: Option<u16>,
     interim_results: Option<bool>,
     no_delay: Option<bool>,
@@ -57,28 +57,6 @@ where
     stream_url: Url,
     keep_alive: Option<Arc<Mutex<Option<tokio::sync::mpsc::Sender<()>>>>>,
 }
-
-/*
-#[derive(Debug)]
-pub enum Endpointing {
-    Enabled,
-    Disabled,
-    CustomDuration(std::time::Duration),
-}
-
-impl Serialize for Endpointing {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<<S as response::_::_serde::Serializer>::Ok, <S as Serializer>::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Endpointing::Enabled => serializer.serialize_str("enabled"),
-            Endpointing::Disabled => serializer.serialize_str("disabled"),
-            Endpointing::CustomDuration(d) => serializer.serialize_str(&format!("custom_duration:{}", d.as_millis())),
-        }
-    }
-}
-*/
 
 #[pin_project]
 struct FileChunker {
@@ -183,7 +161,7 @@ where
         self
     }
 
-    pub fn encoding(mut self, encoding: String) -> Self {
+    pub fn encoding(mut self, encoding: Encoding) -> Self {
         self.encoding = Some(encoding);
 
         self
@@ -201,7 +179,7 @@ where
         self
     }
 
-    pub fn endpointing(mut self, endpointing: String) -> Self {
+    pub fn endpointing(mut self, endpointing: Endpointing) -> Self {
         self.endpointing = Some(endpointing);
 
         self
@@ -292,7 +270,7 @@ where
                 }
             }
             if let Some(encoding) = &self.encoding {
-                pairs.append_pair("encoding", encoding);
+                pairs.append_pair("encoding", encoding.as_str());
             }
             if let Some(sample_rate) = self.sample_rate {
                 pairs.append_pair("sample_rate", &sample_rate.to_string());
@@ -301,7 +279,7 @@ where
                 pairs.append_pair("channels", &channels.to_string());
             }
             if let Some(endpointing) = self.endpointing {
-                pairs.append_pair("endpointing", &endpointing.to_string());
+                pairs.append_pair("endpointing", &endpointing.as_str());
             }
             if let Some(utterance_end_ms) = self.utterance_end_ms {
                 pairs.append_pair("utterance_end_ms", &utterance_end_ms.to_string());

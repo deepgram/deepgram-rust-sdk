@@ -5,6 +5,7 @@ use bytes::{BufMut, Bytes, BytesMut};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::Sample;
 use crossbeam::channel::RecvError;
+use deepgram::common::options::Encoding;
 use futures::channel::mpsc::{self, Receiver as FuturesReceiver};
 use futures::stream::StreamExt;
 use futures::SinkExt;
@@ -97,7 +98,7 @@ async fn main() -> Result<(), DeepgramError> {
         .keep_alive()
         .stream(microphone_as_stream())
         // TODO Enum.
-        .encoding("linear16".to_string())
+        .encoding(Encoding::Linear16)
         // TODO Specific to my machine, not general enough example.
         .sample_rate(44100)
         // TODO Specific to my machine, not general enough example.

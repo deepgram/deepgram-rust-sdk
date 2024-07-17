@@ -3,7 +3,7 @@ use std::env;
 use deepgram::{
     common::{
         audio_source::AudioSource,
-        options::{CustomIntentMode, Language, Model, Options, Redact},
+        options::{CustomIntentMode, Encoding, Language, Model, Options, Redact},
     },
     Deepgram, DeepgramError,
 };
@@ -29,7 +29,7 @@ async fn main() -> Result<(), DeepgramError> {
         .diarize_version("2021-07-14.0")
         .filler_words(true)
         .smart_format(true)
-        .encoding("linear16")
+        .encoding(Encoding::Linear16)
         .language(Language::en_US)
         .detect_entities(true)
         .intents(true)
