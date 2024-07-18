@@ -4,13 +4,14 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#usage
 
-use crate::{
-    manage::usage::{
-        get_fields_options, get_usage_options, list_requests_options,
-        response::{Fields, Request, Requests, UsageSummary},
-    },
-    send_and_translate_response, Deepgram,
-};
+pub mod get_fields_options;
+pub mod get_usage_options;
+pub mod list_requests_options;
+pub mod response;
+
+use response::{Fields, Request, Requests, UsageSummary};
+
+use crate::{send_and_translate_response, Deepgram};
 
 /// Get the usage data of a Deepgram Project.
 ///

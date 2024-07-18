@@ -4,9 +4,11 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#invitations
 
+pub mod response;
+
 use crate::{send_and_translate_response, Deepgram};
 
-use super::response::Message;
+use response::Message;
 
 /// Manage the invitations to a Deepgram Project.
 ///

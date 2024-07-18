@@ -4,6 +4,9 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#keys
 
+pub mod options;
+pub mod response;
+
 use crate::{
     manage::keys::{
         options::{Options, SerializableOptions},
@@ -12,7 +15,7 @@ use crate::{
     send_and_translate_response, Deepgram,
 };
 
-use super::response::Message;
+use response::Message;
 
 /// Manage the keys for a Deepgram Project.
 ///

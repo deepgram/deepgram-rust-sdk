@@ -1,47 +1,45 @@
-//! Manage the permissions of a Deepgram Project.
+//! Manage the members of a Deepgram Project.
 //!
 //! See the [Deepgram API Reference][api] for more info.
 //!
-//! [api]: https://developers.deepgram.com/api-reference/#scopes
+//! [api]: https://developers.deepgram.com/api-reference/#members
 
-use serde::Serialize;
+pub mod response;
 
 use crate::{send_and_translate_response, Deepgram};
 
-use crate::manage::scopes::response;
+use response::Message;
 
-use super::response::Message;
-
-/// Manage the permissions of a Deepgram Project.
+/// Manage the members of a Deepgram Project.
 ///
-/// Constructed using [`Deepgram::scopes`].
+/// Constructed using [`Deepgram::members`].
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
-/// [api]: https://developers.deepgram.com/api-reference/#scopes
+/// [api]: https://developers.deepgram.com/api-reference/#members
 #[derive(Debug, Clone)]
-pub struct Scopes<'a>(&'a Deepgram);
+pub struct Members<'a>(&'a Deepgram);
 
 impl Deepgram {
-    /// Construct a new [`Scopes`] from a [`Deepgram`].
-    pub fn scopes(&self) -> Scopes<'_> {
+    /// Construct a new [`Members`] from a [`Deepgram`].
+    pub fn members(&self) -> Members<'_> {
         self.into()
     }
 }
 
-impl<'a> From<&'a Deepgram> for Scopes<'a> {
-    /// Construct a new [`Scopes`] from a [`Deepgram`].
+impl<'a> From<&'a Deepgram> for Members<'a> {
+    /// Construct a new [`Members`] from a [`Deepgram`].
     fn from(deepgram: &'a Deepgram) -> Self {
         Self(deepgram)
     }
 }
 
-impl Scopes<'_> {
-    /// Get the specified project scopes assigned to the specified member.
+impl Members<'_> {
+    /// Get all members of the specified project.
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
-    /// [api]: https://developers.deepgram.com/api-reference/#scopes-get
+    /// [api]: https://developers.deepgram.com/api-reference/#members-get-members
     ///
     /// # Examples
     ///
@@ -58,37 +56,30 @@ impl Scopes<'_> {
     /// # let project_id =
     /// #     env::var("DEEPGRAM_PROJECT_ID").expect("DEEPGRAM_PROJECT_ID environmental variable");
     /// #
-    /// # let member_id =
-    /// #     env::var("DEEPGRAM_MEMBER_ID").expect("DEEPGRAM_MEMBER_ID environmental variable");
-    /// #
     /// let dg_client = Deepgram::new(&deepgram_api_key);
     ///
-    /// let scopes = dg_client
-    ///     .scopes()
-    ///     .get_scope(&project_id, &member_id)
+    /// let members = dg_client
+    ///     .members()
+    ///     .list_members(&project_id)
     ///     .await?;
     /// #
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn get_scope(
-        &self,
-        project_id: &str,
-        member_id: &str,
-    ) -> crate::Result<response::Scopes> {
+    pub async fn list_members(&self, project_id: &str) -> crate::Result<response::Members> {
         let url = format!(
-            "https://api.deepgram.com/v1/projects/{}/members/{}/scopes ",
-            project_id, member_id
+            "https://api.deepgram.com/v1/projects/{}/members",
+            project_id,
         );
 
         send_and_translate_response(self.0.client.get(url)).await
     }
 
-    /// Update the specified project scopes assigned to the specified member.
+    /// Remove the specified member from the specified project.
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
-    /// [api]: https://developers.deepgram.com/api-reference/#scopes-update
+    /// [api]: https://developers.deepgram.com/api-reference/#members-delete
     ///
     /// # Examples
     ///
@@ -111,30 +102,19 @@ impl Scopes<'_> {
     /// let dg_client = Deepgram::new(&deepgram_api_key);
     ///
     /// dg_client
-    ///     .scopes()
-    ///     .update_scope(&project_id, &member_id, "member")
+    ///     .members()
+    ///     .remove_member(&project_id, &member_id)
     ///     .await?;
     /// #
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn update_scope(
-        &self,
-        project_id: &str,
-        member_id: &str,
-        scope: &str,
-    ) -> crate::Result<Message> {
-        #[derive(Serialize)]
-        struct Scope<'a> {
-            scope: &'a str,
-        }
-
+    pub async fn remove_member(&self, project_id: &str, member_id: &str) -> crate::Result<Message> {
         let url = format!(
-            "https://api.deepgram.com/v1/projects/{}/members/{}/scopes",
-            project_id, member_id
+            "https://api.deepgram.com/v1/projects/{}/members/{}",
+            project_id, member_id,
         );
-        let request = self.0.client.put(url).json(&Scope { scope });
 
-        send_and_translate_response(request).await
+        send_and_translate_response(self.0.client.delete(url)).await
     }
 }
