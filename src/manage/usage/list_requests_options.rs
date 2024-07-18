@@ -1,4 +1,4 @@
-//! Set options for [`Usage::list_requests`](super::mod_usage::Usage::list_requests).
+//! Set options for [`Usage::list_requests`](super::Usage::list_requests).
 //!
 //! See the [Deepgram API Reference][api] for more info.
 //!
@@ -6,7 +6,7 @@
 
 use serde::Serialize;
 
-/// Used as a parameter for [`Usage::list_requests`](super::mod_usage::Usage::list_requests).
+/// Used as a parameter for [`Usage::list_requests`](super::Usage::list_requests).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///

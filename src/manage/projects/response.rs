@@ -15,7 +15,7 @@ pub struct Message {
     pub message: String,
 }
 
-/// Returned by [`Projects::list`](super::mod_projects::Projects::list).
+/// Returned by [`Projects::list`](super::Projects::list).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -27,7 +27,7 @@ pub struct Projects {
     pub projects: Vec<Project>,
 }
 
-/// Returned by [`Projects::get`](super::mod_projects::Projects::get).
+/// Returned by [`Projects::get`](super::Projects::get).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///

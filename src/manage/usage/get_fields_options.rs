@@ -1,4 +1,4 @@
-//! Set options for [`Usage::get_fields`](super::mod_usage::Usage::get_fields).
+//! Set options for [`Usage::get_fields`](super::Usage::get_fields).
 //!
 //! See the [Deepgram API Reference][api] for more info.
 //!
@@ -6,7 +6,7 @@
 
 use serde::Serialize;
 
-/// Used as a parameter for [`Usage::get_fields`](super::mod_usage::Usage::get_fields).
+/// Used as a parameter for [`Usage::get_fields`](super::Usage::get_fields).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///

@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Returned by [`Usage::list_requests`](super::mod_usage::Usage::list_requests).
+/// Returned by [`Usage::list_requests`](super::Usage::list_requests).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -21,7 +21,7 @@ pub struct Requests {
     pub requests: Vec<Request>,
 }
 
-/// Returned by [`Usage::get_request`](super::mod_usage::Usage::get_request).
+/// Returned by [`Usage::get_request`](super::Usage::get_request).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -177,7 +177,7 @@ pub struct Callback {
     pub completed: Option<String>,
 }
 
-/// Returned by [`Usage::get_usage`](super::mod_usage::Usage::get_usage).
+/// Returned by [`Usage::get_usage`](super::Usage::get_usage).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -239,7 +239,7 @@ pub struct Result {
     pub requests: usize,
 }
 
-/// Returned by [`Usage::get_fields`](super::mod_usage::Usage::get_fields).
+/// Returned by [`Usage::get_fields`](super::Usage::get_fields).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///

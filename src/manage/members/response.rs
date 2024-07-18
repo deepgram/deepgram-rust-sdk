@@ -15,7 +15,7 @@ pub struct Message {
     pub message: String,
 }
 
-/// Returned by [`Members::list_members`](super::mod_members::Members::list_members).
+/// Returned by [`Members::list_members`](super::Members::list_members).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -27,7 +27,7 @@ pub struct Members {
     pub members: Vec<Member>,
 }
 
-/// Returned by [`Members::list_members`](super::mod_members::Members::list_members).
+/// Returned by [`Members::list_members`](super::Members::list_members).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///

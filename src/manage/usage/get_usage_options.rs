@@ -1,4 +1,4 @@
-//! Set options for [`Usage::get_usage`](super::mod_usage::Usage::get_usage).
+//! Set options for [`Usage::get_usage`](super::Usage::get_usage).
 //!
 //! See the [Deepgram API Reference][api] for more info.
 //!
@@ -6,7 +6,7 @@
 
 use serde::{ser::SerializeSeq, Serialize};
 
-/// Used as a parameter for [`Usage::get_usage`](super::mod_usage::Usage::get_usage).
+/// Used as a parameter for [`Usage::get_usage`](super::Usage::get_usage).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///

@@ -1,4 +1,4 @@
-//! Set options for [`Projects::update`](super::mod_projects::Projects::update).
+//! Set options for [`Projects::update`](super::Projects::update).
 //!
 //! See the [Deepgram API Reference][api] for more info.
 //!
@@ -6,7 +6,7 @@
 
 use serde::Serialize;
 
-/// Used as a parameter for [`Projects::update`](super::mod_projects::Projects::update).
+/// Used as a parameter for [`Projects::update`](super::Projects::update).
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
