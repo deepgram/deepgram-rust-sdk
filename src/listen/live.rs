@@ -329,13 +329,12 @@ where
                 tokio::spawn(async move {
                     let mut interval = time::interval(Duration::from_secs(10));
                     loop {
-                        println!("Keep Alive");
                         interval.tick().await;
                         let keep_alive_message = 
                             Message::Text("{\"type\": \"KeepAlive\"}".to_string());
                         let mut write = write_clone.lock().await;
                         if let Err(e) = write.send(keep_alive_message).await {
-                            println!("Error Sending Keep Alive: {:?}", e);
+                            eprintln!("Error Sending Keep Alive: {:?}", e);
                             break;
                         }
                     }
