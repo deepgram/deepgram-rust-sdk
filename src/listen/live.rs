@@ -330,7 +330,7 @@ where
                     let mut interval = time::interval(Duration::from_secs(10));
                     loop {
                         interval.tick().await;
-                        let keep_alive_message = 
+                        let keep_alive_message =
                             Message::Text("{\"type\": \"KeepAlive\"}".to_string());
                         let mut write = write_clone.lock().await;
                         if let Err(e) = write.send(keep_alive_message).await {
