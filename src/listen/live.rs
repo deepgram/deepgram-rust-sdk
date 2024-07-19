@@ -327,7 +327,7 @@ where
             {
                 let write_clone = Arc::clone(&write);
                 tokio::spawn(async move {
-                    let mut interval = time::interval(Duration::from_secs(1));
+                    let mut interval = time::interval(Duration::from_secs(10));
                     loop {
                         println!("Keep Alive");
                         interval.tick().await;
