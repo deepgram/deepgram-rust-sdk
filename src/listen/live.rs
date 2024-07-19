@@ -331,7 +331,8 @@ where
                     loop {
                         println!("Keep Alive");
                         interval.tick().await;
-                        let keep_alive_message = Message::Text("{\"type\": \"KeepAlive\"}".to_string());
+                        let keep_alive_message = 
+                            Message::Text("{\"type\": \"KeepAlive\"}".to_string());
                         let mut write = write_clone.lock().await;
                         if let Err(e) = write.send(keep_alive_message).await {
                             println!("Error Sending Keep Alive: {:?}", e);
