@@ -2132,8 +2132,7 @@ impl Serialize for SerializableOptions<'_> {
         }
 
         if let Some(extra) = extra {
-            #[allow(clippy::unused_enumerate_index)]
-            for (_i, (key, value)) in extra.iter().enumerate() {
+            for (key, value) in extra.iter() {
                 seq.serialize_element(&("extra", format!("{}:{}", key, value)))?;
             }
         }
