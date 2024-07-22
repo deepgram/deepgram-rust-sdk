@@ -27,7 +27,7 @@ async fn main() -> Result<(), DeepgramError> {
         .encoding(Encoding::Linear16)
         .sample_rate(44100)
         .channels(2)
-        // .endpointing(Endpointing::Enabled(true))
+        // .endpointing(Endpointing::Enabled())
         .endpointing(Endpointing::CustomValue(300))
         .interim_results(true)
         .utterance_end_ms(1000)

@@ -59,7 +59,10 @@ pub struct Options {
 #[non_exhaustive]
 pub enum DetectLanguage {
     #[allow(missing_docs)]
-    Enabled(bool),
+    Enabled,
+
+    #[allow(missing_docs)]
+    Disabled,
 
     #[allow(missing_docs)]
     Restricted(Vec<Language>),
@@ -69,7 +72,8 @@ pub enum DetectLanguage {
 impl DetectLanguage {
     pub(crate) fn to_key_value_pairs(&self) -> Vec<(&str, String)> {
         match self {
-            DetectLanguage::Enabled(value) => vec![("detect_language", value.to_string())],
+            DetectLanguage::Enabled => vec![("detect_language", "true".to_string())],
+            DetectLanguage::Disabled => vec![("detect_language", "false".to_string())],
             DetectLanguage::Restricted(languages) => languages
                 .iter()
                 .map(|lang| ("detect_language", lang.as_ref().to_string()))
@@ -155,10 +159,13 @@ impl Encoding {
 #[non_exhaustive]
 pub enum Endpointing {
     #[allow(missing_docs)]
-    Enabled(bool),
+    Enabled,
 
     #[allow(missing_docs)]
-    CustomValue(u128),
+    Disabled,
+
+    #[allow(missing_docs)]
+    CustomValue(u32),
 }
 
 /// Endpointing impl
@@ -166,7 +173,8 @@ impl Endpointing {
     #[allow(missing_docs)]
     pub fn to_str(&self) -> String {
         match self {
-            Endpointing::Enabled(value) => value.to_string(),
+            Endpointing::Enabled => "true".to_string(),
+            Endpointing::Disabled => "false".to_string(),
             Endpointing::CustomValue(value) => value.to_string(),
         }
     }
@@ -595,12 +603,13 @@ pub struct Keyword {
 #[non_exhaustive]
 pub enum Utterances {
     #[allow(missing_docs)]
-    Disabled,
-    #[allow(missing_docs)]
     Enabled {
         #[allow(missing_docs)]
         utt_split: Option<f64>,
     },
+
+    #[allow(missing_docs)]
+    Disabled,
 }
 
 /// Used as a parameter for [`OptionsBuilder::multichannel`].
@@ -612,12 +621,13 @@ pub enum Utterances {
 #[non_exhaustive]
 pub enum Multichannel {
     #[allow(missing_docs)]
-    Disabled,
-    #[allow(missing_docs)]
     Enabled {
         #[allow(missing_docs)]
         models: Option<Vec<Model>>,
     },
+
+    #[allow(missing_docs)]
+    Disabled,
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -1458,7 +1468,7 @@ impl OptionsBuilder {
     /// # use deepgram::common::options::{DetectLanguage, Options};
     /// #
     /// let options = Options::builder()
-    ///     .detect_language(DetectLanguage::Enabled(true))
+    ///     .detect_language(DetectLanguage::Enabled)
     ///     .build();
     /// ```
     pub fn detect_language(mut self, detect_language: DetectLanguage) -> Self {
@@ -2730,14 +2740,14 @@ mod serialize_options_tests {
     fn detect_language() {
         check_serialization(
             &Options::builder()
-                .detect_language(DetectLanguage::Enabled(false))
+                .detect_language(DetectLanguage::Disabled)
                 .build(),
             "detect_language=false",
         );
 
         check_serialization(
             &Options::builder()
-                .detect_language(DetectLanguage::Enabled(true))
+                .detect_language(DetectLanguage::Enabled)
                 .build(),
             "detect_language=true",
         );
