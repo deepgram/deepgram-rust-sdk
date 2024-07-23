@@ -4,13 +4,13 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#scopes
 
-pub mod response;
-
 use serde::Serialize;
 
 use crate::{send_and_translate_response, Deepgram};
 
 use response::Message;
+
+pub mod response;
 
 /// Manage the permissions of a Deepgram Project.
 ///

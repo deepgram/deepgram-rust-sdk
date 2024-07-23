@@ -4,11 +4,11 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#members
 
-pub mod response;
-
 use crate::{send_and_translate_response, Deepgram};
 
 use response::Message;
+
+pub mod response;
 
 /// Manage the members of a Deepgram Project.
 ///
