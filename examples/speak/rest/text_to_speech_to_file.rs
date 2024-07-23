@@ -1,6 +1,9 @@
 use std::{env, path::Path, time::Instant};
 
-use deepgram::{speak::options::{Container, Encoding, Model, Options}, Deepgram, DeepgramError};
+use deepgram::{
+    speak::options::{Container, Encoding, Model, Options},
+    Deepgram, DeepgramError,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
