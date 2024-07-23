@@ -24,7 +24,6 @@ async fn main() -> Result<(), DeepgramError> {
         .punctuate(true)
         .paragraphs(true)
         .redact([Redact::Pci, Redact::Other(String::from("cvv"))])
-        // .detect_language(DetectLanguage::Enabled())
         .detect_language(DetectLanguage::Restricted(vec![Language::en, Language::es]))
         .diarize(true)
         .diarize_version("2021-07-14.0")

@@ -97,7 +97,6 @@ async fn main() -> Result<(), DeepgramError> {
         .stream_request()
         .keep_alive()
         .stream(microphone_as_stream())
-        // TODO Enum.
         .encoding(Encoding::Linear16)
         // TODO Specific to my machine, not general enough example.
         .sample_rate(44100)
