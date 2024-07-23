@@ -625,13 +625,17 @@ pub enum Utterances {
 #[non_exhaustive]
 pub enum Multichannel {
     #[allow(missing_docs)]
-    Enabled {
-        #[allow(missing_docs)]
-        models: Option<Vec<Model>>,
-    },
+    Enabled,
 
     #[allow(missing_docs)]
     Disabled,
+
+
+    #[allow(missing_docs)]
+    ModelPerChannel {
+        #[allow(missing_docs)]
+        models: Option<Vec<Model>>,
+    },
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -721,25 +725,10 @@ impl OptionsBuilder {
     ///     .build();
     /// ```
     ///
-    /// ```
-    /// # use deepgram::common::options::{Model, Options};
-    /// #
-    /// let options1 = Options::builder()
-    ///     .multichannel_with_models([Model::Nova2Meeting, Model::Nova2Phonecall])
-    ///     .model(Model::Nova2)
-    ///     .build();
-    ///
-    /// let options2 = Options::builder()
-    ///     .multichannel(true)
-    ///     .model(Model::Nova2)
-    ///     .build();
-    ///
-    /// assert_eq!(options1, options2);
-    /// ```
     pub fn model(mut self, model: Model) -> Self {
         self.0.model = Some(model);
 
-        if let Some(Multichannel::Enabled { models }) = &mut self.0.multichannel {
+        if let Some(Multichannel::ModelPerChannel { models }) = &mut self.0.multichannel {
             *models = None;
         }
 
@@ -967,7 +956,7 @@ impl OptionsBuilder {
     /// ```
     pub fn multichannel(mut self, multichannel: bool) -> Self {
         self.0.multichannel = Some(if multichannel {
-            Multichannel::Enabled { models: None }
+            Multichannel::Enabled
         } else {
             Multichannel::Disabled
         });
@@ -1077,7 +1066,7 @@ impl OptionsBuilder {
     /// assert_eq!(options1, options2);
     /// ```
     pub fn multichannel_with_models(mut self, models: impl IntoIterator<Item = Model>) -> Self {
-        if let Some(Multichannel::Enabled {
+        if let Some(Multichannel::ModelPerChannel {
             models: Some(old_models),
         }) = &mut self.0.multichannel
         {
@@ -1086,7 +1075,7 @@ impl OptionsBuilder {
             old_models.extend(models);
         } else {
             // Multichannel with models already enabled
-            self.0.multichannel = Some(Multichannel::Enabled {
+            self.0.multichannel = Some(Multichannel::ModelPerChannel {
                 models: Some(models.into_iter().collect()),
             });
         }
@@ -1965,7 +1954,7 @@ impl Serialize for SerializableOptions<'_> {
         match multichannel {
             // Multichannels with models is enabled
             // Ignore self.model field
-            Some(Multichannel::Enabled {
+            Some(Multichannel::ModelPerChannel {
                 models: Some(models),
             }) => {
                 seq.serialize_element(&("model", models_to_string(models)))?;
@@ -1973,7 +1962,7 @@ impl Serialize for SerializableOptions<'_> {
 
             // Multichannel with models is not enabled
             // Use self.model field
-            Some(Multichannel::Enabled { models: None } | Multichannel::Disabled) | None => {
+            Some(Multichannel::ModelPerChannel { models: None } | Multichannel::Enabled | Multichannel::Disabled) | None => {
                 if let Some(model) = model {
                     seq.serialize_element(&("model", model.as_ref()))?;
                 }
@@ -2020,7 +2009,8 @@ impl Serialize for SerializableOptions<'_> {
 
         match multichannel {
             Some(Multichannel::Disabled) => seq.serialize_element(&("multichannel", false))?,
-            Some(Multichannel::Enabled { models: _ }) => {
+            Some(Multichannel::Enabled) => seq.serialize_element(&("multichannel", true))?,
+            Some(Multichannel::ModelPerChannel { models: _ }) => {
                 // Multichannel models are serialized above if they exist
                 // This is done instead of serializing the self.model field
                 seq.serialize_element(&("multichannel", true))?;
