@@ -55,6 +55,26 @@ impl Options {
     ) -> OptionsBuilder {
         OptionsBuilder::new(comment, scopes)
     }
+
+    /// Return the Options in json format. If serialization would
+    /// fail, this will also return an error.
+    ///
+    /// This is intended primarily to help with debugging API requests.
+    ///
+    /// ```
+    /// use deepgram::manage::keys::options::Options;
+    /// let options = Options::builder("API Key", ["member"])
+    ///     .tags(["my-tag", "another-tag"])
+    ///     .build();
+    /// assert_eq!(
+    ///     &options.json().unwrap(),
+    ///     r#"{"comment":"API Key","tags":["my-tag","another-tag"],"scopes":["member"]}"#)
+    /// ```
+    ///
+    pub fn json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(&SerializableOptions::from(self))
+    }
+
 }
 
 impl OptionsBuilder {
@@ -101,7 +121,7 @@ impl OptionsBuilder {
     /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options = Options::builder("New Key", ["member"])
-    ///     .tag(["Tag 1", "Tag 2"])
+    ///     .tags(["Tag 1", "Tag 2"])
     ///     .build();
     /// ```
     ///
@@ -109,17 +129,17 @@ impl OptionsBuilder {
     /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options1 = Options::builder("New Key", ["member"])
-    ///     .tag(["Tag 1"])
-    ///     .tag(["Tag 2"])
+    ///     .tags(["Tag 1"])
+    ///     .tags(vec!["Tag 2"])
     ///     .build();
     ///
     /// let options2 = Options::builder("New Key", ["member"])
-    ///     .tag(["Tag 1", "Tag 2"])
+    ///     .tags(["Tag 1", "Tag 2"])
     ///     .build();
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn tag<'a>(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
+    pub fn tags<'a>(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
         self.0.tags.extend(tags.into_iter().map(String::from));
         self
     }
