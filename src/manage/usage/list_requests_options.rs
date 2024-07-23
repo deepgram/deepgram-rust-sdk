@@ -56,6 +56,25 @@ impl Options {
     pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
+
+    /// Return the Options in urlencoded format. If serialization would
+    /// fail, this will also return an error.
+    ///
+    /// This is intended primarily to help with debugging API requests.
+    ///
+    /// ```
+    /// use deepgram::manage::usage::list_requests_options::Options;
+    /// let options = Options::builder()
+    ///     .start("2024-04-10T00:00:00Z")
+    ///     .end("2024-10-10")
+    ///     .limit(100)
+    ///     .build();
+    /// assert_eq!(&options.urlencoded().unwrap(), "start=2024-04-10T00%3A00%3A00Z&end=2024-10-10&limit=100")
+    /// ```
+    ///
+    pub fn urlencoded(&self) -> Result<String, serde_urlencoded::ser::Error> {
+        serde_urlencoded::to_string(SerializableOptions::from(self))
+    }
 }
 
 impl OptionsBuilder {
