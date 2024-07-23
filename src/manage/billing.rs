@@ -4,12 +4,12 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#billing
 
-pub mod response;
-
 use crate::{
     manage::billing::response::{Balance, Balances},
     send_and_translate_response, Deepgram,
 };
+
+pub mod response;
 
 /// Get the outstanding balances for a Deepgram Project.
 ///
