@@ -20,8 +20,6 @@ pub struct Options {
 ///
 /// Use it to set any of Deepgram's features except the Callback feature.
 /// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::Speak::speak_to_file).
-///
-/// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
 pub struct OptionsBuilder(Options);
 

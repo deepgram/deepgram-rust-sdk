@@ -18,8 +18,6 @@ pub struct Options {
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
-///
-/// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
 pub struct OptionsBuilder(Options);
 

@@ -640,8 +640,6 @@ pub enum Multichannel {
 ///
 /// Use it to set of Deepgram's features, excluding the Callback feature.
 /// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::Transcription::prerecorded_callback).
-///
-/// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
 pub struct OptionsBuilder(Options);
 
