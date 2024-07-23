@@ -55,7 +55,7 @@ impl AudioSource {
         })
     }
 
-    /// Fill body
+    #[allow(missing_docs)]
     pub fn fill_body(self, request_builder: RequestBuilder) -> RequestBuilder {
         match self.0 {
             InternalAudioSource::Url(url) => {
