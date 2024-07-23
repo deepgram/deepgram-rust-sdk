@@ -29,6 +29,60 @@ pub mod speak;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 
+
+/// Transcribe audio using Deepgram's automated speech recognition.
+///
+/// Constructed using [`Deepgram::transcription`].
+///
+/// See the [Deepgram API Reference][api] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#transcription
+#[derive(Debug, Clone)]
+pub struct Transcription<'a>(#[allow(unused)] pub &'a Deepgram);
+
+/// Generate speech from text using Deepgram's text to speech api.
+///
+/// Constructed using [`Deepgram::text_to_speech`].
+///
+/// See the [Deepgram API Reference][api] for more info.
+///
+/// [api]: https://developers.deepgram.com/reference/text-to-speech-api
+#[derive(Debug, Clone)]
+pub struct Speak<'a>(#[allow(unused)] pub &'a Deepgram);
+
+impl Deepgram {
+    /// Construct a new [`Transcription`] from a [`Deepgram`].
+    pub fn transcription(&self) -> Transcription<'_> {
+        self.into()
+    }
+
+    /// Construct a new [`Speak`] from a [`Deepgram`].
+    pub fn text_to_speech(&self) -> Speak<'_> {
+        self.into()
+    }
+}
+
+impl<'a> From<&'a Deepgram> for Transcription<'a> {
+    /// Construct a new [`Transcription`] from a [`Deepgram`].
+    fn from(deepgram: &'a Deepgram) -> Self {
+        Self(deepgram)
+    }
+}
+
+impl<'a> From<&'a Deepgram> for Speak<'a> {
+    /// Construct a new [`Speak`] from a [`Deepgram`].
+    fn from(deepgram: &'a Deepgram) -> Self {
+        Self(deepgram)
+    }
+}
+
+impl<'a> Transcription<'a> {
+    /// Expose a method to access the inner `Deepgram` reference if needed.
+    pub fn deepgram(&self) -> &Deepgram {
+        self.0
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct RedactedString(pub String);
 

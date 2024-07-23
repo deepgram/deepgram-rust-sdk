@@ -8,12 +8,9 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use url::Url;
 
-use crate::DeepgramError;
+use crate::{DeepgramError, Speak};
 
-use super::{
-    options::{Options, SerializableOptions},
-    text_to_speech::Speak,
-};
+use super::options::{Options, SerializableOptions};
 
 static DEEPGRAM_API_URL_SPEAK: &str = "v1/speak";
 

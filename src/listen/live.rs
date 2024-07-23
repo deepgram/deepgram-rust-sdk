@@ -32,9 +32,7 @@ use tungstenite::handshake::client;
 use url::Url;
 
 use crate::common::options::{Encoding, Endpointing, Options, SerializableOptions};
-use crate::{Deepgram, DeepgramError, Result};
-
-use super::speech_to_text::Transcription;
+use crate::{Deepgram, DeepgramError, Result, Transcription};
 
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
 
