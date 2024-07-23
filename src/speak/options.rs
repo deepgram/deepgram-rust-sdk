@@ -6,7 +6,6 @@
 
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
-
 /// Used as a parameter for [`OptionsBuilder::model`].
 ///
 /// See the [Deepgram Model feature docs][docs] for more info.
