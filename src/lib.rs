@@ -29,7 +29,6 @@ pub mod speak;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 
-
 /// Transcribe audio using Deepgram's automated speech recognition.
 ///
 /// Constructed using [`Deepgram::transcription`].
