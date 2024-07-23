@@ -39,6 +39,8 @@ let mut results = dg
     .await?;
 ```
 
+Some Enums have changed and may need to be updated
+
 ### Changed
 
 - Add streaming features
