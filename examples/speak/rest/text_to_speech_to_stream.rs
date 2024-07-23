@@ -1,6 +1,7 @@
 use audio::channel::LinearChannel;
 use audio::Buf;
 use bytes::BytesMut;
+use deepgram::speak::options::{Container, Encoding, Model};
 use deepgram::{speak::options::Options, Deepgram, DeepgramError};
 use futures::stream::StreamExt;
 use rodio::buffer::SamplesBuffer;
@@ -95,10 +96,10 @@ async fn main() -> Result<(), DeepgramError> {
     let channels = 1;
 
     let options = Options::builder()
-        .model("aura-asteria-en")
-        .encoding("linear16")
+        .model(Model::AuraAsteriaEN)
+        .encoding(Encoding::Linear16)
         .sample_rate(sample_rate)
-        .container("none")
+        .container(Container::Wav)
         .build();
 
     let text = "Hello, how can I help you today? This is a longer sentence to increase the time taken to process the audio, so that the streaming shows the full delta vs downloading the whole file.";

@@ -1,6 +1,6 @@
 use std::{env, path::Path, time::Instant};
 
-use deepgram::{speak::options::Options, Deepgram, DeepgramError};
+use deepgram::{speak::options::{Container, Encoding, Model, Options}, Deepgram, DeepgramError};
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
@@ -10,10 +10,10 @@ async fn main() -> Result<(), DeepgramError> {
     let dg_client = Deepgram::new(&deepgram_api_key);
 
     let options = Options::builder()
-        .model("aura-asteria-en")
-        .encoding("linear16")
+        .model(Model::AuraAsteriaEN)
+        .encoding(Encoding::Linear16)
         .sample_rate(16000)
-        .container("wav")
+        .container(Container::Wav)
         .build();
 
     let text = "Hello, how can I help you today? This is a longer sentence to increase the time taken to process the audio, so that the streaming shows the full delta vs downloading the whole file.";

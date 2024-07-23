@@ -112,7 +112,7 @@ impl CallbackMethod {
 /// See the [Deepgram Encoding feature docs][docs] for more info.
 ///
 /// [docs]: https://developers.deepgram.com/docs/encoding
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum Encoding {
@@ -132,6 +132,9 @@ pub enum Encoding {
     Speex,
     /// G729 low-bandwidth (required for both raw and containerized audio)
     G729,
+
+    #[allow(missing_docs)]
+    CustomEncoding(String),
 }
 
 /// Encoding Impl
@@ -146,6 +149,7 @@ impl Encoding {
             Encoding::Opus => "opus",
             Encoding::Speex => "speex",
             Encoding::G729 => "g729",
+            Encoding::CustomEncoding(encoding) => encoding,
         }
     }
 }
