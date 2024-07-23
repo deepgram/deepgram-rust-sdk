@@ -629,7 +629,6 @@ pub enum Multichannel {
     #[allow(missing_docs)]
     Disabled,
 
-
     #[allow(missing_docs)]
     ModelPerChannel {
         #[allow(missing_docs)]
@@ -1961,7 +1960,11 @@ impl Serialize for SerializableOptions<'_> {
 
             // Multichannel with models is not enabled
             // Use self.model field
-            Some(Multichannel::ModelPerChannel { models: None } | Multichannel::Enabled | Multichannel::Disabled) | None => {
+            Some(
+                Multichannel::ModelPerChannel { models: None }
+                | Multichannel::Enabled
+                | Multichannel::Disabled)
+                | None => {
                 if let Some(model) = model {
                     seq.serialize_element(&("model", model.as_ref()))?;
                 }
