@@ -1,4 +1,4 @@
 //! Listen module
 
-pub mod websocket;
 pub mod rest;
+pub mod websocket;
