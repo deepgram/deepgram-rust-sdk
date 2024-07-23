@@ -44,11 +44,7 @@ let mut results = dg
 - Add streaming features
 - Add support for pre-recorded features when streaming
 - Add Speech to Text
-- Refactor Code
-
-Note that this modifies some public enum's which are used internally but might need to be taken into account
-- Bumped the minor version but it might need a major bump?
-- Maybe a 1.0.0 release?
+- Reorganize Code
 
 ### Streaming Features
 - endpointing
@@ -88,7 +84,7 @@ Note that this modifies some public enum's which are used internally but might n
 - custom_topics
 - custom_topic_mode
 
-## [Unreleased]
+## [0.5.0]
 - Deprecate tiers and add explicit support for all currently available models.
 - Expand language enum to include all currently-supported languages.
 - Add (default on) feature flags for live and prerecorded transcription.
