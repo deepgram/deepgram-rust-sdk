@@ -603,13 +603,17 @@ pub struct Keyword {
 #[non_exhaustive]
 pub enum Utterances {
     #[allow(missing_docs)]
-    Enabled {
-        #[allow(missing_docs)]
-        utt_split: Option<f64>,
-    },
+    Enabled,
 
     #[allow(missing_docs)]
     Disabled,
+
+
+    #[allow(missing_docs)]
+    CustomSplit {
+        #[allow(missing_docs)]
+        utt_split: Option<f64>,
+    },
 }
 
 /// Used as a parameter for [`OptionsBuilder::multichannel`].
@@ -1385,7 +1389,7 @@ impl OptionsBuilder {
     /// ```
     pub fn utterances(mut self, utterances: bool) -> Self {
         self.0.utterances = Some(if utterances {
-            Utterances::Enabled { utt_split: None }
+            Utterances::Enabled
         } else {
             Utterances::Disabled
         });
@@ -1413,7 +1417,7 @@ impl OptionsBuilder {
     ///     .build();
     /// ```
     pub fn utterances_with_utt_split(mut self, utt_split: f64) -> Self {
-        self.0.utterances = Some(Utterances::Enabled {
+        self.0.utterances = Some(Utterances::CustomSplit {
             utt_split: Some(utt_split),
         });
         self
@@ -2061,7 +2065,8 @@ impl Serialize for SerializableOptions<'_> {
 
         match utterances {
             Some(Utterances::Disabled) => seq.serialize_element(&("utterances", false))?,
-            Some(Utterances::Enabled { utt_split }) => {
+            Some(Utterances::Enabled) => seq.serialize_element(&("utterances", true))?,
+            Some(Utterances::CustomSplit { utt_split }) => {
                 seq.serialize_element(&("utterances", true))?;
 
                 if let Some(utt_split) = utt_split {
