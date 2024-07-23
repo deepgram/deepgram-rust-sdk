@@ -165,7 +165,7 @@ pub enum Endpointing {
     Disabled,
 
     #[allow(missing_docs)]
-    CustomValue(u32),
+    CustomDurationMs(u32),
 }
 
 /// Endpointing impl
@@ -175,7 +175,7 @@ impl Endpointing {
         match self {
             Endpointing::Enabled => "true".to_string(),
             Endpointing::Disabled => "false".to_string(),
-            Endpointing::CustomValue(value) => value.to_string(),
+            Endpointing::CustomDurationMs(value) => value.to_string(),
         }
     }
 }

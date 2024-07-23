@@ -28,7 +28,7 @@ async fn main() -> Result<(), DeepgramError> {
         .sample_rate(44100)
         .channels(2)
         // .endpointing(Endpointing::Enabled())
-        .endpointing(Endpointing::CustomValue(300))
+        .endpointing(Endpointing::CustomDurationMs(300))
         .interim_results(true)
         .utterance_end_ms(1000)
         .vad_events(true)
