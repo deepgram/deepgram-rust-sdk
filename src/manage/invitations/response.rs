@@ -1,4 +1,4 @@
-//! Reponse module
+//! Deepgram invitations API response types.
 
 use serde::{Deserialize, Serialize};
 
