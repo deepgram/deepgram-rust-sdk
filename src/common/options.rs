@@ -1963,8 +1963,9 @@ impl Serialize for SerializableOptions<'_> {
             Some(
                 Multichannel::ModelPerChannel { models: None }
                 | Multichannel::Enabled
-                | Multichannel::Disabled)
-                | None => {
+                | Multichannel::Disabled
+            )
+            | None => {
                 if let Some(model) = model {
                     seq.serialize_element(&("model", model.as_ref()))?;
                 }
