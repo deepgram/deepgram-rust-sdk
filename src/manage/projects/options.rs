@@ -37,6 +37,26 @@ impl Options {
     pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
+
+    /// Return the Options in json format. If serialization would
+    /// fail, this will also return an error.
+    ///
+    /// This is intended primarily to help with debugging API requests.
+    ///
+    /// ```
+    /// use deepgram::manage::projects::options::Options;
+    /// let options = Options::builder()
+    ///     .company("Deepgram")
+    ///     .name("DG Project")
+    ///     .build();
+    /// assert_eq!(
+    ///     &options.json().unwrap(),
+    ///     r#"{"name":"DG Project","company":"Deepgram"}"#)
+    /// ```
+    ///
+    pub fn json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(&SerializableOptions::from(self))
+    }
 }
 
 impl OptionsBuilder {
