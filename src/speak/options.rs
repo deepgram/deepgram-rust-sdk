@@ -6,7 +6,7 @@
 
 use serde::{ser::SerializeSeq, Serialize};
 
-/// Used as a parameter for [`Speak::speak_to_file`](crate::speak::Speak::speak_to_file) and similar functions.
+/// Used as a parameter for [`Speak::speak_to_file`](crate::Speak::speak_to_file) and similar functions.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options {
     model: Option<String>,
@@ -19,7 +19,7 @@ pub struct Options {
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// Use it to set any of Deepgram's features except the Callback feature.
-/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::speak::Speak::speak_to_file).
+/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::Speak::speak_to_file).
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
