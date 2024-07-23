@@ -13,7 +13,7 @@ pub struct Options {
     encoding: Option<String>,
     sample_rate: Option<u32>,
     container: Option<String>,
-    bit_rate: Option<i32>,
+    bit_rate: Option<u32>,
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -92,7 +92,7 @@ impl OptionsBuilder {
     /// See the [Deepgram Bit Rate feature docs][docs] for more info.
     ///
     /// [docs]: https://developers.deepgram.com/docs/tts-bit-rate
-    pub fn bit_rate(mut self, bit_rate: i32) -> Self {
+    pub fn bit_rate(mut self, bit_rate: u32) -> Self {
         self.0.bit_rate = Some(bit_rate);
         self
     }
