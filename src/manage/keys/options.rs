@@ -64,7 +64,7 @@ impl Options {
     /// ```
     /// use deepgram::manage::keys::options::Options;
     /// let options = Options::builder("API Key", ["member"])
-    ///     .tags(["my-tag", "another-tag"])
+    ///     .tag(["my-tag", "another-tag"])
     ///     .build();
     /// assert_eq!(
     ///     &options.json().unwrap(),
@@ -120,7 +120,7 @@ impl OptionsBuilder {
     /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options = Options::builder("New Key", ["member"])
-    ///     .tags(["Tag 1", "Tag 2"])
+    ///     .tag(["Tag 1", "Tag 2"])
     ///     .build();
     /// ```
     ///
@@ -128,17 +128,17 @@ impl OptionsBuilder {
     /// # use deepgram::manage::keys::options::Options;
     /// #
     /// let options1 = Options::builder("New Key", ["member"])
-    ///     .tags(["Tag 1"])
-    ///     .tags(vec!["Tag 2"])
+    ///     .tag(["Tag 1"])
+    ///     .tag(vec!["Tag 2"])
     ///     .build();
     ///
     /// let options2 = Options::builder("New Key", ["member"])
-    ///     .tags(["Tag 1", "Tag 2"])
+    ///     .tag(["Tag 1", "Tag 2"])
     ///     .build();
     ///
     /// assert_eq!(options1, options2);
     /// ```
-    pub fn tags<'a>(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
+    pub fn tag<'a>(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
         self.0.tags.extend(tags.into_iter().map(String::from));
         self
     }
