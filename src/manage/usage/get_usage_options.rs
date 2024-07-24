@@ -79,7 +79,6 @@ impl Options {
     pub fn urlencoded(&self) -> Result<String, serde_urlencoded::ser::Error> {
         serde_urlencoded::to_string(SerializableOptions::from(self))
     }
-
 }
 
 impl OptionsBuilder {
