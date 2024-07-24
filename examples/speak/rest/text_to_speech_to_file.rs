@@ -13,7 +13,7 @@ async fn main() -> Result<(), DeepgramError> {
     let dg_client = Deepgram::new(&deepgram_api_key);
 
     let options = Options::builder()
-        .model(Model::AuraAsteriaEN)
+        .model(Model::AuraAsteriaEn)
         .encoding(Encoding::Linear16)
         .sample_rate(16000)
         .container(Container::Wav)
