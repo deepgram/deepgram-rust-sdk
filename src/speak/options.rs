@@ -15,40 +15,40 @@ use serde::{ser::SerializeSeq, Deserialize, Serialize};
 #[non_exhaustive]
 pub enum Model {
     #[allow(missing_docs)]
-    AuraAsteriaEN,
+    AuraAsteriaEn,
 
     #[allow(missing_docs)]
-    AuraLunaEN,
+    AuraLunaEn,
 
     #[allow(missing_docs)]
-    AuraStellaEN,
+    AuraStellaEn,
 
     #[allow(missing_docs)]
-    AuraAthenaEN,
+    AuraAthenaEn,
 
     #[allow(missing_docs)]
-    AuraHeraEN,
+    AuraHeraEn,
 
     #[allow(missing_docs)]
-    AuraOrionEN,
+    AuraOrionEn,
 
     #[allow(missing_docs)]
-    AuraArcasEN,
+    AuraArcasEn,
 
     #[allow(missing_docs)]
-    AuraPerseusEN,
+    AuraPerseusEn,
 
     #[allow(missing_docs)]
-    AuraAngusEN,
+    AuraAngusEn,
 
     #[allow(missing_docs)]
-    AuraOrpheusEN,
+    AuraOrpheusEn,
 
     #[allow(missing_docs)]
-    AuraHeliosEN,
+    AuraHeliosEn,
 
     #[allow(missing_docs)]
-    AuraZeusEN,
+    AuraZeusEn,
 
     #[allow(missing_docs)]
     CustomId(String),
@@ -57,18 +57,18 @@ pub enum Model {
 impl AsRef<str> for Model {
     fn as_ref(&self) -> &str {
         match self {
-            Self::AuraAsteriaEN => "aura-asteria-en",
-            Self::AuraLunaEN => "aura-luna-en",
-            Self::AuraStellaEN => "aura-stella-en",
-            Self::AuraAthenaEN => "aura-athena-en",
-            Self::AuraHeraEN => "aura-hera-en",
-            Self::AuraOrionEN => "aura-orion-en",
-            Self::AuraArcasEN => "aura-arcas-en",
-            Self::AuraPerseusEN => "aura-perseus-en",
-            Self::AuraAngusEN => "aura-angus-en",
-            Self::AuraOrpheusEN => "aura-orpheus-en",
-            Self::AuraHeliosEN => "aura-helios-en",
-            Self::AuraZeusEN => "aura-zeus-en",
+            Self::AuraAsteriaEn => "aura-asteria-en",
+            Self::AuraLunaEn => "aura-luna-en",
+            Self::AuraStellaEn => "aura-stella-en",
+            Self::AuraAthenaEn => "aura-athena-en",
+            Self::AuraHeraEn => "aura-hera-en",
+            Self::AuraOrionEn => "aura-orion-en",
+            Self::AuraArcasEn => "aura-arcas-en",
+            Self::AuraPerseusEn => "aura-perseus-en",
+            Self::AuraAngusEn => "aura-angus-en",
+            Self::AuraOrpheusEn => "aura-orpheus-en",
+            Self::AuraHeliosEn => "aura-helios-en",
+            Self::AuraZeusEn => "aura-zeus-en",
             Self::CustomId(id) => id,
         }
     }
