@@ -4,11 +4,12 @@
 
 //! Official Rust SDK for Deepgram's automated speech recognition APIs.
 //!
-//! Get started transcribing with a [`Transcription`](transcription::Transcription) object.
+//! Get started transcribing with a [`Transcription`] object.
 
+use core::fmt;
 use std::io;
+use std::ops::Deref;
 
-use redacted::RedactedString;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     RequestBuilder,
@@ -17,34 +18,104 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 use url::Url;
 
-pub mod billing;
-pub mod invitations;
-pub mod keys;
-pub mod members;
-pub mod projects;
-mod redacted;
-mod response;
-pub mod scopes;
-pub mod transcription;
-pub mod usage;
+#[cfg(feature = "listen")]
+pub mod common;
+#[cfg(feature = "listen")]
+pub mod listen;
+#[cfg(feature = "manage")]
+pub mod manage;
+#[cfg(feature = "speak")]
+pub mod speak;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
+
+/// Transcribe audio using Deepgram's automated speech recognition.
+///
+/// Constructed using [`Deepgram::transcription`].
+///
+/// See the [Deepgram API Reference][api] for more info.
+///
+/// [api]: https://developers.deepgram.com/api-reference/#transcription
+#[derive(Debug, Clone)]
+pub struct Transcription<'a>(#[allow(unused)] pub &'a Deepgram);
+
+/// Generate speech from text using Deepgram's text to speech api.
+///
+/// Constructed using [`Deepgram::text_to_speech`].
+///
+/// See the [Deepgram API Reference][api] for more info.
+///
+/// [api]: https://developers.deepgram.com/reference/text-to-speech-api
+#[derive(Debug, Clone)]
+pub struct Speak<'a>(#[allow(unused)] pub &'a Deepgram);
+
+impl Deepgram {
+    /// Construct a new [`Transcription`] from a [`Deepgram`].
+    pub fn transcription(&self) -> Transcription<'_> {
+        self.into()
+    }
+
+    /// Construct a new [`Speak`] from a [`Deepgram`].
+    pub fn text_to_speech(&self) -> Speak<'_> {
+        self.into()
+    }
+}
+
+impl<'a> From<&'a Deepgram> for Transcription<'a> {
+    /// Construct a new [`Transcription`] from a [`Deepgram`].
+    fn from(deepgram: &'a Deepgram) -> Self {
+        Self(deepgram)
+    }
+}
+
+impl<'a> From<&'a Deepgram> for Speak<'a> {
+    /// Construct a new [`Speak`] from a [`Deepgram`].
+    fn from(deepgram: &'a Deepgram) -> Self {
+        Self(deepgram)
+    }
+}
+
+impl<'a> Transcription<'a> {
+    /// Expose a method to access the inner `Deepgram` reference if needed.
+    pub fn deepgram(&self) -> &Deepgram {
+        self.0
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RedactedString(pub String);
+
+impl fmt::Debug for RedactedString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("***")
+    }
+}
+
+impl Deref for RedactedString {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// A client for the Deepgram API.
 ///
 /// Make transcriptions requests using [`Deepgram::transcription`].
 #[derive(Debug, Clone)]
 pub struct Deepgram {
-    #[cfg_attr(not(feature = "live"), allow(unused))]
+    #[cfg_attr(not(feature = "listen"), allow(unused))]
     api_key: Option<RedactedString>,
-    #[cfg_attr(not(any(feature = "live", feature = "prerecorded")), allow(unused))]
+    #[cfg_attr(not(feature = "listen"), allow(unused))]
     base_url: Url,
+    #[cfg_attr(not(feature = "listen"), allow(unused))]
     client: reqwest::Client,
 }
 
 /// Errors that may arise from the [`deepgram`](crate) crate.
 // TODO sub-errors for the different types?
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum DeepgramError {
     /// No source was provided to the request builder.
     #[error("No source was provided to the request builder.")]
@@ -72,7 +143,7 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
-    #[cfg(feature = "live")]
+    #[cfg(feature = "listen")]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] tungstenite::Error),
@@ -82,6 +153,7 @@ pub enum DeepgramError {
     SerdeError(#[from] serde_json::Error),
 }
 
+#[cfg_attr(not(feature = "listen"), allow(unused))]
 type Result<T> = std::result::Result<T, DeepgramError>;
 
 impl Deepgram {
@@ -214,6 +286,7 @@ impl Deepgram {
 ///
 /// If there is an error, it translates it into a [`DeepgramError::DeepgramApiError`].
 /// Otherwise, it deserializes the JSON accordingly.
+#[cfg_attr(not(feature = "listen"), allow(unused))]
 async fn send_and_translate_response<R: DeserializeOwned>(
     request_builder: RequestBuilder,
 ) -> crate::Result<R> {
