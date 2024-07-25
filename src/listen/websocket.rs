@@ -371,10 +371,11 @@ where
                     Some(Ok(msg)) => {
                         if let Message::Text(txt) = msg {
                             let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
-                            tx.send(resp)
-                                .await
-                                // This unwrap is probably not safe.
-                                .unwrap();
+                            if let Err(e) = tx.send(resp).await {
+                                eprintln!("Failed to send message: {:?}", e);
+                                // TODO Handle the error appropriately, e.g., log it, retry, or break the loop
+                                break;
+                            }
                         }
                     }
                     Some(e) => {
