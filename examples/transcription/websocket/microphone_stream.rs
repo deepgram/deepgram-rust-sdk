@@ -107,7 +107,8 @@ async fn main() -> Result<(), DeepgramError> {
         }
     });
 
-    let mut transcription_stream = dg.transcription()
+    let mut transcription_stream = dg
+        .transcription()
         .stream_request()
         .keep_alive()
         .stream(microphone_as_stream())
@@ -119,12 +120,12 @@ async fn main() -> Result<(), DeepgramError> {
         .start(event_tx.clone())
         .await?;
 
-        while let Some(response) = transcription_stream.next().await {
-            match response {
-                Ok(result) => println!("Transcription result: {:?}", result),
-                Err(e) => eprintln!("Transcription error: {:?}", e),
-            }
+    while let Some(response) = transcription_stream.next().await {
+        match response {
+            Ok(result) => println!("Transcription result: {:?}", result),
+            Err(e) => eprintln!("Transcription error: {:?}", e),
         }
+    }
 
     Ok(())
 }

@@ -1,10 +1,12 @@
+use futures_util::stream::StreamExt;
 use std::env;
 use std::time::Duration;
 use tokio::sync::mpsc;
-use futures_util::stream::StreamExt;
 
 use deepgram::{
-    common::options::{Encoding, Endpointing, Language, Options}, listen::websocket::Event, Deepgram, DeepgramError
+    common::options::{Encoding, Endpointing, Language, Options}, 
+    listen::websocket::Event, 
+    Deepgram, DeepgramError,
 };
 
 static PATH_TO_FILE: &str = "examples/audio/bueller.wav";
@@ -33,7 +35,8 @@ async fn main() -> Result<(), DeepgramError> {
         }
     });
 
-    let mut transcription_stream = dg.transcription()
+    let mut transcription_stream = dg
+        .transcription()
         .stream_request_with_options(Some(&options))
         .keep_alive()
         .encoding(Encoding::Linear16)
@@ -44,7 +47,12 @@ async fn main() -> Result<(), DeepgramError> {
         .utterance_end_ms(1000)
         .vad_events(true)
         .no_delay(true)
-        .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, Duration::from_millis(16), event_tx.clone())
+        .file(
+            PATH_TO_FILE,
+            AUDIO_CHUNK_SIZE,
+            Duration::from_millis(16),
+            event_tx.clone()
+        )
         .await?
         .start(event_tx.clone())
         .await?;
