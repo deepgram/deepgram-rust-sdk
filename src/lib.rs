@@ -154,7 +154,7 @@ pub enum DeepgramError {
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]
-type Result<T> = std::result::Result<T, DeepgramError>;
+type Result<T, E=DeepgramError> = std::result::Result<T, E>;
 
 impl Deepgram {
     /// Construct a new Deepgram client.

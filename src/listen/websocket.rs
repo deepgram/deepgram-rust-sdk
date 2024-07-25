@@ -11,6 +11,9 @@
 use crate::common::stream_response::StreamResponse;
 use serde_urlencoded;
 use std::borrow::Cow;
+use std::error::Error;
+use std::fmt::Debug;
+use std::marker::PhantomData;
 use std::path::Path;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -37,13 +40,9 @@ use crate::{Deepgram, DeepgramError, Result, Transcription};
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
 
 #[derive(Debug)]
-pub struct StreamRequestBuilder<'a, S, E>
-where
-    S: Stream<Item = std::result::Result<Bytes, E>>,
-{
+pub struct StreamRequestBuilder<'a> {
     config: &'a Deepgram,
     options: Option<&'a Options>,
-    source: Option<S>,
     encoding: Option<Encoding>,
     sample_rate: Option<u32>,
     channels: Option<u16>,
@@ -65,24 +64,17 @@ struct FileChunker {
 }
 
 impl Transcription<'_> {
-    pub fn stream_request<E, S>(&self) -> StreamRequestBuilder<'_, S, E>
-    where
-        S: Stream<Item = std::result::Result<Bytes, E>>,
-    {
+    pub fn stream_request(&self) -> StreamRequestBuilder<'_> {
         self.stream_request_with_options(None)
     }
 
-    pub fn stream_request_with_options<'a, E, S>(
+    pub fn stream_request_with_options<'a>(
         &'a self,
         options: Option<&'a Options>,
-    ) -> StreamRequestBuilder<'a, S, E>
-    where
-        S: Stream<Item = std::result::Result<Bytes, E>>,
-    {
+    ) -> StreamRequestBuilder<'a> {
         StreamRequestBuilder {
             config: self.0,
             options,
-            source: None,
             encoding: None,
             sample_rate: None,
             channels: None,
@@ -149,12 +141,9 @@ impl Stream for FileChunker {
     }
 }
 
-impl<'a, S, E> StreamRequestBuilder<'a, S, E>
-where
-    S: Stream<Item = std::result::Result<Bytes, E>>,
-{
-    pub fn stream(mut self, stream: S) -> Self {
-        self.source = Some(stream);
+impl<'a> StreamRequestBuilder<'a> {
+    pub fn keep_alive(mut self) -> Self {
+        self.keep_alive = Some(true);
 
         self
     }
@@ -208,13 +197,23 @@ where
     }
 }
 
-impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
+#[derive(Debug)]
+pub struct StreamRequest<'a, S, E> {
+    stream: S,
+    builder: StreamRequestBuilder<'a>,
+    _err: PhantomData<E>,
+}
+
+impl<'a> StreamRequestBuilder<'a> {
     pub async fn file(
-        mut self,
+        self,
         filename: impl AsRef<Path>,
         frame_size: usize,
         frame_delay: Duration,
-    ) -> Result<StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError>> {
+    ) -> Result<
+        StreamRequest<'a, Receiver<Result<Bytes, DeepgramError>>, DeepgramError>,
+        DeepgramError,
+    > {
         let file = File::open(filename).await?;
         let mut chunker = FileChunker::new(file, frame_size);
         let (mut tx, rx) = mpsc::channel(1);
@@ -227,9 +226,14 @@ impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
             }
         };
         tokio::spawn(task);
-
-        self.source = Some(rx);
-        Ok(self)
+        Ok(self.stream(rx))
+    }
+    pub fn stream<S, E>(self, stream: S) -> StreamRequest<'a, S, E> {
+        StreamRequest {
+            stream,
+            builder: self,
+            _err: PhantomData,
+        }
     }
 }
 
@@ -238,19 +242,18 @@ fn options_to_query_string(options: &Options) -> String {
     serde_urlencoded::to_string(serialized_options).unwrap_or_default()
 }
 
-impl<S, E> StreamRequestBuilder<'_, S, E>
+impl<S, E> StreamRequest<'_, S, E>
 where
     S: Stream<Item = std::result::Result<Bytes, E>> + Send + Unpin + 'static,
-    E: Send + std::fmt::Debug,
+    E: Error + Debug + Send + Unpin + 'static,
 {
     pub async fn start(self) -> Result<Receiver<Result<StreamResponse>>> {
-        // This unwrap is safe because we're parsing a static.
-        let mut url = self.stream_url;
+        let mut url = self.builder.stream_url;
         {
             let mut pairs = url.query_pairs_mut();
 
             // Add standard pre-recorded options
-            if let Some(options) = &self.options {
+            if let Some(options) = &self.builder.options {
                 let query_string = options_to_query_string(options);
                 let query_pairs: Vec<(Cow<str>, Cow<str>)> = query_string
                     .split('&')
@@ -267,35 +270,34 @@ where
                     pairs.append_pair(&key, &value);
                 }
             }
-            if let Some(encoding) = &self.encoding {
+            if let Some(encoding) = &self.builder.encoding {
                 pairs.append_pair("encoding", encoding.as_str());
             }
-            if let Some(sample_rate) = self.sample_rate {
+            if let Some(sample_rate) = self.builder.sample_rate {
                 pairs.append_pair("sample_rate", &sample_rate.to_string());
             }
-            if let Some(channels) = self.channels {
+            if let Some(channels) = self.builder.channels {
                 pairs.append_pair("channels", &channels.to_string());
             }
-            if let Some(endpointing) = self.endpointing {
+            if let Some(endpointing) = self.builder.endpointing {
                 pairs.append_pair("endpointing", &endpointing.to_str());
             }
-            if let Some(utterance_end_ms) = self.utterance_end_ms {
+            if let Some(utterance_end_ms) = self.builder.utterance_end_ms {
                 pairs.append_pair("utterance_end_ms", &utterance_end_ms.to_string());
             }
-            if let Some(interim_results) = self.interim_results {
+            if let Some(interim_results) = self.builder.interim_results {
                 pairs.append_pair("interim_results", &interim_results.to_string());
             }
-            if let Some(no_delay) = self.no_delay {
+            if let Some(no_delay) = self.builder.no_delay {
                 pairs.append_pair("no_delay", &no_delay.to_string());
             }
-            if let Some(vad_events) = self.vad_events {
+            if let Some(vad_events) = self.builder.vad_events {
                 pairs.append_pair("vad_events", &vad_events.to_string());
             }
         }
 
         let mut source = self
-            .source
-            .ok_or(DeepgramError::NoSource)?
+            .stream
             .map(|res| res.map(|bytes| Message::binary(Vec::from(bytes.as_ref()))));
 
         let request = {
@@ -308,7 +310,7 @@ where
                 .header("upgrade", "websocket")
                 .header("sec-websocket-version", "13");
 
-            let builder = if let Some(api_key) = self.config.api_key.as_deref() {
+            let builder = if let Some(api_key) = self.builder.config.api_key.as_deref() {
                 builder.header("authorization", format!("token {}", api_key))
             } else {
                 builder
@@ -321,7 +323,7 @@ where
         let (mut tx, rx) = mpsc::channel::<Result<StreamResponse>>(1);
 
         // Spawn the keep-alive task
-        if self.keep_alive.unwrap_or(false) {
+        if self.builder.keep_alive.unwrap_or(false) {
             {
                 let write_clone = Arc::clone(&write);
                 tokio::spawn(async move {
@@ -390,12 +392,6 @@ where
         });
 
         Ok(rx)
-    }
-
-    pub fn keep_alive(mut self) -> Self {
-        self.keep_alive = Some(true);
-
-        self
     }
 }
 
