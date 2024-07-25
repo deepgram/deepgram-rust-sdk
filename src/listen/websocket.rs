@@ -425,7 +425,10 @@ where
                     Err(e) => {
                         println!("Error receiving from source: {:?}", e);
                         let _ = event_tx_send
-                            .send(Event::Error(DeepgramError::CustomError(format!("{:?}", e))))
+                            .send(Event::Error(DeepgramError::CustomError(format!(
+                                "{:?}",
+                                e
+                            ))))
                             .await;
                         break;
                     }

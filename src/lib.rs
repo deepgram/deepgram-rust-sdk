@@ -10,7 +10,6 @@ use core::fmt;
 use std::io;
 use std::ops::Deref;
 
-use futures::channel::mpsc;
 use reqwest::{
     header::{HeaderMap, HeaderValue},
     RequestBuilder,
@@ -156,7 +155,7 @@ pub enum DeepgramError {
     /// Something went wrong with sending
     #[cfg(feature = "listen")]
     #[error("Something went wrong with WS: {0}")]
-    SendError(#[from] mpsc::SendError),
+    SendError(#[from] futures::channel::mpsc::SendError),
 
     /// Something went wrong with receiving
     #[cfg(feature = "listen")]

@@ -4,8 +4,8 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 use deepgram::{
-    common::options::{Encoding, Endpointing, Language, Model, Options}, 
-    listen::websocket::Event, 
+    common::options::{Encoding, Endpointing, Language, Model, Options},
+    listen::websocket::Event,
     Deepgram, DeepgramError,
 };
 
@@ -36,7 +36,7 @@ async fn main() -> Result<(), DeepgramError> {
         }
     });
 
-    let (connection, mut response_stream) = dg
+    let (_connection, mut response_stream) = dg
         .transcription()
         .stream_request_with_options(Some(&options))
         .keep_alive()
@@ -52,7 +52,7 @@ async fn main() -> Result<(), DeepgramError> {
             PATH_TO_FILE,
             AUDIO_CHUNK_SIZE,
             Duration::from_millis(16),
-            event_tx.clone()
+            event_tx.clone(),
         )
         .await?
         .start(event_tx.clone())
