@@ -160,8 +160,8 @@ pub enum DeepgramError {
 
     /// Something went wrong with receiving
     #[cfg(feature = "listen")]
-    #[error("Channel receive error: {0}")]
-    ReceiveError(String),
+    #[error("Deepgram error: {0}")]
+    CustomError(String),
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]

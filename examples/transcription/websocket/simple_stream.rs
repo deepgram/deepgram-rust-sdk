@@ -4,7 +4,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 use deepgram::{
-    common::options::{Encoding, Endpointing, Language, Options}, 
+    common::options::{Encoding, Endpointing, Language, Model, Options}, 
     listen::websocket::Event, 
     Deepgram, DeepgramError,
 };
@@ -17,6 +17,7 @@ async fn main() -> Result<(), DeepgramError> {
     let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap());
 
     let options = Options::builder()
+        .model(Model::Nova2)
         .smart_format(true)
         .language(Language::en_US)
         .build();
@@ -35,7 +36,7 @@ async fn main() -> Result<(), DeepgramError> {
         }
     });
 
-    let mut transcription_stream = dg
+    let (connection, mut response_stream) = dg
         .transcription()
         .stream_request_with_options(Some(&options))
         .keep_alive()
@@ -57,7 +58,7 @@ async fn main() -> Result<(), DeepgramError> {
         .start(event_tx.clone())
         .await?;
 
-    while let Some(response) = transcription_stream.next().await {
+    while let Some(response) = response_stream.next().await {
         match response {
             Ok(result) => println!("Transcription result: {:?}", result),
             Err(e) => eprintln!("Transcription error: {:?}", e),

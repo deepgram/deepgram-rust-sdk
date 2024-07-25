@@ -6,6 +6,9 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::Sample;
 use crossbeam::channel::RecvError;
 use deepgram::common::options::Encoding;
+use deepgram::common::options::Language;
+use deepgram::common::options::Model;
+use deepgram::common::options::Options;
 use deepgram::listen::websocket::Event;
 use futures::channel::mpsc::{self, Receiver as FuturesReceiver};
 use futures::SinkExt;
@@ -21,14 +24,7 @@ fn microphone_as_stream() -> FuturesReceiver<Result<Bytes, RecvError>> {
         let host = cpal::default_host();
         let device = host.default_input_device().unwrap();
 
-        // let config = device.supported_input_configs().unwrap();
-        // for config in config {
-        //     dbg!(&config);
-        // }
-
         let config = device.default_input_config().unwrap();
-
-        // dbg!(&config);
 
         let stream = match config.sample_format() {
             cpal::SampleFormat::F32 => device
@@ -81,8 +77,21 @@ fn microphone_as_stream() -> FuturesReceiver<Result<Bytes, RecvError>> {
 
     tokio::spawn(async move {
         loop {
-            let data = sync_rx.recv();
-            async_tx.send(data).await.unwrap();
+            match sync_rx.recv() {
+                Ok(data) => {
+                    if let Err(e) = async_tx.send(Ok(data)).await {
+                        eprintln!("Failed to send data: {:?}", e);
+                        break; // Exit the loop if the channel is disconnected
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Failed to receive data: {:?}", e);
+                    if let Err(send_err) = async_tx.send(Err(e)).await {
+                        eprintln!("Failed to send error: {:?}", send_err);
+                    }
+                    break; // Exit the loop if the receiving end is closed
+                }
+            }
         }
     });
 
@@ -107,9 +116,15 @@ async fn main() -> Result<(), DeepgramError> {
         }
     });
 
-    let mut transcription_stream = dg
+    let options = Options::builder()
+        .model(Model::Nova2)
+        .smart_format(true)
+        .language(Language::en_US)
+        .build();
+
+    let (connection, mut response_stream) = dg
         .transcription()
-        .stream_request()
+        .stream_request_with_options(Some(&options))
         .keep_alive()
         .stream(microphone_as_stream())
         .encoding(Encoding::Linear16)
@@ -120,7 +135,18 @@ async fn main() -> Result<(), DeepgramError> {
         .start(event_tx.clone())
         .await?;
 
-    while let Some(response) = transcription_stream.next().await {
+    let mut count = 0;
+
+    while let Some(response) = response_stream.next().await {
+        // Close the stream after 5 messages are received
+        if count == 5 {
+            // Call finalize after processing the stream
+            connection.finalize(event_tx.clone()).await?;
+
+            // Call  after processing the stream
+            connection.finish(event_tx.clone()).await?;
+        }
+        count += 1;
         match response {
             Ok(result) => println!("Transcription result: {:?}", result),
             Err(e) => eprintln!("Transcription error: {:?}", e),
