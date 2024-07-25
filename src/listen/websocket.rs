@@ -466,7 +466,7 @@ where
                                 println!("Received close frame: {:?}", close_frame);
                                 // Send a close frame back to acknowledge the close request
                                 let mut write = recv_write_clone.lock().await;
-                                if let Err(e) = write.send(Message::Close(None)).await {
+                                if let Err(_e) = write.send(Message::Close(None)).await {
                                     // Should we notify the client we could not ack the server initiated close frame?
                                     // eprintln!("Failed to send close frame: {:?}", e);
                                     // let _ = event_tx_receive
