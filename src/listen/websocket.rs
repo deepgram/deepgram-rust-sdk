@@ -10,7 +10,6 @@
 
 use crate::common::stream_response::StreamResponse;
 use serde_urlencoded;
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use std::borrow::Cow;
 use std::path::Path;
 use std::pin::Pin;
@@ -30,6 +29,7 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex;
 use tokio::time;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
@@ -263,14 +263,19 @@ pub struct TranscriptionStream {
 }
 
 impl TranscriptionStream {
-    pub async fn finalize(&self, event_tx: Sender<Event>) -> std::result::Result<(), DeepgramError> {
+    pub async fn finalize(
+        &self,
+        event_tx: Sender<Event>,
+    ) -> std::result::Result<(), DeepgramError> {
         let finalize_message = Message::Text("{\"type\": \"Finalize\"}".to_string());
         let mut write_guard = self.write_arc.lock().await;
         if let Err(e) = write_guard.send(finalize_message).await {
             let err = DeepgramError::from(e);
             eprintln!("Error sending Finalize message: {:?}", err);
             event_tx.send(Event::Error(err)).await.unwrap();
-            return Err(DeepgramError::CustomError("Failed to send Finalize message".to_string()));
+            return Err(DeepgramError::CustomError(
+                "Failed to send Finalize message".to_string()),
+            );
         }
         Ok(())
     }
@@ -282,7 +287,9 @@ impl TranscriptionStream {
             let err = DeepgramError::from(e);
             eprintln!("Error sending CloseStream message: {:?}", err);
             event_tx.send(Event::Error(err)).await.unwrap();
-            return Err(DeepgramError::CustomError("Failed to send CloseStream message".to_string()));
+            return Err(DeepgramError::CustomError(
+                "Failed to send CloseStream message".to_string(),
+            ));
         }
         event_tx.send(Event::Close).await.unwrap();
         Ok(())
@@ -426,10 +433,7 @@ where
                     Err(e) => {
                         println!("Error receiving from source: {:?}", e);
                         let _ = event_tx_send
-                            .send(Event::Error(DeepgramError::CustomError(format!(
-                                "{:?}",
-                                e
-                            ))))
+                            .send(Event::Error(DeepgramError::CustomError(format!("{:?}", e))))
                             .await;
                         break;
                     }
