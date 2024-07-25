@@ -221,9 +221,11 @@ impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
         let task = async move {
             while let Some(frame) = chunker.next().await {
                 tokio::time::sleep(frame_delay).await;
-                // This unwrap() is safe because application logic dictates that the Receiver won't
-                // be dropped before the Sender.
-                tx.send(frame).await.unwrap();
+                if let Err(e) = tx.send(frame).await {
+                    eprintln!("Failed to send frame: {:?}", e);
+                    // TODO Handle the error, e.g., break the loop, retry, or log the error
+                    break;
+                }
             }
         };
         tokio::spawn(task);
