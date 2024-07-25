@@ -67,6 +67,7 @@ where
     vad_events: Option<bool>,
     stream_url: Url,
     keep_alive: Option<bool>,
+    #[allow(clippy::type_complexity)]
     write_arc: Option<Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>,
 }
 
