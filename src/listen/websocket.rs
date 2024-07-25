@@ -29,8 +29,8 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex;
 use tokio::time;
-use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tokio_tungstenite::tungstenite::protocol::Message;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
@@ -274,8 +274,8 @@ impl TranscriptionStream {
             eprintln!("Error sending Finalize message: {:?}", err);
             event_tx.send(Event::Error(err)).await.unwrap();
             return Err(DeepgramError::CustomError(
-                "Failed to send Finalize message".to_string()),
-            );
+                "Failed to send Finalize message".to_string(),
+            ));
         }
         Ok(())
     }
@@ -305,7 +305,10 @@ where
         mut self,
         event_tx: Sender<Event>,
     ) -> std::result::Result<
-        (TranscriptionStream, futures_mpsc::Receiver<std::result::Result<StreamResponse, DeepgramError>>),
+        (
+            TranscriptionStream,
+            futures_mpsc::Receiver<std::result::Result<StreamResponse, DeepgramError>>,
+        ),
         DeepgramError,
     > {
         // This unwrap is safe because we're parsing a static.
