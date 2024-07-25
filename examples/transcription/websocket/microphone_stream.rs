@@ -6,9 +6,10 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::Sample;
 use crossbeam::channel::RecvError;
 use deepgram::common::options::Encoding;
+use deepgram::listen::websocket::Event;
 use futures::channel::mpsc::{self, Receiver as FuturesReceiver};
-use futures::stream::StreamExt;
 use futures::SinkExt;
+use futures_util::stream::StreamExt;
 
 use deepgram::{Deepgram, DeepgramError};
 
@@ -92,8 +93,21 @@ fn microphone_as_stream() -> FuturesReceiver<Result<Bytes, RecvError>> {
 async fn main() -> Result<(), DeepgramError> {
     let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap());
 
-    let mut results = dg
-        .transcription()
+    let (event_tx, mut event_rx) = tokio::sync::mpsc::channel::<Event>(100);
+
+    // Event handling task
+    tokio::spawn(async move {
+        while let Some(event) = event_rx.recv().await {
+            match event {
+                Event::Open => println!("Connection opened"),
+                Event::Close => println!("Connection closed"),
+                Event::Error(e) => eprintln!("Error occurred: {:?}", e),
+                Event::Result(result) => println!("got: {:?}", result),
+            }
+        }
+    });
+
+    let mut transcription_stream = dg.transcription()
         .stream_request()
         .keep_alive()
         .stream(microphone_as_stream())
@@ -102,12 +116,15 @@ async fn main() -> Result<(), DeepgramError> {
         .sample_rate(44100)
         // TODO Specific to my machine, not general enough example.
         .channels(2)
-        .start()
+        .start(event_tx.clone())
         .await?;
 
-    while let Some(result) = results.next().await {
-        println!("got: {:?}", result);
-    }
+        while let Some(response) = transcription_stream.next().await {
+            match response {
+                Ok(result) => println!("Transcription result: {:?}", result),
+                Err(e) => eprintln!("Transcription error: {:?}", e),
+            }
+        }
 
     Ok(())
 }

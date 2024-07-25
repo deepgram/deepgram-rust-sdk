@@ -19,12 +19,14 @@ use std::time::Duration;
 
 use bytes::{Bytes, BytesMut};
 use futures::channel::mpsc::{self, Receiver};
+use futures::channel::mpsc as futures_mpsc;
 use futures::stream::StreamExt;
 use futures::{SinkExt, Stream};
 use http::Request;
 use pin_project::pin_project;
 use tokio::fs::File;
 use tokio::sync::Mutex;
+use tokio::sync::mpsc::Sender;
 use tokio::time;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_util::io::ReaderStream;
@@ -35,6 +37,15 @@ use crate::common::options::{Encoding, Endpointing, Options, SerializableOptions
 use crate::{Deepgram, DeepgramError, Result, Transcription};
 
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
+
+// Define event types
+#[derive(Debug)]
+pub enum Event {
+    Open,
+    Close,
+    Error(DeepgramError),
+    Result(String),
+}
 
 #[derive(Debug)]
 pub struct StreamRequestBuilder<'a, S, E>
@@ -214,6 +225,7 @@ impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
         filename: impl AsRef<Path>,
         frame_size: usize,
         frame_delay: Duration,
+        event_tx: Sender<Event>,
     ) -> Result<StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError>> {
         let file = File::open(filename).await?;
         let mut chunker = FileChunker::new(file, frame_size);
@@ -223,7 +235,7 @@ impl<'a> StreamRequestBuilder<'a, Receiver<Result<Bytes>>, DeepgramError> {
                 tokio::time::sleep(frame_delay).await;
                 if let Err(e) = tx.send(frame).await {
                     eprintln!("Failed to send frame: {:?}", e);
-                    // TODO Handle the error, e.g., break the loop, retry, or log the error
+                    let _ = event_tx.send(Event::Error(DeepgramError::from(e))).await;
                     break;
                 }
             }
@@ -245,7 +257,10 @@ where
     S: Stream<Item = std::result::Result<Bytes, E>> + Send + Unpin + 'static,
     E: Send + std::fmt::Debug,
 {
-    pub async fn start(self) -> Result<Receiver<Result<StreamResponse>>> {
+    pub async fn start(
+        self,
+        event_tx: Sender<Event>,
+    ) -> std::result::Result<futures_mpsc::Receiver<std::result::Result<StreamResponse, DeepgramError>>, DeepgramError> {
         // This unwrap is safe because we're parsing a static.
         let mut url = self.stream_url;
         {
@@ -322,6 +337,13 @@ where
         let write = Arc::new(Mutex::new(write));
         let (mut tx, rx) = mpsc::channel::<Result<StreamResponse>>(1);
 
+        let event_tx_open = event_tx.clone();
+        let event_tx_keep_alive = event_tx.clone();
+        let event_tx_send = event_tx.clone();
+        let event_tx_receive = event_tx.clone();
+
+        event_tx_open.send(Event::Open).await.unwrap();
+
         // Spawn the keep-alive task
         if self.keep_alive.unwrap_or(false) {
             {
@@ -335,6 +357,7 @@ where
                         let mut write = write_clone.lock().await;
                         if let Err(e) = write.send(keep_alive_message).await {
                             eprintln!("Error Sending Keep Alive: {:?}", e);
+                            let _ = event_tx_keep_alive.send(Event::Error(DeepgramError::from(e))).await;
                             break;
                         }
                     }
@@ -350,11 +373,13 @@ where
                         let mut write = write_clone.lock().await;
                         if let Err(e) = write.send(frame).await {
                             println!("Error sending frame: {:?}", e);
+                            let _ = event_tx_send.send(Event::Error(DeepgramError::from(e))).await;
                             break;
                         }
                     }
                     Err(e) => {
                         println!("Error receiving from source: {:?}", e);
+                        let _ = event_tx_send.send(Event::Error(DeepgramError::ReceiveError(format!("{:?}", e)))).await;
                         break;
                     }
                 }
@@ -363,6 +388,7 @@ where
             let mut write = write_clone.lock().await;
             if let Err(e) = write.send(Message::binary([])).await {
                 println!("Error sending final frame: {:?}", e);
+                let _ = event_tx_send.send(Event::Error(DeepgramError::from(e))).await;
             }
         };
 
@@ -376,6 +402,7 @@ where
                                 let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
                                 if let Err(e) = tx.send(resp).await {
                                     eprintln!("Failed to send message: {:?}", e);
+                                    let _ = event_tx_receive.send(Event::Error(DeepgramError::from(e))).await;
                                     // Handle the error appropriately, e.g., log it, retry, or break the loop
                                     break;
                                 }
@@ -386,6 +413,7 @@ where
                                 let mut write = write.lock().await;
                                 if let Err(e) = write.send(Message::Close(None)).await {
                                     eprintln!("Failed to send close frame: {:?}", e);
+                                    let _ = event_tx_receive.send(Event::Error(DeepgramError::from(e))).await;
                                 }
                                 break;
                             }
