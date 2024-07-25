@@ -371,16 +371,28 @@ where
                 match read.next().await {
                     None => break,
                     Some(Ok(msg)) => {
-                        if let Message::Text(txt) = msg {
-                            let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
-                            if let Err(e) = tx.send(resp).await {
-                                eprintln!("Failed to send message: {:?}", e);
-                                // TODO Handle the error appropriately, e.g., log it, retry, or break the loop
+                        match msg {
+                            Message::Text(txt) => {
+                                let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
+                                if let Err(e) = tx.send(resp).await {
+                                    eprintln!("Failed to send message: {:?}", e);
+                                    // Handle the error appropriately, e.g., log it, retry, or break the loop
+                                    break;
+                                }
+                            }
+                            Message::Close(close_frame) => {
+                                println!("Received close frame: {:?}", close_frame);
+                                // Send a close frame back to acknowledge the close request
+                                let mut write = write.lock().await;
+                                if let Err(e) = write.send(Message::Close(None)).await {
+                                    eprintln!("Failed to send close frame: {:?}", e);
+                                }
                                 break;
                             }
+                            _ => {}
                         }
                     }
-                    Some(e) => {
+                    Some(Err(e)) => {
                         let _ = dbg!(e);
                         break;
                     }
