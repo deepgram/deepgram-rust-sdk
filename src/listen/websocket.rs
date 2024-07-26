@@ -8,40 +8,45 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-streaming
 
-use crate::common::stream_response::StreamResponse;
-use serde_urlencoded;
-use std::borrow::Cow;
-use std::error::Error;
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::path::Path;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::time::Duration;
+use std::{
+    error::Error,
+    fmt::Debug,
+    marker::PhantomData,
+    path::Path,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 use bytes::{Bytes, BytesMut};
-use futures::channel::mpsc::{self, Receiver};
-use futures::stream::StreamExt;
-use futures::{SinkExt, Stream};
+use futures::{
+    channel::mpsc::{self, Receiver},
+    stream::StreamExt,
+    SinkExt, Stream,
+};
 use http::Request;
 use pin_project::pin_project;
-use tokio::fs::File;
-use tokio::sync::Mutex;
-use tokio::time;
+use serde_urlencoded;
+use tokio::{fs::File, sync::Mutex, time};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
 
-use crate::common::options::{Encoding, Endpointing, Options};
-use crate::{Deepgram, DeepgramError, Result, Transcription};
+use crate::{
+    common::{
+        options::{Encoding, Endpointing, Options},
+        stream_response::StreamResponse,
+    },
+    Deepgram, DeepgramError, Result, Transcription,
+};
 
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
 
 #[derive(Debug)]
 pub struct StreamRequestBuilder<'a> {
-    config: &'a Deepgram,
+    deepgram: &'a Deepgram,
     options: Options,
     encoding: Option<Encoding>,
     sample_rate: Option<u32>,
@@ -70,7 +75,7 @@ impl Transcription<'_> {
 
     pub fn stream_request_with_options(&self, options: Options) -> StreamRequestBuilder<'_> {
         StreamRequestBuilder {
-            config: self.0,
+            deepgram: self.0,
             options,
             encoding: None,
             sample_rate: None,
@@ -166,7 +171,7 @@ impl<'a> StreamRequestBuilder<'a> {
     ///     .detect_language(DetectLanguage::Enabled)
     ///     .build();
     /// let builder = transcription
-    ///     .stream_request_with_options::<DeepgramError, futures::stream::Empty<Result<_, _>>>(
+    ///     .stream_request_with_options(
     ///         options,
     ///     )
     ///     .no_delay(true);
@@ -185,7 +190,7 @@ impl<'a> StreamRequestBuilder<'a> {
     fn as_url(&self) -> std::result::Result<Url, serde_urlencoded::ser::Error> {
         // Destructuring ensures we don't miss new fields if they get added
         let Self {
-            config: _,
+            deepgram: _,
             keep_alive: _,
             options,
             encoding,
@@ -203,22 +208,19 @@ impl<'a> StreamRequestBuilder<'a> {
         {
             let mut pairs = url.query_pairs_mut();
 
-            // Add standard pre-recorded options
-            let query_string = options.urlencoded().unwrap();
-            let query_pairs: Vec<(Cow<str>, Cow<str>)> = query_string
-                .split('&')
-                .map(|s| {
-                    let mut split = s.splitn(2, '=');
-                    (
-                        Cow::from(split.next().unwrap_or_default()),
-                        Cow::from(split.next().unwrap_or_default()),
-                    )
-                })
-                .collect();
+            // Add standard pre-recorded options.
+            //
+            // Here we serialize the options and then deserialize
+            // in order to avoid duplicating serialization logic.
+            //
+            // TODO: We should be able to lean on the serde more
+            // to avoid multiple serialization rounds.
+            pairs.extend_pairs(
+                serde_urlencoded::from_str::<Vec<(String, String)>>(&options.urlencoded()?)
+                    .expect("constructed query string can be deserialized"),
+            );
 
-            for (key, value) in query_pairs {
-                pairs.append_pair(&key, &value);
-            }
+            // Add streaming-specific options
             if let Some(encoding) = encoding {
                 pairs.append_pair("encoding", encoding.as_str());
             }
@@ -244,6 +246,7 @@ impl<'a> StreamRequestBuilder<'a> {
                 pairs.append_pair("vad_events", &vad_events.to_string());
             }
         }
+
         Ok(url)
     }
 
@@ -363,7 +366,7 @@ where
                 .header("upgrade", "websocket")
                 .header("sec-websocket-version", "13");
 
-            let builder = if let Some(api_key) = self.builder.config.api_key.as_deref() {
+            let builder = if let Some(api_key) = self.builder.deepgram.api_key.as_deref() {
                 builder.header("authorization", format!("token {}", api_key))
             } else {
                 builder
@@ -476,7 +479,6 @@ mod tests {
         let opts = Options::builder().custom_topics(["A&R"]).build();
         let transcription = dg.transcription();
         let builder = transcription.stream_request_with_options(opts.clone());
-        // Currently fails because A&R is double escaped in the streaming URL
         assert_eq!(builder.urlencoded().unwrap(), opts.urlencoded().unwrap())
     }
 }
