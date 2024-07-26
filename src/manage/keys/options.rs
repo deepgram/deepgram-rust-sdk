@@ -55,6 +55,25 @@ impl Options {
     ) -> OptionsBuilder {
         OptionsBuilder::new(comment, scopes)
     }
+
+    /// Return the Options in json format. If serialization would
+    /// fail, this will also return an error.
+    ///
+    /// This is intended primarily to help with debugging API requests.
+    ///
+    /// ```
+    /// use deepgram::manage::keys::options::Options;
+    /// let options = Options::builder("API Key", ["member"])
+    ///     .tag(["my-tag", "another-tag"])
+    ///     .build();
+    /// assert_eq!(
+    ///     &options.json().unwrap(),
+    ///     r#"{"comment":"API Key","tags":["my-tag","another-tag"],"scopes":["member"]}"#)
+    /// ```
+    ///
+    pub fn json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(&SerializableOptions::from(self))
+    }
 }
 
 impl OptionsBuilder {
@@ -110,7 +129,7 @@ impl OptionsBuilder {
     /// #
     /// let options1 = Options::builder("New Key", ["member"])
     ///     .tag(["Tag 1"])
-    ///     .tag(["Tag 2"])
+    ///     .tag(vec!["Tag 2"])
     ///     .build();
     ///
     /// let options2 = Options::builder("New Key", ["member"])

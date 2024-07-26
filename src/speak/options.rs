@@ -177,6 +177,24 @@ impl Options {
     pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
+
+    /// Return the Options in urlencoded format. If serialization would
+    /// fail, this will also return an error.
+    ///
+    /// This is intended primarily to help with debugging API requests.
+    ///
+    /// ```
+    /// use deepgram::speak::options::{Encoding, Model, Options};
+    /// let options = Options::builder()
+    ///     .model(Model::AuraArcasEn)
+    ///     .encoding(Encoding::Flac)
+    ///     .build();
+    /// assert_eq!(&options.urlencoded().unwrap(), "model=aura-arcas-en&encoding=flac")
+    /// ```
+    ///
+    pub fn urlencoded(&self) -> Result<String, serde_urlencoded::ser::Error> {
+        serde_urlencoded::to_string(SerializableOptions(self))
+    }
 }
 
 impl OptionsBuilder {

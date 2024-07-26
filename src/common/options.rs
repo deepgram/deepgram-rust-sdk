@@ -658,6 +658,24 @@ impl Options {
     pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
+
+    /// Return the Options in urlencoded format. If serialization would
+    /// fail, this will also return an error.
+    ///
+    /// This is intended primarily to help with debugging API requests.
+    ///
+    /// ```
+    /// use deepgram::common::options::{DetectLanguage, Model, Options};
+    /// let options = Options::builder()
+    ///     .model(Model::Nova2)
+    ///     .detect_language(DetectLanguage::Enabled)
+    ///     .build();
+    /// assert_eq!(&options.urlencoded().unwrap(), "model=nova-2&detect_language=true")
+    /// ```
+    ///
+    pub fn urlencoded(&self) -> Result<String, serde_urlencoded::ser::Error> {
+        serde_urlencoded::to_string(SerializableOptions(self))
+    }
 }
 
 impl OptionsBuilder {

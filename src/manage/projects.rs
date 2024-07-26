@@ -52,7 +52,7 @@ impl Projects<'_> {
     /// ```no_run
     /// # use std::env;
     /// #
-    /// # use deepgram::{manage::projects::options::Options, Deepgram, DeepgramError};
+    /// # use deepgram::{Deepgram, DeepgramError};
     /// #
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), DeepgramError> {
@@ -86,7 +86,7 @@ impl Projects<'_> {
     /// ```no_run
     /// # use std::env;
     /// #
-    /// # use deepgram::{manage::projects::options::Options, Deepgram, DeepgramError};
+    /// # use deepgram::{Deepgram, DeepgramError};
     /// #
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), DeepgramError> {
@@ -170,7 +170,7 @@ impl Projects<'_> {
     /// ```no_run
     /// # use std::env;
     /// #
-    /// # use deepgram::{manage::projects::options::Options, Deepgram, DeepgramError};
+    /// # use deepgram::{Deepgram, DeepgramError};
     /// #
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), DeepgramError> {

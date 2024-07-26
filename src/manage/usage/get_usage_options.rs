@@ -61,6 +61,24 @@ impl Options {
     pub fn builder() -> OptionsBuilder {
         OptionsBuilder::new()
     }
+
+    /// Return the Options in urlencoded format. If serialization would
+    /// fail, this will also return an error.
+    ///
+    /// This is intended primarily to help with debugging API requests.
+    ///
+    /// ```
+    /// use deepgram::manage::usage::get_usage_options::{Options, Method};
+    /// let options = Options::builder()
+    ///     .method([Method::Sync, Method::Async])
+    ///     .ner(true)
+    ///     .build();
+    /// assert_eq!(&options.urlencoded().unwrap(), "method=sync&method=async&ner=true")
+    /// ```
+    ///
+    pub fn urlencoded(&self) -> Result<String, serde_urlencoded::ser::Error> {
+        serde_urlencoded::to_string(SerializableOptions::from(self))
+    }
 }
 
 impl OptionsBuilder {
