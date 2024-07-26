@@ -145,8 +145,12 @@ pub enum DeepgramError {
     WsError(#[from] tungstenite::Error),
 
     /// Something went wrong during serialization/deserialization.
-    #[error("Something went wrong during serialization/deserialization: {0}")]
-    SerdeError(#[from] serde_json::Error),
+    #[error("Something went wrong during json serialization/deserialization: {0}")]
+    JsonError(#[from] serde_json::Error),
+
+    /// Something went wrong during serialization/deserialization.
+    #[error("Something went wrong during query serialization: {0}")]
+    UrlencodedError(#[from] serde_urlencoded::ser::Error),
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]
