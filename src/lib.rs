@@ -117,10 +117,6 @@ pub struct Deepgram {
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum DeepgramError {
-    /// No source was provided to the request builder.
-    #[error("No source was provided to the request builder.")]
-    NoSource,
-
     /// The Deepgram API returned an error.
     #[error("The Deepgram API returned an error.")]
     DeepgramApiError {
