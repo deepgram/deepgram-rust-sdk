@@ -117,10 +117,6 @@ pub struct Deepgram {
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum DeepgramError {
-    /// No source was provided to the request builder.
-    #[error("No source was provided to the request builder.")]
-    NoSource,
-
     /// The Deepgram API returned an error.
     #[error("The Deepgram API returned an error.")]
     DeepgramApiError {
@@ -154,7 +150,7 @@ pub enum DeepgramError {
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]
-type Result<T> = std::result::Result<T, DeepgramError>;
+type Result<T, E = DeepgramError> = std::result::Result<T, E>;
 
 impl Deepgram {
     /// Construct a new Deepgram client.
