@@ -8,41 +8,46 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-streaming
 
-use crate::common::stream_response::StreamResponse;
-use serde_urlencoded;
-use std::borrow::Cow;
-use std::error::Error;
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::path::Path;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::time::Duration;
+use std::{
+    error::Error,
+    fmt::Debug,
+    marker::PhantomData,
+    path::Path,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 use bytes::{Bytes, BytesMut};
-use futures::channel::mpsc::{self, Receiver};
-use futures::stream::StreamExt;
-use futures::{SinkExt, Stream};
+use futures::{
+    channel::mpsc::{self, Receiver},
+    stream::StreamExt,
+    SinkExt, Stream,
+};
 use http::Request;
 use pin_project::pin_project;
-use tokio::fs::File;
-use tokio::sync::Mutex;
-use tokio::time;
+use serde_urlencoded;
+use tokio::{fs::File, sync::Mutex, time};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_util::io::ReaderStream;
 use tungstenite::handshake::client;
 use url::Url;
 
-use crate::common::options::{Encoding, Endpointing, Options, SerializableOptions};
-use crate::{Deepgram, DeepgramError, Result, Transcription};
+use crate::{
+    common::{
+        options::{Encoding, Endpointing, Options},
+        stream_response::StreamResponse,
+    },
+    Deepgram, DeepgramError, Result, Transcription,
+};
 
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
 
 #[derive(Debug)]
 pub struct StreamRequestBuilder<'a> {
-    config: &'a Deepgram,
-    options: Option<&'a Options>,
+    deepgram: &'a Deepgram,
+    options: Options,
     encoding: Option<Encoding>,
     sample_rate: Option<u32>,
     channels: Option<u16>,
@@ -65,15 +70,12 @@ struct FileChunker {
 
 impl Transcription<'_> {
     pub fn stream_request(&self) -> StreamRequestBuilder<'_> {
-        self.stream_request_with_options(None)
+        self.stream_request_with_options(Options::builder().build())
     }
 
-    pub fn stream_request_with_options<'a>(
-        &'a self,
-        options: Option<&'a Options>,
-    ) -> StreamRequestBuilder<'a> {
+    pub fn stream_request_with_options(&self, options: Options) -> StreamRequestBuilder<'_> {
         StreamRequestBuilder {
-            config: self.0,
+            deepgram: self.0,
             options,
             encoding: None,
             sample_rate: None,
@@ -142,10 +144,110 @@ impl Stream for FileChunker {
 }
 
 impl<'a> StreamRequestBuilder<'a> {
-    pub fn keep_alive(mut self) -> Self {
-        self.keep_alive = Some(true);
+    /// Return the options in urlencoded format. If serialization would
+    /// fail, this will also return an error.
+    ///
+    /// This is intended primarily to help with debugging API requests.
+    ///
+    /// ```
+    /// use deepgram::{
+    ///     Deepgram,
+    ///     DeepgramError,
+    ///     common::options::{
+    ///         DetectLanguage,
+    ///         Encoding,
+    ///         Model,
+    ///         Options,
+    ///     },
+    /// };
+    /// # let mut need_token = std::env::var("DEEPGRAM_API_TOKEN").is_err();
+    /// # if need_token {
+    /// #     std::env::set_var("DEEPGRAM_API_TOKEN", "abc")
+    /// # }
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap());
+    /// let transcription = dg.transcription();
+    /// let options = Options::builder()
+    ///     .model(Model::Nova2)
+    ///     .detect_language(DetectLanguage::Enabled)
+    ///     .build();
+    /// let builder = transcription
+    ///     .stream_request_with_options(
+    ///         options,
+    ///     )
+    ///     .no_delay(true);
+    ///
+    /// # if need_token {
+    /// #     std::env::remove_var("DEEPGRAM_API_TOKEN");
+    /// # }
+    ///
+    /// assert_eq!(&builder.urlencoded().unwrap(), "model=nova-2&detect_language=true&no_delay=true")
+    /// ```
+    ///
+    pub fn urlencoded(&self) -> std::result::Result<String, serde_urlencoded::ser::Error> {
+        Ok(self.as_url()?.query().unwrap_or_default().to_string())
+    }
 
-        self
+    fn as_url(&self) -> std::result::Result<Url, serde_urlencoded::ser::Error> {
+        // Destructuring ensures we don't miss new fields if they get added
+        let Self {
+            deepgram: _,
+            keep_alive: _,
+            options,
+            encoding,
+            sample_rate,
+            channels,
+            endpointing,
+            utterance_end_ms,
+            interim_results,
+            no_delay,
+            vad_events,
+            stream_url,
+        } = self;
+
+        let mut url = stream_url.clone();
+        {
+            let mut pairs = url.query_pairs_mut();
+
+            // Add standard pre-recorded options.
+            //
+            // Here we serialize the options and then deserialize
+            // in order to avoid duplicating serialization logic.
+            //
+            // TODO: We should be able to lean on the serde more
+            // to avoid multiple serialization rounds.
+            pairs.extend_pairs(
+                serde_urlencoded::from_str::<Vec<(String, String)>>(&options.urlencoded()?)
+                    .expect("constructed query string can be deserialized"),
+            );
+
+            // Add streaming-specific options
+            if let Some(encoding) = encoding {
+                pairs.append_pair("encoding", encoding.as_str());
+            }
+            if let Some(sample_rate) = sample_rate {
+                pairs.append_pair("sample_rate", &sample_rate.to_string());
+            }
+            if let Some(channels) = channels {
+                pairs.append_pair("channels", &channels.to_string());
+            }
+            if let Some(endpointing) = endpointing {
+                pairs.append_pair("endpointing", &endpointing.to_string());
+            }
+            if let Some(utterance_end_ms) = utterance_end_ms {
+                pairs.append_pair("utterance_end_ms", &utterance_end_ms.to_string());
+            }
+            if let Some(interim_results) = interim_results {
+                pairs.append_pair("interim_results", &interim_results.to_string());
+            }
+            if let Some(no_delay) = no_delay {
+                pairs.append_pair("no_delay", &no_delay.to_string());
+            }
+            if let Some(vad_events) = vad_events {
+                pairs.append_pair("vad_events", &vad_events.to_string());
+            }
+        }
+
+        Ok(url)
     }
 
     pub fn encoding(mut self, encoding: Encoding) -> Self {
@@ -195,13 +297,12 @@ impl<'a> StreamRequestBuilder<'a> {
 
         self
     }
-}
 
-#[derive(Debug)]
-pub struct StreamRequest<'a, S, E> {
-    stream: S,
-    builder: StreamRequestBuilder<'a>,
-    _err: PhantomData<E>,
+    pub fn keep_alive(mut self) -> Self {
+        self.keep_alive = Some(true);
+
+        self
+    }
 }
 
 impl<'a> StreamRequestBuilder<'a> {
@@ -237,9 +338,11 @@ impl<'a> StreamRequestBuilder<'a> {
     }
 }
 
-fn options_to_query_string(options: &Options) -> String {
-    let serialized_options = SerializableOptions::from(options);
-    serde_urlencoded::to_string(serialized_options).unwrap_or_default()
+#[derive(Debug)]
+pub struct StreamRequest<'a, S, E> {
+    stream: S,
+    builder: StreamRequestBuilder<'a>,
+    _err: PhantomData<E>,
 }
 
 impl<S, E> StreamRequest<'_, S, E>
@@ -248,54 +351,7 @@ where
     E: Error + Debug + Send + Unpin + 'static,
 {
     pub async fn start(self) -> Result<Receiver<Result<StreamResponse>>> {
-        let mut url = self.builder.stream_url;
-        {
-            let mut pairs = url.query_pairs_mut();
-
-            // Add standard pre-recorded options
-            if let Some(options) = &self.builder.options {
-                let query_string = options_to_query_string(options);
-                let query_pairs: Vec<(Cow<str>, Cow<str>)> = query_string
-                    .split('&')
-                    .map(|s| {
-                        let mut split = s.splitn(2, '=');
-                        (
-                            Cow::from(split.next().unwrap_or_default()),
-                            Cow::from(split.next().unwrap_or_default()),
-                        )
-                    })
-                    .collect();
-
-                for (key, value) in query_pairs {
-                    pairs.append_pair(&key, &value);
-                }
-            }
-            if let Some(encoding) = &self.builder.encoding {
-                pairs.append_pair("encoding", encoding.as_str());
-            }
-            if let Some(sample_rate) = self.builder.sample_rate {
-                pairs.append_pair("sample_rate", &sample_rate.to_string());
-            }
-            if let Some(channels) = self.builder.channels {
-                pairs.append_pair("channels", &channels.to_string());
-            }
-            if let Some(endpointing) = self.builder.endpointing {
-                pairs.append_pair("endpointing", &endpointing.to_str());
-            }
-            if let Some(utterance_end_ms) = self.builder.utterance_end_ms {
-                pairs.append_pair("utterance_end_ms", &utterance_end_ms.to_string());
-            }
-            if let Some(interim_results) = self.builder.interim_results {
-                pairs.append_pair("interim_results", &interim_results.to_string());
-            }
-            if let Some(no_delay) = self.builder.no_delay {
-                pairs.append_pair("no_delay", &no_delay.to_string());
-            }
-            if let Some(vad_events) = self.builder.vad_events {
-                pairs.append_pair("vad_events", &vad_events.to_string());
-            }
-        }
-
+        let url = self.builder.as_url()?;
         let mut source = self
             .stream
             .map(|res| res.map(|bytes| Message::binary(Vec::from(bytes.as_ref()))));
@@ -310,7 +366,7 @@ where
                 .header("upgrade", "websocket")
                 .header("sec-websocket-version", "13");
 
-            let builder = if let Some(api_key) = self.builder.config.api_key.as_deref() {
+            let builder = if let Some(api_key) = self.builder.deepgram.api_key.as_deref() {
                 builder.header("authorization", format!("token {}", api_key))
             } else {
                 builder
@@ -397,6 +453,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::common::options::Options;
+
     #[test]
     fn test_stream_url() {
         let dg = crate::Deepgram::new("token");
@@ -413,5 +471,14 @@ mod tests {
             dg.transcription().listen_stream_url().to_string(),
             "ws://localhost:8080/v1/listen",
         );
+    }
+
+    #[test]
+    fn query_escaping() {
+        let dg = crate::Deepgram::new("token");
+        let opts = Options::builder().custom_topics(["A&R"]).build();
+        let transcription = dg.transcription();
+        let builder = transcription.stream_request_with_options(opts.clone());
+        assert_eq!(builder.urlencoded().unwrap(), opts.urlencoded().unwrap())
     }
 }

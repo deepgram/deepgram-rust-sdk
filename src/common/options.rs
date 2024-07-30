@@ -4,7 +4,7 @@
 //!
 //! [api]: https://developers.deepgram.com/documentation/features/
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt};
 
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
@@ -172,14 +172,12 @@ pub enum Endpointing {
     CustomDurationMs(u32),
 }
 
-/// Endpointing impl
-impl Endpointing {
-    #[allow(missing_docs)]
-    pub fn to_str(&self) -> String {
+impl fmt::Display for Endpointing {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Endpointing::Enabled => "true".to_string(),
-            Endpointing::Disabled => "false".to_string(),
-            Endpointing::CustomDurationMs(value) => value.to_string(),
+            Endpointing::Enabled => f.write_str("true"),
+            Endpointing::Disabled => f.write_str("false"),
+            Endpointing::CustomDurationMs(value) => f.write_fmt(format_args!("{value}")),
         }
     }
 }
@@ -674,7 +672,7 @@ impl Options {
     /// ```
     ///
     pub fn urlencoded(&self) -> Result<String, serde_urlencoded::ser::Error> {
-        serde_urlencoded::to_string(SerializableOptions(self))
+        serde_urlencoded::to_string(SerializableOptions::from(self))
     }
 }
 
