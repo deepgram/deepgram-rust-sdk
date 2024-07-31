@@ -301,6 +301,61 @@ where
     S: Stream<Item = std::result::Result<Bytes, E>> + Send + Unpin + 'static,
     E: Send + std::fmt::Debug,
 {
+    /*
+    // Add an automatic retry on failure to the start function
+    pub async fn start_with_retry(
+        &self,
+        event_tx: Sender<Event>,
+    ) -> std::result::Result<
+        (
+            TranscriptionStream,
+            futures_mpsc::Receiver<std::result::Result<StreamResponse, DeepgramError>>,
+        ),
+        DeepgramError,
+    > {
+        let mut retry_count = 0;
+        let retry_limit = 3;
+        loop {
+            // Re-create the builder with the same parameters for each retry
+            let mut builder = StreamRequestBuilder {
+                config: self.config,
+                options: self.options,
+                source: self.source,
+                encoding: self.encoding.clone(),
+                sample_rate: self.sample_rate,
+                channels: self.channels,
+                endpointing: self.endpointing.clone(),
+                utterance_end_ms: self.utterance_end_ms,
+                interim_results: self.interim_results,
+                no_delay: self.no_delay,
+                vad_events: self.vad_events,
+                stream_url: self.stream_url.clone(),
+                keep_alive: self.keep_alive,
+                write_arc: None,
+            };
+
+            match builder.start(event_tx.clone()).await {
+                Ok((stream, response_stream)) => {
+                    return Ok((stream, response_stream));
+                }
+                Err(e) => {
+                    eprintln!("Error starting stream: {:?}", e);
+                    event_tx.send(Event::Error(DeepgramError::from(e))).await.unwrap();
+                    retry_count += 1;
+                    if retry_count >= retry_limit {
+                        println!("Retry attempts failed after {} attempts", retry_count);
+                        return Err(DeepgramError::CustomError(
+                            "Websocket retry attempts failed".to_string(),
+                        ));
+                    } else {
+                        println!("Retry attempt: {}", retry_count);
+                    }
+                }
+            }
+        }
+    }
+    */
+    
     pub async fn start(
         mut self,
         event_tx: Sender<Event>,
