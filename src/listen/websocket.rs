@@ -481,7 +481,6 @@ where
                     Ok(frame) => {
                         let mut write = write_clone.lock().await;
                         if let Err(e) = write.send(frame).await {
-                            println!("Error sending frame: {:?}", e);
                             let _ = event_tx_send
                                 .send(Event::Error(DeepgramError::from(e)))
                                 .await;
@@ -489,7 +488,6 @@ where
                         }
                     }
                     Err(e) => {
-                        println!("Error receiving from source: {:?}", e);
                         let _ = event_tx_send
                             .send(Event::Error(DeepgramError::CustomError(format!("{:?}", e))))
                             .await;
@@ -500,7 +498,6 @@ where
 
             let mut write = write_clone.lock().await;
             if let Err(e) = write.send(Message::binary([])).await {
-                println!("Error sending final frame: {:?}", e);
                 let _ = event_tx_send
                     .send(Event::Error(DeepgramError::from(e)))
                     .await;
@@ -526,7 +523,6 @@ where
                                 }
                             }
                             Message::Close(close_frame) => {
-                                println!("Received close frame: {:?}", close_frame);
                                 // Send a close frame back to acknowledge the close request
                                 let mut write = recv_write_clone.lock().await;
                                 if let Err(_e) = write.send(Message::Close(None)).await {
