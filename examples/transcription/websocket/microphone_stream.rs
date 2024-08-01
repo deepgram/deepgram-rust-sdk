@@ -124,7 +124,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let (connection, mut response_stream) = dg
         .transcription()
-        .stream_request_with_options(Some(&options))
+        .stream_request_with_options(options)
         .keep_alive()
         .stream(microphone_as_stream())
         .encoding(Encoding::Linear16)
