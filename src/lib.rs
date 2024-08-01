@@ -157,6 +157,11 @@ pub enum DeepgramError {
     #[error("Something went wrong with WS: {0}")]
     SendError(#[from] futures::channel::mpsc::SendError),
 
+    /// WS Closed - TODO How to type this?
+    // #[cfg(feature = "listen")]
+    // #[error("WS Closed: {0}")]
+    // WsCloseError(#[from] Error),
+
     /// Something went wrong with receiving
     #[cfg(feature = "listen")]
     #[error("Deepgram error: {0}")]
