@@ -440,16 +440,13 @@ where
         self.write_arc = Some(cloned_write_arc); // Store the write arc
         let (mut tx, rx) = mpsc::channel::<Result<StreamResponse>>(1);
 
-        let event_tx_keep_alive = event_tx.clone();
-        let event_tx_send = event_tx.clone();
-        let event_tx_receive = event_tx.clone();
-
         event_tx.send(Event::Open).await.unwrap();
 
         // Spawn the keep-alive task
         if self.keep_alive.unwrap_or(false) {
             {
                 let write_clone = Arc::clone(&write_arc);
+                let event_tx_keep_alive = event_tx.clone();
                 tokio::spawn(async move {
                     let mut interval = time::interval(Duration::from_secs(10));
                     loop {
@@ -469,6 +466,7 @@ where
         }
 
         let write_clone = Arc::clone(&write_arc);
+        let event_tx_send = event_tx.clone();
         let send_task = async move {
             while let Some(frame) = source.next().await {
                 match frame {
@@ -499,6 +497,7 @@ where
         };
 
         let recv_write_clone = Arc::clone(&write_arc);
+        let event_tx_receive = event_tx.clone();
         let recv_task = async move {
             loop {
                 match read.next().await {
