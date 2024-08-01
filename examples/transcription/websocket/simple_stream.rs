@@ -38,7 +38,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let (_connection, mut response_stream) = dg
         .transcription()
-        .stream_request_with_options(options)
+        .stream_request_with_options(Some(&options))
         .keep_alive()
         .encoding(Encoding::Linear16)
         .sample_rate(44100)
