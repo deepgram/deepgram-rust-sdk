@@ -141,10 +141,10 @@ async fn main() -> Result<(), DeepgramError> {
         // Close the stream after 5 messages are received
         if count == 5 {
             // Call finalize after processing the stream
-            connection.finalize(event_tx.clone()).await?;
+            connection.finalize().await?;
 
             // Call  after processing the stream
-            connection.finish(event_tx.clone()).await?;
+            connection.finish().await?;
         }
         count += 1;
         match response {
