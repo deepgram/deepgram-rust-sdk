@@ -488,7 +488,6 @@ where
                 }
             }
 
-            let write_clone = Arc::clone(&write_arc);
             let finish_message = Message::Text(r#"{"type": "CloseStream"}"#.to_string());
             let mut write_guard = write_clone.lock().await;
             if let Err(e) = write_guard.send(finish_message).await {
