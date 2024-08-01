@@ -259,18 +259,18 @@ fn options_to_query_string(options: &Options) -> String {
 #[derive(Debug, Clone)]
 pub struct TranscriptionHandle {
     write_arc: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
+    event_tx: Sender<Event>,
 }
 
 impl TranscriptionHandle {
     pub async fn finalize(
         &self,
-        event_tx: Sender<Event>,
     ) -> std::result::Result<(), DeepgramError> {
         let finalize_message = Message::Text(r#"{"type": "Finalize"}"#.to_string());
         let mut write_guard = self.write_arc.lock().await;
         if let Err(e) = write_guard.send(finalize_message).await {
             let err = DeepgramError::from(e);
-            event_tx.send(Event::Error(err)).await.unwrap();
+            self.event_tx.send(Event::Error(err)).await.unwrap();
             return Err(DeepgramError::CustomError(
                 "Failed to send Finalize message".to_string(),
             ));
@@ -278,17 +278,17 @@ impl TranscriptionHandle {
         Ok(())
     }
 
-    pub async fn finish(&self, event_tx: Sender<Event>) -> std::result::Result<(), DeepgramError> {
+    pub async fn finish(&self) -> std::result::Result<(), DeepgramError> {
         let finish_message = Message::Text(r#"{"type": "CloseStream"}"#.to_string());
         let mut write_guard = self.write_arc.lock().await;
         if let Err(e) = write_guard.send(finish_message).await {
             let err = DeepgramError::from(e);
-            event_tx.send(Event::Error(err)).await.unwrap();
+            self.event_tx.send(Event::Error(err)).await.unwrap();
             return Err(DeepgramError::CustomError(
                 "Failed to send CloseStream message".to_string(),
             ));
         }
-        event_tx.send(Event::Close).await.unwrap();
+        self.event_tx.send(Event::Close).await.unwrap();
         Ok(())
     }
 }
@@ -541,7 +541,7 @@ where
             tokio::join!(send_task, recv_task);
         });
 
-        Ok((TranscriptionHandle { write_arc }, rx))
+        Ok((TranscriptionHandle { write_arc, event_tx }, rx))
     }
 
     pub fn keep_alive(mut self) -> Self {
