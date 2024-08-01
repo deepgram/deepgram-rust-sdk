@@ -349,7 +349,7 @@ where
         }
     }
     */
-    
+
     pub async fn start(
         mut self,
         event_tx: Sender<Event>,
