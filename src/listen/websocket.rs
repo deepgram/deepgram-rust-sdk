@@ -491,12 +491,8 @@ where
             if let Err(e) = write_guard.send(finish_message).await {
                 let err = DeepgramError::from(e);
                 event_tx_send.send(Event::Error(err)).await.unwrap();
-                return Err(DeepgramError::CustomError(
-                    "Failed to send CloseStream message".to_string(),
-                ));
             }
             event_tx_send.send(Event::Close).await.unwrap();
-            Ok(())
         };
 
         let recv_write_clone = Arc::clone(&write_arc);
