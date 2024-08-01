@@ -256,12 +256,12 @@ fn options_to_query_string(options: &Options) -> String {
     serde_urlencoded::to_string(serialized_options).unwrap_or_default()
 }
 
-#[derive(Debug)]
-pub struct TranscriptionStream {
+#[derive(Debug, Clone)]
+pub struct TranscriptionHandle {
     write_arc: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>,
 }
 
-impl TranscriptionStream {
+impl TranscriptionHandle {
     pub async fn finalize(
         &self,
         event_tx: Sender<Event>,
@@ -305,7 +305,7 @@ where
         event_tx: Sender<Event>,
     ) -> std::result::Result<
         (
-            TranscriptionStream,
+            TranscriptionHandle,
             futures_mpsc::Receiver<std::result::Result<StreamResponse, DeepgramError>>,
         ),
         DeepgramError,
@@ -357,7 +357,7 @@ where
         event_tx: Sender<Event>,
     ) -> std::result::Result<
         (
-            TranscriptionStream,
+            TranscriptionHandle,
             futures_mpsc::Receiver<std::result::Result<StreamResponse, DeepgramError>>,
         ),
         DeepgramError,
@@ -541,7 +541,7 @@ where
             tokio::join!(send_task, recv_task);
         });
 
-        Ok((TranscriptionStream { write_arc }, rx))
+        Ok((TranscriptionHandle { write_arc }, rx))
     }
 
     pub fn keep_alive(mut self) -> Self {
