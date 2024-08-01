@@ -281,7 +281,7 @@ impl TranscriptionStream {
     }
 
     pub async fn finish(&self, event_tx: Sender<Event>) -> std::result::Result<(), DeepgramError> {
-        let finish_message = Message::Text("{\"type\": \"CloseStream\"}".to_string());
+        let finish_message = Message::Text(r#"{"type": "CloseStream"}"#.to_string());
         let mut write_guard = self.write_arc.lock().await;
         if let Err(e) = write_guard.send(finish_message).await {
             let err = DeepgramError::from(e);
