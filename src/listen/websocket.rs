@@ -444,12 +444,11 @@ where
         self.write_arc = Some(cloned_write_arc); // Store the write arc
         let (mut tx, rx) = mpsc::channel::<Result<StreamResponse>>(1);
 
-        let event_tx_open = event_tx.clone();
         let event_tx_keep_alive = event_tx.clone();
         let event_tx_send = event_tx.clone();
         let event_tx_receive = event_tx.clone();
 
-        event_tx_open.send(Event::Open).await.unwrap();
+        event_tx.send(Event::Open).await.unwrap();
 
         // Spawn the keep-alive task
         if self.keep_alive.unwrap_or(false) {
