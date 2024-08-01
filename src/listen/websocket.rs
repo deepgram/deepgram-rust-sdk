@@ -263,9 +263,7 @@ pub struct TranscriptionHandle {
 }
 
 impl TranscriptionHandle {
-    pub async fn finalize(
-        &self,
-    ) -> std::result::Result<(), DeepgramError> {
+    pub async fn finalize(&self) -> std::result::Result<(), DeepgramError> {
         let finalize_message = Message::Text(r#"{"type": "Finalize"}"#.to_string());
         let mut write_guard = self.write_arc.lock().await;
         if let Err(e) = write_guard.send(finalize_message).await {
@@ -545,7 +543,13 @@ where
             tokio::join!(send_task, recv_task);
         });
 
-        Ok((TranscriptionHandle { write_arc, event_tx }, rx))
+        Ok((
+            TranscriptionHandle {
+                write_arc,
+                event_tx,
+            },
+            rx,
+        ))
     }
 
     pub fn keep_alive(mut self) -> Self {
