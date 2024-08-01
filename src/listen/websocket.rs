@@ -267,7 +267,7 @@ impl TranscriptionStream {
         &self,
         event_tx: Sender<Event>,
     ) -> std::result::Result<(), DeepgramError> {
-        let finalize_message = Message::Text("{\"type\": \"Finalize\"}".to_string());
+        let finalize_message = Message::Text(r#"{"type": "Finalize"}"#.to_string());
         let mut write_guard = self.write_arc.lock().await;
         if let Err(e) = write_guard.send(finalize_message).await {
             let err = DeepgramError::from(e);
