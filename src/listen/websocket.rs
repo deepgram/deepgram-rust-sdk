@@ -488,12 +488,18 @@ where
                 }
             }
 
-            let mut write = write_clone.lock().await;
-            if let Err(e) = write.send(Message::binary([])).await {
-                let _ = event_tx_send
-                    .send(Event::Error(DeepgramError::from(e)))
-                    .await;
+            let write_clone = Arc::clone(&write_arc);
+            let finish_message = Message::Text(r#"{"type": "CloseStream"}"#.to_string());
+            let mut write_guard = write_clone.lock().await;
+            if let Err(e) = write_guard.send(finish_message).await {
+                let err = DeepgramError::from(e);
+                event_tx_send.send(Event::Error(err)).await.unwrap();
+                return Err(DeepgramError::CustomError(
+                    "Failed to send CloseStream message".to_string(),
+                ));
             }
+            event_tx_send.send(Event::Close).await.unwrap();
+            Ok(())
         };
 
         let recv_write_clone = Arc::clone(&write_arc);
