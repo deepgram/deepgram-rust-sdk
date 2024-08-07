@@ -154,7 +154,7 @@ pub enum DeepgramError {
 
     /// The data stream produced an error
     #[error("The data stream produced an error: {0}")]
-    StreamError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>)
+    StreamError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]

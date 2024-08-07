@@ -502,9 +502,14 @@ async fn run_worker(
                 }
             }
         };
-        if let Err(err) = ws_stream_send.send(Message::Text(serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default())).await {
+        if let Err(err) = ws_stream_send
+            .send(Message::Text(
+                serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default(),
+            ))
+            .await
+        {
             // If the response channel is closed, there's nothing to be done about it now.
-            let _ = response_tx.send(Err(err.into())).await ;
+            let _ = response_tx.send(Err(err.into())).await;
         }
     }
     Ok(())
