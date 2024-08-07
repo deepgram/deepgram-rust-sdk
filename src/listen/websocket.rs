@@ -10,28 +10,30 @@
 
 use std::{
     error::Error,
-    fmt::Debug,
-    marker::PhantomData,
     path::Path,
     pin::Pin,
-    sync::Arc,
     task::{Context, Poll},
     time::Duration,
 };
 
 use bytes::{Bytes, BytesMut};
 use futures::{
-    channel::mpsc::{self, Receiver},
+    channel::mpsc::{self, Receiver, Sender},
+    future::FutureExt,
+    select,
     stream::StreamExt,
     SinkExt, Stream,
 };
 use http::Request;
 use pin_project::pin_project;
 use serde_urlencoded;
-use tokio::{fs::File, sync::Mutex, time};
-use tokio_tungstenite::tungstenite::protocol::Message;
+use tokio::fs::File;
+use tokio_tungstenite::{tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream};
 use tokio_util::io::ReaderStream;
-use tungstenite::handshake::client;
+use tungstenite::{
+    handshake::client,
+    protocol::frame::coding::{Data, OpCode},
+};
 use url::Url;
 
 use crate::{
@@ -44,8 +46,8 @@ use crate::{
 
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
 
-#[derive(Debug)]
-pub struct StreamRequestBuilder<'a> {
+#[derive(Clone, Debug)]
+pub struct WebsocketBuilder<'a> {
     deepgram: &'a Deepgram,
     options: Options,
     encoding: Option<Encoding>,
@@ -69,12 +71,12 @@ struct FileChunker {
 }
 
 impl Transcription<'_> {
-    pub fn stream_request(&self) -> StreamRequestBuilder<'_> {
-        self.stream_request_with_options(Options::builder().build())
+    pub fn stream_request(&self) -> WebsocketBuilder<'_> {
+        self.stream_request_with_options(Options::default())
     }
 
-    pub fn stream_request_with_options(&self, options: Options) -> StreamRequestBuilder<'_> {
-        StreamRequestBuilder {
+    pub fn stream_request_with_options(&self, options: Options) -> WebsocketBuilder<'_> {
+        WebsocketBuilder {
             deepgram: self.0,
             options,
             encoding: None,
@@ -143,7 +145,7 @@ impl Stream for FileChunker {
     }
 }
 
-impl<'a> StreamRequestBuilder<'a> {
+impl<'a> WebsocketBuilder<'a> {
     /// Return the options in urlencoded format. If serialization would
     /// fail, this will also return an error.
     ///
@@ -305,16 +307,13 @@ impl<'a> StreamRequestBuilder<'a> {
     }
 }
 
-impl<'a> StreamRequestBuilder<'a> {
+impl<'a> WebsocketBuilder<'a> {
     pub async fn file(
         self,
         filename: impl AsRef<Path>,
         frame_size: usize,
         frame_delay: Duration,
-    ) -> Result<
-        StreamRequest<'a, Receiver<Result<Bytes, DeepgramError>>, DeepgramError>,
-        DeepgramError,
-    > {
+    ) -> Result<TranscriptionStream, DeepgramError> {
         let file = File::open(filename).await?;
         let mut chunker = FileChunker::new(file, frame_size);
         let (mut tx, rx) = mpsc::channel(1);
@@ -327,37 +326,207 @@ impl<'a> StreamRequestBuilder<'a> {
             }
         };
         tokio::spawn(task);
-        Ok(self.stream(rx))
+        self.stream(rx).await
     }
-    pub fn stream<S, E>(self, stream: S) -> StreamRequest<'a, S, E> {
-        StreamRequest {
-            stream,
-            builder: self,
-            _err: PhantomData,
+
+    pub async fn stream<S, E>(self, stream: S) -> Result<TranscriptionStream>
+    where
+        S: Stream<Item = Result<Bytes, E>> + Send + Unpin + 'static,
+        E: Error + Send + Sync + 'static,
+    {
+        let handle = self.handle().await?;
+
+        let (tx, rx) = mpsc::channel(1);
+        tokio::task::spawn(async move {
+            let mut handle = handle;
+            let mut tx = tx;
+            let mut stream = stream;
+
+            loop {
+                select! {
+                    result = stream.next().fuse() => {
+                        match result {
+                            Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.into()).await {
+                                if tx.send(Err(err)).await.is_err() {
+                                    break;
+                                }
+                            },
+                            Some(Err(err)) => {
+                                if tx.send(Err(DeepgramError::from(Box::new(err) as Box<dyn Error + Send + Sync + 'static>))).await.is_err() {
+                                    break;
+                                }
+                            }
+                            None => {
+                                continue;
+                            }
+                        }
+                    }
+                    response = handle.receive().fuse() => {
+                        match response {
+                            Some(response) => {
+                                if tx.send(response).await.is_err() {
+                                    // Receiver has been dropped.
+                                    break;
+                                }
+                            }
+                            None => {
+                                // No more responses
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        Ok(TranscriptionStream { rx })
+    }
+
+    /// A low level interface to the Deepgram websocket transcription API.
+    pub async fn handle(self) -> Result<WebsocketHandle> {
+        WebsocketHandle::new(self).await
+    }
+}
+
+macro_rules! send_message {
+    ($stream:expr, $response_tx:expr, $msg:expr) => {
+        if let Err(err) = $stream.send($msg).await {
+            if $response_tx.send(Err(err.into())).await.is_err() {
+                // Responses are no longer being received; close the stream.
+                break;
+            }
+        }
+    };
+}
+async fn run_worker(
+    ws_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
+    mut message_rx: Receiver<WsMessage>,
+    mut response_tx: Sender<Result<StreamResponse>>,
+    keep_alive: bool,
+) -> Result<()> {
+    // We use Vec<u8> for partial frames because we don't know if a fragment of a string is valid utf-8.
+    let mut partial_frame: Vec<u8> = Vec::new();
+    let (mut ws_stream_send, mut ws_stream_recv) = ws_stream.split();
+    loop {
+        // Primary event loop.
+        select! {
+            _ = tokio::time::sleep(Duration::from_secs(3)).fuse() => {
+                if keep_alive {
+                    send_message!(ws_stream_send, response_tx, Message::Text(
+                        serde_json::to_string(&ControlMessage::KeepAlive).unwrap_or_default(),
+                    ));
+                }
+            }
+            message = message_rx.next().fuse() => {
+                match message {
+                    Some(WsMessage::Audio(audio))=> {
+                        send_message!(ws_stream_send, response_tx, Message::Binary(audio));
+                    }
+                    Some(WsMessage::ControlMessage(msg)) => {
+                        send_message!(ws_stream_send, response_tx, Message::Text(
+                            serde_json::to_string(&msg).unwrap_or_default()
+                        ));
+                    }
+                    None => {
+                        // Input stream is shut down.  Keep processing responses.
+                    }
+                }
+            }
+            response = ws_stream_recv.next().fuse() => {
+                match response {
+                    Some(Ok(Message::Text(response))) => {
+                        //
+                        match serde_json::from_str(&response) {
+                            Ok(response) => {
+                                if (response_tx.send(Ok(response)).await).is_err() {
+                                    // Responses are no longer being received; close the stream.
+                                    break;
+                                }
+                            }
+                            Err(err) =>{
+                                if (response_tx.send(Err(err.into())).await).is_err() {
+                                    // Responses are no longer being received; close the stream.
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    Some(Ok(Message::Ping(value))) => {
+                        // We don't really care if the server receives the pong.
+                        let _ = ws_stream_send.send(Message::Pong(value)).await;
+                    }
+                    Some(Ok(Message::Close(_))) => {
+                        return Ok(());
+                    }
+                    Some(Ok(Message::Frame(frame))) => {
+                        match frame.header().opcode
+                        {
+                            OpCode::Data(Data::Text) => {
+                                partial_frame.extend(frame.payload());
+                            }
+                            OpCode::Data(Data::Continue) => {
+                                // We know we're continuing a text frame because otherwise
+                                // partial_frame would be empty.
+                                if !partial_frame.is_empty() {
+                                    partial_frame.extend(frame.payload())
+                                }
+                            }
+                            _ => {
+                                // Ignore other partial frames.
+                            }
+                        }
+                        if frame.header().is_final {
+                            let response = std::mem::take(&mut partial_frame);
+                            let response = serde_json::from_slice(&response).map_err(|err| err.into());
+                            if (response_tx.send(response).await).is_err() {
+                                // Responses are no longer being received; close the stream.
+                                break
+                            }
+                        }
+                    }
+                    Some(Ok(Message::Binary(_) | Message::Pong(_))) => {
+                        // We don't expect binary messages or pongs from the API.
+                        // They can be safely ignored.
+                    }
+
+                    Some(Err(err)) => {
+                        if (response_tx.send(Err(err.into())).await).is_err() {
+                            // Responses are no longer being received; close the stream.
+                            break;
+                        }
+
+                    }
+                    None => {
+                        // Upstream is closed
+                        return Ok(())
+                    }
+                }
+            }
+        };
+        if let Err(err) = ws_stream_send.send(Message::Text(serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default())).await {
+            // If the response channel is closed, there's nothing to be done about it now.
+            let _ = response_tx.send(Err(err.into())).await ;
         }
     }
+    Ok(())
+}
+
+enum WsMessage {
+    Audio(Vec<u8>),
+    ControlMessage(ControlMessage),
 }
 
 #[derive(Debug)]
-pub struct StreamRequest<'a, S, E> {
-    stream: S,
-    builder: StreamRequestBuilder<'a>,
-    _err: PhantomData<E>,
+pub struct WebsocketHandle {
+    message_tx: Sender<WsMessage>,
+    response_rx: Receiver<Result<StreamResponse>>,
 }
 
-impl<S, E> StreamRequest<'_, S, E>
-where
-    S: Stream<Item = std::result::Result<Bytes, E>> + Send + Unpin + 'static,
-    E: Error + Debug + Send + Unpin + 'static,
-{
-    pub async fn start(self) -> Result<Receiver<Result<StreamResponse>>> {
-        let url = self.builder.as_url()?;
-        let mut source = self
-            .stream
-            .map(|res| res.map(|bytes| Message::binary(Vec::from(bytes.as_ref()))));
+impl<'a> WebsocketHandle {
+    async fn new(builder: WebsocketBuilder<'a>) -> Result<WebsocketHandle> {
+        let url = builder.as_url()?;
 
         let request = {
-            let builder = Request::builder()
+            let http_builder = Request::builder()
                 .method("GET")
                 .uri(url.to_string())
                 .header("sec-websocket-key", client::generate_key())
@@ -366,93 +535,91 @@ where
                 .header("upgrade", "websocket")
                 .header("sec-websocket-version", "13");
 
-            let builder = if let Some(api_key) = self.builder.deepgram.api_key.as_deref() {
-                builder.header("authorization", format!("token {}", api_key))
+            let builder = if let Some(api_key) = builder.deepgram.api_key.as_deref() {
+                http_builder.header("authorization", format!("token {}", api_key))
             } else {
-                builder
+                http_builder
             };
             builder.body(())?
         };
+
         let (ws_stream, _) = tokio_tungstenite::connect_async(request).await?;
-        let (write, mut read) = ws_stream.split();
-        let write = Arc::new(Mutex::new(write));
-        let (mut tx, rx) = mpsc::channel::<Result<StreamResponse>>(1);
+        let (message_tx, message_rx) = mpsc::channel(256);
+        let (response_tx, response_rx) = mpsc::channel(256);
 
-        // Spawn the keep-alive task
-        if self.builder.keep_alive.unwrap_or(false) {
-            {
-                let write_clone = Arc::clone(&write);
-                tokio::spawn(async move {
-                    let mut interval = time::interval(Duration::from_secs(10));
-                    loop {
-                        interval.tick().await;
-                        let keep_alive_message =
-                            Message::Text("{\"type\": \"KeepAlive\"}".to_string());
-                        let mut write = write_clone.lock().await;
-                        if let Err(e) = write.send(keep_alive_message).await {
-                            eprintln!("Error Sending Keep Alive: {:?}", e);
-                            break;
-                        }
-                    }
-                })
-            };
-        }
+        tokio::task::spawn(run_worker(
+            ws_stream,
+            message_rx,
+            response_tx,
+            builder.keep_alive.unwrap_or(false),
+        ));
 
-        let write_clone = Arc::clone(&write);
-        let send_task = async move {
-            while let Some(frame) = source.next().await {
-                match frame {
-                    Ok(frame) => {
-                        let mut write = write_clone.lock().await;
-                        if let Err(e) = write.send(frame).await {
-                            println!("Error sending frame: {:?}", e);
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        println!("Error receiving from source: {:?}", e);
-                        break;
-                    }
-                }
-            }
+        Ok(WebsocketHandle {
+            message_tx,
+            response_rx,
+        })
+    }
 
-            let mut write = write_clone.lock().await;
-            if let Err(e) = write.send(Message::binary([])).await {
-                println!("Error sending final frame: {:?}", e);
-            }
-        };
+    pub async fn send_data(&mut self, data: Vec<u8>) -> Result<()> {
+        self.message_tx
+            .send(WsMessage::Audio(data))
+            .await
+            .expect("worker does not shutdown before handle");
+        Ok(())
+    }
 
-        let recv_task = async move {
-            loop {
-                match read.next().await {
-                    None => break,
-                    Some(Ok(msg)) => {
-                        if let Message::Text(txt) = msg {
-                            let resp = serde_json::from_str(&txt).map_err(DeepgramError::from);
-                            tx.send(resp)
-                                .await
-                                // This unwrap is probably not safe.
-                                .unwrap();
-                        }
-                    }
-                    Some(e) => {
-                        let _ = dbg!(e);
-                        break;
-                    }
-                }
-            }
-        };
+    pub async fn finalize(&mut self) -> Result<()> {
+        self.send_control_message(ControlMessage::Finalize).await
+    }
 
-        tokio::spawn(async move {
-            tokio::join!(send_task, recv_task);
-        });
+    pub async fn keep_alive(&mut self) -> Result<()> {
+        self.send_control_message(ControlMessage::KeepAlive).await
+    }
 
-        Ok(rx)
+    pub async fn close_stream(&mut self) -> Result<()> {
+        self.send_control_message(ControlMessage::CloseStream).await
+    }
+
+    async fn send_control_message(&mut self, message: ControlMessage) -> Result<()> {
+        self.message_tx
+            .send(WsMessage::ControlMessage(message))
+            .await
+            .expect("worker does not shutdown before handle");
+        Ok(())
+    }
+
+    pub async fn receive(&mut self) -> Option<Result<StreamResponse>> {
+        self.response_rx.next().await
+    }
+}
+
+#[derive(serde::Serialize)]
+#[serde(tag = "type")]
+enum ControlMessage {
+    Finalize,
+    KeepAlive,
+    CloseStream,
+}
+
+#[derive(Debug)]
+#[pin_project]
+pub struct TranscriptionStream {
+    #[pin]
+    rx: Receiver<Result<StreamResponse>>,
+}
+
+impl Stream for TranscriptionStream {
+    type Item = Result<StreamResponse, DeepgramError>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        this.rx.poll_next(cx)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::ControlMessage;
     use crate::common::options::Options;
 
     #[test]
@@ -480,5 +647,13 @@ mod tests {
         let transcription = dg.transcription();
         let builder = transcription.stream_request_with_options(opts.clone());
         assert_eq!(builder.urlencoded().unwrap(), opts.urlencoded().unwrap())
+    }
+
+    #[test]
+    fn control_message_format() {
+        assert_eq!(
+            &serde_json::to_string(&ControlMessage::CloseStream).unwrap(),
+            r#"{"type":"CloseStream"}"#
+        );
     }
 }

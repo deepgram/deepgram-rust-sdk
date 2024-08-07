@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Migrating from 0.4.0 -> 0.6.0
 
-Module Imports
+#### Module Imports
 
-```
+```rust
 use deepgram::{
 ---    transcription::prerecorded::{
 +++    common::{
@@ -21,10 +21,49 @@ use deepgram::{
 };
 ```
 
-Streaming Changes
+#### Streaming Changes
+
+We have exposed a low-level, message-based interface to the websocket API:
+
+```rust
+use futures::select;
+
+let mut handle = dg
+    .transcription()
+    .stream_request()
+    .handle()
+    .await?;
+
+loop {
+    select! {
+        _ = tokio::time::sleep(Duration::from_secs(3)) => handle.keep_alive().await,
+        _ = handle.send_data(data_chunk()).fuse() => {}
+        response = handle.receive().fuse() => {
+            match response {
+                Some(response) => println!("{response:?}"),
+                None => break,
+            }
+        }
+    }
+}
+handle.close_stream().await;
+```
+
+No need to call `.start()` to begin streaming data.
+
+```rust
+let mut results = dg
+    .transcription()
+    .stream_request_with_options(Some(&options))
+    .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, Duration::from_millis(16))
+---    .await
+---    .start()
+    .await;
+```
 
 Now you can pass Options using stream_request_with_options
-```
+
+```rust
 let options = Options::builder()
     .smart_format(true)
     .language(Language::en_US)
@@ -35,8 +74,6 @@ let mut results = dg
     .stream_request_with_options(Some(&options))
     .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, Duration::from_millis(16))
     .await?
-    .start()
-    .await?;
 ```
 
 Some Enums have changed and may need to be updated
@@ -47,6 +84,7 @@ Some Enums have changed and may need to be updated
 - Add support for pre-recorded features when streaming
 - Add Speech to Text
 - Reorganize Code
+
 
 ### Streaming Features
 - endpointing

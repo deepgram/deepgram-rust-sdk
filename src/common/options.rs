@@ -50,6 +50,11 @@ pub struct Options {
     callback_method: Option<CallbackMethod>,
 }
 
+impl Default for Options {
+    fn default() -> Self {
+        Options::builder().build()
+    }
+}
 /// Detect Language value
 ///
 /// See the [Deepgram Detect Language feature docs][docs] for more info.

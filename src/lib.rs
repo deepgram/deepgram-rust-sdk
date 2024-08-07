@@ -151,6 +151,10 @@ pub enum DeepgramError {
     /// Something went wrong during serialization/deserialization.
     #[error("Something went wrong during query serialization: {0}")]
     UrlencodedError(#[from] serde_urlencoded::ser::Error),
+
+    /// The data stream produced an error
+    #[error("The data stream produced an error: {0}")]
+    StreamError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>)
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]

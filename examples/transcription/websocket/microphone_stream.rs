@@ -102,7 +102,6 @@ async fn main() -> Result<(), DeepgramError> {
         // TODO Specific to my machine, not general enough example.
         .channels(2)
         .stream(microphone_as_stream())
-        .start()
         .await?;
 
     while let Some(result) = results.next().await {
