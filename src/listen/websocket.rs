@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use futures::{
     channel::mpsc::{self, Receiver, Sender},
     future::FutureExt,
@@ -29,13 +29,13 @@ use pin_project::pin_project;
 use serde_urlencoded;
 use tokio::fs::File;
 use tokio_tungstenite::{tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream};
-use tokio_util::io::ReaderStream;
 use tungstenite::{
     handshake::client,
     protocol::frame::coding::{Data, OpCode},
 };
 use url::Url;
 
+use self::file_chunker::FileChunker;
 use crate::{
     common::{
         options::{Encoding, Endpointing, Options},
@@ -62,18 +62,70 @@ pub struct WebsocketBuilder<'a> {
     keep_alive: Option<bool>,
 }
 
-#[pin_project]
-struct FileChunker {
-    chunk_size: usize,
-    buf: BytesMut,
-    #[pin]
-    file: ReaderStream<File>,
-}
-
 impl Transcription<'_> {
+    /// Begin to configure a websocket request with common options
+    /// set to their default values.
+    ///
+    /// Once configured, the connection can be initiated with any of
+    /// [`WebsocketBuilder::file`], [`WebsocketBuilder::stream`], or
+    /// [`WebsocketBuilder::handle`].
+    ///
+    /// ```
+    /// use deepgram::{
+    ///     Deepgram,
+    ///     DeepgramError,
+    ///     common::options::{
+    ///         DetectLanguage,
+    ///         Encoding,
+    ///         Model,
+    ///         Options,
+    ///     },
+    ///     listen::websocket::WebsocketBuilder,
+    /// };
+    ///
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default());
+    /// let transcription = dg.transcription();
+    /// let builder: WebsocketBuilder<'_> = transcription
+    ///     .stream_request()
+    ///     .no_delay(true);
+    /// ```
     pub fn stream_request(&self) -> WebsocketBuilder<'_> {
         self.stream_request_with_options(Options::default())
     }
+
+    /// Construct a websocket request with common options
+    /// specified in [`Options`].
+    ///
+    /// Once configured, the connection can be initiated with any of
+    /// [`WebsocketBuilder::file`], [`WebsocketBuilder::stream`], or
+    /// [`WebsocketBuilder::handle`].
+    ///
+    /// ```
+    /// use deepgram::{
+    ///     Deepgram,
+    ///     DeepgramError,
+    ///     common::options::{
+    ///         DetectLanguage,
+    ///         Encoding,
+    ///         Model,
+    ///         Options,
+    ///     },
+    /// };
+    ///
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default());
+    /// let transcription = dg.transcription();
+    /// let options = Options::builder()
+    ///     .model(Model::Nova2)
+    ///     .detect_language(DetectLanguage::Enabled)
+    ///     .build();
+    /// let builder = transcription
+    ///     .stream_request_with_options(
+    ///         options,
+    ///     )
+    ///     .no_delay(true);
+    ///
+    /// assert_eq!(&builder.urlencoded().unwrap(), "model=nova-2&detect_language=true&no_delay=true")
+    /// ```
 
     pub fn stream_request_with_options(&self, options: Options) -> WebsocketBuilder<'_> {
         WebsocketBuilder {
@@ -103,48 +155,6 @@ impl Transcription<'_> {
     }
 }
 
-impl FileChunker {
-    fn new(file: File, chunk_size: usize) -> Self {
-        FileChunker {
-            chunk_size,
-            buf: BytesMut::with_capacity(2 * chunk_size),
-            file: ReaderStream::new(file),
-        }
-    }
-}
-
-impl Stream for FileChunker {
-    type Item = Result<Bytes>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let mut this = self.project();
-
-        while this.buf.len() < *this.chunk_size {
-            match Pin::new(&mut this.file).poll_next(cx) {
-                Poll::Pending => return Poll::Pending,
-                Poll::Ready(next) => match next.transpose() {
-                    Err(e) => return Poll::Ready(Some(Err(DeepgramError::from(e)))),
-                    Ok(None) => {
-                        if this.buf.is_empty() {
-                            return Poll::Ready(None);
-                        } else {
-                            return Poll::Ready(Some(Ok(this
-                                .buf
-                                .split_to(this.buf.len())
-                                .freeze())));
-                        }
-                    }
-                    Ok(Some(next)) => {
-                        this.buf.extend_from_slice(&next);
-                    }
-                },
-            }
-        }
-
-        Poll::Ready(Some(Ok(this.buf.split_to(*this.chunk_size).freeze())))
-    }
-}
-
 impl<'a> WebsocketBuilder<'a> {
     /// Return the options in urlencoded format. If serialization would
     /// fail, this will also return an error.
@@ -162,11 +172,8 @@ impl<'a> WebsocketBuilder<'a> {
     ///         Options,
     ///     },
     /// };
-    /// # let mut need_token = std::env::var("DEEPGRAM_API_TOKEN").is_err();
-    /// # if need_token {
-    /// #     std::env::set_var("DEEPGRAM_API_TOKEN", "abc")
-    /// # }
-    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap());
+    ///
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default());
     /// let transcription = dg.transcription();
     /// let options = Options::builder()
     ///     .model(Model::Nova2)
@@ -177,10 +184,6 @@ impl<'a> WebsocketBuilder<'a> {
     ///         options,
     ///     )
     ///     .no_delay(true);
-    ///
-    /// # if need_token {
-    /// #     std::env::remove_var("DEEPGRAM_API_TOKEN");
-    /// # }
     ///
     /// assert_eq!(&builder.urlencoded().unwrap(), "model=nova-2&detect_language=true&no_delay=true")
     /// ```
@@ -622,6 +625,70 @@ impl Stream for TranscriptionStream {
     }
 }
 
+mod file_chunker {
+    use bytes::{Bytes, BytesMut};
+    use futures::Stream;
+    use pin_project::pin_project;
+    use std::{
+        pin::Pin,
+        task::{Context, Poll},
+    };
+    use tokio::fs::File;
+    use tokio_util::io::ReaderStream;
+
+    use crate::{DeepgramError, Result};
+
+    #[pin_project]
+    pub(super) struct FileChunker {
+        chunk_size: usize,
+        buf: BytesMut,
+        #[pin]
+        file: ReaderStream<File>,
+    }
+
+    impl FileChunker {
+        pub(super) fn new(file: File, chunk_size: usize) -> Self {
+            FileChunker {
+                chunk_size,
+                buf: BytesMut::with_capacity(2 * chunk_size),
+                file: ReaderStream::new(file),
+            }
+        }
+    }
+
+    impl Stream for FileChunker {
+        type Item = Result<Bytes>;
+
+        fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+            let mut this = self.project();
+
+            while this.buf.len() < *this.chunk_size {
+                match Pin::new(&mut this.file).poll_next(cx) {
+                    Poll::Pending => return Poll::Pending,
+                    Poll::Ready(next) => match next.transpose() {
+                        Err(e) => return Poll::Ready(Some(Err(DeepgramError::from(e)))),
+                        Ok(None) => {
+                            if this.buf.is_empty() {
+                                return Poll::Ready(None);
+                            } else {
+                                return Poll::Ready(Some(Ok(this
+                                    .buf
+                                    .split_to(this.buf.len())
+                                    .freeze())));
+                            }
+                        }
+                        Ok(Some(next)) => {
+                            this.buf.extend_from_slice(&next);
+                        }
+                    },
+                }
+            }
+
+            Poll::Ready(Some(Ok(this.buf.split_to(*this.chunk_size).freeze())))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::ControlMessage;
@@ -629,7 +696,7 @@ mod tests {
 
     #[test]
     fn test_stream_url() {
-        let dg = crate::Deepgram::new("token");
+        let dg = crate::Deepgram::new("token").unwrap();
         assert_eq!(
             dg.transcription().listen_stream_url().to_string(),
             "wss://api.deepgram.com/v1/listen",
@@ -638,7 +705,7 @@ mod tests {
 
     #[test]
     fn test_stream_url_custom_host() {
-        let dg = crate::Deepgram::with_base_url_and_api_key("http://localhost:8080", "token");
+        let dg = crate::Deepgram::with_base_url_and_api_key("http://localhost:8080", "token").unwrap();
         assert_eq!(
             dg.transcription().listen_stream_url().to_string(),
             "ws://localhost:8080/v1/listen",
@@ -647,7 +714,7 @@ mod tests {
 
     #[test]
     fn query_escaping() {
-        let dg = crate::Deepgram::new("token");
+        let dg = crate::Deepgram::new("token").unwrap();
         let opts = Options::builder().custom_topics(["A&R"]).build();
         let transcription = dg.transcription();
         let builder = transcription.stream_request_with_options(opts.clone());

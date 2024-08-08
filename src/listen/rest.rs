@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn listen_url() {
-        let dg = Deepgram::new("token");
+        let dg = Deepgram::new("token").unwrap();
         assert_eq!(
             &dg.transcription().listen_url().to_string(),
             "https://api.deepgram.com/v1/listen"
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn listen_url_custom_host() {
-        let dg = Deepgram::with_base_url("http://localhost:8888/abc/");
+        let dg = Deepgram::with_base_url("http://localhost:8888/abc/").unwrap();
         assert_eq!(
             &dg.transcription().listen_url().to_string(),
             "http://localhost:8888/abc/v1/listen"
