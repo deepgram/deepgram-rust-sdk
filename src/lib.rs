@@ -269,6 +269,9 @@ impl Deepgram {
             " rust",
         );
 
+        if base_url.cannot_be_a_base() {
+            return Err(DeepgramError::InvalidUrl);
+        }
         let authorization_header = {
             let mut header = HeaderMap::new();
             if let Some(api_key) = &api_key {
