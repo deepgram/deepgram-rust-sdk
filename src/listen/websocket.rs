@@ -346,7 +346,7 @@ impl<'a> WebsocketBuilder<'a> {
                 select! {
                     result = stream.next().fuse() => {
                         match result {
-                            Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.into()).await {
+                            Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.to_vec()).await {
                                 if tx.send(Err(err)).await.is_err() {
                                     break;
                                 }
