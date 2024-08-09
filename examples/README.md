@@ -17,5 +17,21 @@ cargo run --example simple_stream
 ```
 
 ```sh
-cargo run --example advanced_stream
+cargo run --example callback
+```
+
+```sh
+cargo run --example make_prerecorded_request_builder
+```
+
+```sh
+cargo run --example microphone_stream
+```
+
+```sh
+cargo run --example text_to_speech_to_file
+```
+
+```sh
+cargo run --example text_to_speech_to_stream
 ```
