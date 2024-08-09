@@ -10,6 +10,7 @@ use deepgram::{
 
 static PATH_TO_FILE: &str = "examples/audio/bueller.wav";
 static AUDIO_CHUNK_SIZE: usize = 3174;
+static FRAME_DELAY: Duration = Duration::from_millis(16);
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
@@ -32,7 +33,7 @@ async fn main() -> Result<(), DeepgramError> {
         .utterance_end_ms(1000)
         .vad_events(true)
         .no_delay(true)
-        .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, Duration::from_millis(16))
+        .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, FRAME_DELAY)
         .await?;
 
     while let Some(result) = results.next().await {

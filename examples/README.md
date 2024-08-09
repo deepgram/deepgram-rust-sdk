@@ -3,7 +3,7 @@
 ### Setting Env Vars
 
 ```sh
-export FILENAME=./examples/audio/Bueller-Life-moves-pretty-fast.mp3
+export FILENAME=./examples/audio/bueller.wav
 ```
 
 ### Running the examples

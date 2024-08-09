@@ -10,6 +10,8 @@
 
 use std::{
     error::Error,
+    fmt,
+    ops::Deref,
     path::Path,
     pin::Pin,
     task::{Context, Poll},
@@ -19,8 +21,8 @@ use std::{
 use bytes::Bytes;
 use futures::{
     channel::mpsc::{self, Receiver, Sender},
-    future::FutureExt,
-    select,
+    future::{pending, FutureExt},
+    select, select_biased,
     stream::StreamExt,
     SinkExt, Stream,
 };
@@ -344,28 +346,18 @@ impl<'a> WebsocketBuilder<'a> {
             let mut handle = handle;
             let mut tx = tx;
             let mut stream = stream;
-
             loop {
-                select! {
-                    result = stream.next().fuse() => {
-                        match result {
-                            Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.to_vec()).await {
-                                if tx.send(Err(err)).await.is_err() {
-                                    break;
-                                }
-                            },
-                            Some(Err(err)) => {
-                                if tx.send(Err(DeepgramError::from(Box::new(err) as Box<dyn Error + Send + Sync + 'static>))).await.is_err() {
-                                    break;
-                                }
-                            }
-                            None => {
-                                continue;
-                            }
-                        }
-                    }
+                select_biased! {
                     response = handle.receive().fuse() => {
+                        // eprintln!("<stream> got response");
                         match response {
+                            Some(Ok(response)) if matches!(response, StreamResponse::TerminalResponse { .. }) => {
+                               // eprintln!( "<stream> got terminal response");
+                                if tx.send(Ok(response)).await.is_err() {
+                                    // Receiver has been dropped.
+                                    break;
+                                }
+                            }
                             Some(response) => {
                                 if tx.send(response).await.is_err() {
                                     // Receiver has been dropped.
@@ -373,15 +365,47 @@ impl<'a> WebsocketBuilder<'a> {
                                 }
                             }
                             None => {
+                                // eprintln!("<stream> got none from handle");
+                                tx.close_channel();
                                 // No more responses
                                 break;
                             }
                         }
                     }
+                    result = stream.next().fuse() => {
+                        match result {
+                            Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.to_vec()).await {
+                                // eprintln!("<stream> got audio");
+                                if tx.send(Err(err)).await.is_err() {
+                                    break;
+                                }
+                            },
+                            Some(Err(err)) => {
+                                // eprintln!("<stream> got error");
+                                if tx.send(Err(DeepgramError::from(Box::new(err) as Box<dyn Error + Send + Sync + 'static>))).await.is_err() {
+                                    break;
+                                }
+                            }
+                            None => {
+                                if let Err(err) = handle.finalize().await {
+                                    if tx.send(Err(err)).await.is_err() {
+                                        break;
+                                    }
+                                }
+
+                                if let Err(err) = handle.close_stream().await {
+                                    if tx.send(Err(err)).await.is_err() {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                 }
             }
         });
-        Ok(TranscriptionStream { rx })
+        Ok(TranscriptionStream { rx, done: false })
     }
 
     /// A low level interface to the Deepgram websocket transcription API.
@@ -402,6 +426,7 @@ macro_rules! send_message {
 }
 async fn run_worker(
     ws_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
+    mut message_tx: Sender<WsMessage>,
     mut message_rx: Receiver<WsMessage>,
     mut response_tx: Sender<Result<StreamResponse>>,
     keep_alive: bool,
@@ -409,35 +434,26 @@ async fn run_worker(
     // We use Vec<u8> for partial frames because we don't know if a fragment of a string is valid utf-8.
     let mut partial_frame: Vec<u8> = Vec::new();
     let (mut ws_stream_send, mut ws_stream_recv) = ws_stream.split();
+    let mut is_open: bool = true;
+    let mut last_sent_message = tokio::time::Instant::now();
     loop {
+        // eprintln!("<worker> loop");
+        let sleep = tokio::time::sleep_until(last_sent_message + Duration::from_secs(3));
         // Primary event loop.
-        select! {
-            _ = tokio::time::sleep(Duration::from_secs(3)).fuse() => {
-                if keep_alive {
-                    send_message!(ws_stream_send, response_tx, Message::Text(
-                        serde_json::to_string(&ControlMessage::KeepAlive).unwrap_or_default(),
-                    ));
-                }
-            }
-            message = message_rx.next().fuse() => {
-                match message {
-                    Some(WsMessage::Audio(audio))=> {
-                        send_message!(ws_stream_send, response_tx, Message::Binary(audio));
-                    }
-                    Some(WsMessage::ControlMessage(msg)) => {
-                        send_message!(ws_stream_send, response_tx, Message::Text(
-                            serde_json::to_string(&msg).unwrap_or_default()
-                        ));
-                    }
-                    None => {
-                        // Input stream is shut down.  Keep processing responses.
-                    }
+        select_biased! {
+            _ = sleep.fuse() => {
+                // eprintln!("<worker> sleep");
+                if keep_alive && is_open {
+                    message_tx.send(WsMessage::ControlMessage(ControlMessage::KeepAlive)).await.expect("we hold the receiver, so we know it hasn't been dropped");
+                    last_sent_message = tokio::time::Instant::now();
+                } else {
+                    pending::<()>().await;
                 }
             }
             response = ws_stream_recv.next().fuse() => {
                 match response {
                     Some(Ok(Message::Text(response))) => {
-                        //
+                        // eprintln!("<worker> received dg response");
                         match serde_json::from_str(&response) {
                             Ok(response) => {
                                 if (response_tx.send(Ok(response)).await).is_err() {
@@ -458,6 +474,7 @@ async fn run_worker(
                         let _ = ws_stream_send.send(Message::Pong(value)).await;
                     }
                     Some(Ok(Message::Close(_))) => {
+                        // eprintln!("<worker> received websocket close");
                         return Ok(());
                     }
                     Some(Ok(Message::Frame(frame))) => {
@@ -500,27 +517,87 @@ async fn run_worker(
                     }
                     None => {
                         // Upstream is closed
+                        // eprintln!("<worker> received None");
                         return Ok(())
                     }
                 }
             }
+            message = message_rx.next().fuse() => {
+                // eprintln!("<worker> received message: {message:?}, {is_open:?}");
+                if is_open {
+                    match message {
+                        Some(WsMessage::Audio(audio))=> {
+                            send_message!(ws_stream_send, response_tx, Message::Binary(audio.0));
+                            last_sent_message = tokio::time::Instant::now();
+
+                        }
+                        Some(WsMessage::ControlMessage(msg)) => {
+                            send_message!(ws_stream_send, response_tx, Message::Text(
+                                serde_json::to_string(&msg).unwrap_or_default()
+                            ));
+                            last_sent_message = tokio::time::Instant::now();
+                            if msg == ControlMessage::CloseStream {
+                                is_open = false;
+                            }
+                        }
+                        None => {
+                            // Input stream is shut down.  Keep processing responses.
+                            send_message!(ws_stream_send, response_tx, Message::Text(
+                                serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default()
+                            ));
+                            is_open = false;
+                        }
+                    }
+                }
+            }
         };
-        if let Err(err) = ws_stream_send
-            .send(Message::Text(
-                serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default(),
-            ))
-            .await
-        {
-            // If the response channel is closed, there's nothing to be done about it now.
-            let _ = response_tx.send(Err(err.into())).await;
-        }
     }
+    // eprintln!("<worker> post loop");
+    if let Err(err) = ws_stream_send
+        .send(Message::Text(
+            serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default(),
+        ))
+        .await
+    {
+        // If the response channel is closed, there's nothing to be done about it now.
+        let _ = response_tx.send(Err(err.into())).await;
+    }
+    response_tx.close_channel();
+    // Waiting for message_tx to be dropped before exiting
+    while message_rx.next().await.is_some() {
+        // Receiving messages after closing down. Ignore them.
+    }
+    // eprintln!("<worker> exit");
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum WsMessage {
-    Audio(Vec<u8>),
+    Audio(Audio),
     ControlMessage(ControlMessage),
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct Audio(Vec<u8>);
+
+impl fmt::Debug for Audio {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("audio")
+            .field(&format!(
+                "<{} bytes (sha256:{})>",
+                self.0.len(),
+                &sha256::digest(&self.0)[..12]
+            ))
+            .finish()
+    }
+}
+
+impl Deref for Audio {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 #[derive(Debug)]
@@ -555,12 +632,16 @@ impl<'a> WebsocketHandle {
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
 
-        tokio::task::spawn(run_worker(
-            ws_stream,
-            message_rx,
-            response_tx,
-            builder.keep_alive.unwrap_or(false),
-        ));
+        tokio::task::spawn({
+            let message_tx = message_tx.clone();
+            run_worker(
+                ws_stream,
+                message_tx,
+                message_rx,
+                response_tx,
+                builder.keep_alive.unwrap_or(false),
+            )
+        });
 
         Ok(WebsocketHandle {
             message_tx,
@@ -569,39 +650,62 @@ impl<'a> WebsocketHandle {
     }
 
     pub async fn send_data(&mut self, data: Vec<u8>) -> Result<()> {
+        let audio = Audio(data);
+        // eprintln!("<handle> sending audio: {audio:?}");
+
         self.message_tx
-            .send(WsMessage::Audio(data))
+            .send(WsMessage::Audio(audio))
             .await
-            .expect("worker does not shutdown before handle");
+            .map_err(|err| {
+                // eprintln!("<handle> error sending audio");
+                DeepgramError::IoError(std::io::Error::new(std::io::ErrorKind::Other, err))
+            })?;
         Ok(())
     }
 
+    /// Send a Finalize message to the Deepgram API to force the server to process
+    /// all the audio it has already received.
     pub async fn finalize(&mut self) -> Result<()> {
         self.send_control_message(ControlMessage::Finalize).await
     }
 
+    /// Send a KeepAlive message to the Deepgram API to ensure the connection
+    /// isn't closed due to long idle times.
     pub async fn keep_alive(&mut self) -> Result<()> {
         self.send_control_message(ControlMessage::KeepAlive).await
     }
 
+    /// Close the websocket stream. No more data should be sent after this is called.
     pub async fn close_stream(&mut self) -> Result<()> {
-        self.send_control_message(ControlMessage::CloseStream).await
+        if !self.message_tx.is_closed() {
+            self.send_control_message(ControlMessage::CloseStream)
+                .await?;
+            self.message_tx.close_channel();
+        }
+        Ok(())
     }
 
     async fn send_control_message(&mut self, message: ControlMessage) -> Result<()> {
+        // eprintln!("<handle> sending control message: {message:?}");
         self.message_tx
-            .send(WsMessage::ControlMessage(message))
+            .send(WsMessage::ControlMessage(message.clone()))
             .await
-            .expect("worker does not shutdown before handle");
+            .map_err(|err| {
+                // eprintln!("<handle> error sending control message: {message:?}");
+                DeepgramError::IoError(std::io::Error::new(std::io::ErrorKind::Other, err))
+            })?;
+        // eprintln!("<handle> sent control message");
         Ok(())
     }
 
     pub async fn receive(&mut self) -> Option<Result<StreamResponse>> {
-        self.response_rx.next().await
+        let resp = self.response_rx.next().await;
+        // eprintln!("<handle> receiving response: {resp:?}");
+        resp
     }
 }
 
-#[derive(serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(tag = "type")]
 enum ControlMessage {
     Finalize,
@@ -614,6 +718,7 @@ enum ControlMessage {
 pub struct TranscriptionStream {
     #[pin]
     rx: Receiver<Result<StreamResponse>>,
+    done: bool,
 }
 
 impl Stream for TranscriptionStream {
@@ -705,7 +810,8 @@ mod tests {
 
     #[test]
     fn test_stream_url_custom_host() {
-        let dg = crate::Deepgram::with_base_url_and_api_key("http://localhost:8080", "token").unwrap();
+        let dg =
+            crate::Deepgram::with_base_url_and_api_key("http://localhost:8080", "token").unwrap();
         assert_eq!(
             dg.transcription().listen_stream_url().to_string(),
             "ws://localhost:8080/v1/listen",
