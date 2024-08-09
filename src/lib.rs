@@ -168,6 +168,10 @@ pub enum DeepgramError {
         /// A textual description of the error reason
         reason: String,
     },
+
+    /// An unexpected error occurred in the client
+    #[error("an unepected error occurred in the deepgram client: {0}")]
+    InternalClientError(anyhow::Error),
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]

@@ -148,7 +148,10 @@ impl Transcription<'_> {
 
     fn listen_stream_url(&self) -> Url {
         // base
-        let mut url = self.0.base_url.join(LIVE_LISTEN_URL_PATH).expect("base_url is checked to be a valid base_url when constructing Deepgram client");
+        let mut url =
+            self.0.base_url.join(LIVE_LISTEN_URL_PATH).expect(
+                "base_url is checked to be a valid base_url when constructing Deepgram client",
+            );
 
         match url.scheme() {
             "http" | "ws" => url.set_scheme("ws").expect("a valid conversion according to the .set_scheme docs"),
@@ -670,10 +673,7 @@ impl<'a> WebsocketHandle {
         self.message_tx
             .send(WsMessage::Audio(audio))
             .await
-            .map_err(|err| {
-                // eprintln!("<handle> error sending audio");
-                DeepgramError::IoError(std::io::Error::new(std::io::ErrorKind::Other, err))
-            })?;
+            .map_err(|err| DeepgramError::InternalClientError(err.into()))?;
         Ok(())
     }
 
@@ -706,7 +706,7 @@ impl<'a> WebsocketHandle {
             .await
             .map_err(|err| {
                 // eprintln!("<handle> error sending control message: {message:?}");
-                DeepgramError::IoError(std::io::Error::new(std::io::ErrorKind::Other, err))
+                DeepgramError::InternalClientError(err.into())
             })?;
         // eprintln!("<handle> sent control message");
         Ok(())
