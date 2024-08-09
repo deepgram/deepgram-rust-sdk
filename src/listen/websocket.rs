@@ -22,7 +22,7 @@ use bytes::Bytes;
 use futures::{
     channel::mpsc::{self, Receiver, Sender},
     future::{pending, FutureExt},
-    select, select_biased,
+    select_biased,
     stream::StreamExt,
     SinkExt, Stream,
 };
@@ -147,11 +147,13 @@ impl Transcription<'_> {
     }
 
     fn listen_stream_url(&self) -> Url {
-        let mut url = self.0.base_url.join(LIVE_LISTEN_URL_PATH).unwrap();
+        // base
+        let mut url = self.0.base_url.join(LIVE_LISTEN_URL_PATH).expect("base_url is checked to be a valid base_url when constructing Deepgram client");
+
         match url.scheme() {
-            "http" | "ws" => url.set_scheme("ws").unwrap(),
-            "https" | "wss" => url.set_scheme("wss").unwrap(),
-            _ => panic!("base_url must have a scheme of http, https, ws, or wss"),
+            "http" | "ws" => url.set_scheme("ws").expect("a valid conversion according to the .set_scheme docs"),
+            "https" | "wss" => url.set_scheme("wss").expect("a valid conversion according to the .set_scheme docs"),
+            _ => unreachable!("base_url is validated to have a scheme of http, https, ws, or wss when constructing Deepgram client"),
         }
         url
     }
@@ -327,7 +329,9 @@ impl<'a> WebsocketBuilder<'a> {
                 tokio::time::sleep(frame_delay).await;
                 // This unwrap() is safe because application logic dictates that the Receiver won't
                 // be dropped before the Sender.
-                tx.send(frame).await.unwrap();
+                if tx.send(frame).await.is_err() {
+                    break;
+                }
             }
         };
         tokio::spawn(task);
@@ -348,6 +352,7 @@ impl<'a> WebsocketBuilder<'a> {
             let mut stream = stream;
             loop {
                 select_biased! {
+                    // Receiving messages from WebsocketHandle
                     response = handle.receive().fuse() => {
                         // eprintln!("<stream> got response");
                         match response {
@@ -372,6 +377,7 @@ impl<'a> WebsocketBuilder<'a> {
                             }
                         }
                     }
+                    // Receiving audio data from stream.
                     result = stream.next().fuse() => {
                         match result {
                             Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.to_vec()).await {
@@ -473,10 +479,18 @@ async fn run_worker(
                         // We don't really care if the server receives the pong.
                         let _ = ws_stream_send.send(Message::Pong(value)).await;
                     }
-                    Some(Ok(Message::Close(_))) => {
+                    Some(Ok(Message::Close(None))) => {
                         // eprintln!("<worker> received websocket close");
                         return Ok(());
                     }
+                    Some(Ok(Message::Close(Some(closeframe)))) => {
+                        // eprintln!("<worker> received websocket close");
+                        return Err(DeepgramError::WebsocketClose {
+                            code: closeframe.code.into(),
+                            reason: closeframe.reason.into_owned(),
+                        });
+                    }
+
                     Some(Ok(Message::Frame(frame))) => {
                         match frame.header().opcode
                         {
@@ -698,6 +712,7 @@ impl<'a> WebsocketHandle {
         Ok(())
     }
 
+    #[allow(clippy::let_and_return)]
     pub async fn receive(&mut self) -> Option<Result<StreamResponse>> {
         let resp = self.response_rx.next().await;
         // eprintln!("<handle> receiving response: {resp:?}");

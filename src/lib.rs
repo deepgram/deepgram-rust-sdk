@@ -159,6 +159,15 @@ pub enum DeepgramError {
     /// The provided base url is not valid
     #[error("The provided base url is not valid")]
     InvalidUrl,
+
+    /// A websocket close from was received indicating an error
+    #[error("websocket close frame received with error content: code: {code}, reason: {reason}")]
+    WebsocketClose {
+        /// The numerical code indicating the reason for the error
+        code: u16,
+        /// A textual description of the error reason
+        reason: String,
+    },
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]
