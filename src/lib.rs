@@ -301,7 +301,7 @@ impl Deepgram {
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
                 .default_headers(authorization_header)
-                .build()?
+                .build()?,
         })
     }
 }

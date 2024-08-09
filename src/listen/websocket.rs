@@ -85,7 +85,7 @@ impl Transcription<'_> {
     ///     listen::websocket::WebsocketBuilder,
     /// };
     ///
-    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default());
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
     /// let transcription = dg.transcription();
     /// let builder: WebsocketBuilder<'_> = transcription
     ///     .stream_request()
@@ -114,7 +114,7 @@ impl Transcription<'_> {
     ///     },
     /// };
     ///
-    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default());
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
     /// let transcription = dg.transcription();
     /// let options = Options::builder()
     ///     .model(Model::Nova2)
@@ -180,7 +180,7 @@ impl<'a> WebsocketBuilder<'a> {
     ///     },
     /// };
     ///
-    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default());
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
     /// let transcription = dg.transcription();
     /// let options = Options::builder()
     ///     .model(Model::Nova2)

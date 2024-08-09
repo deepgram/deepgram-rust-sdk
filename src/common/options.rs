@@ -1023,10 +1023,10 @@ impl OptionsBuilder {
     /// #
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
-    /// # fn main() -> Result<(), reqwest::Error> {
+    /// # fn main() -> Result<(), deepgram::DeepgramError> {
     /// # let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     /// let dg_transcription = dg_client.transcription();
     ///
     /// let options1 = Options::builder()

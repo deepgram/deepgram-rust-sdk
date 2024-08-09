@@ -56,7 +56,7 @@ impl Invitations<'_> {
     /// # let project_id =
     /// #     env::var("DEEPGRAM_PROJECT_ID").expect("DEEPGRAM_PROJECT_ID environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// dg_client
     ///     .invitations()
