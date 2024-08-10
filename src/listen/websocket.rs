@@ -638,7 +638,7 @@ impl<'a> WebsocketHandle {
                 .header("sec-websocket-version", "13");
 
             let builder = if let Some(api_key) = builder.deepgram.api_key.as_deref() {
-                http_builder.header("authorization", format!("token {}", api_key))
+                http_builder.header("authorization", format!("Token {}", api_key))
             } else {
                 http_builder
             };
