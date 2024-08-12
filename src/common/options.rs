@@ -1887,7 +1887,12 @@ impl OptionsBuilder {
     ///
     /// See the [Deepgram Callback Method feature docs][docs] for more info.
     ///
+    /// Note that modifying the callback method is only available for pre-recorded audio.
+    /// See the [Deepgram Callback feature docs for streaming][streaming-docs] for details
+    /// on streaming callbacks.
+    ///
     /// [docs]: https://developers.deepgram.com/docs/callback#pre-recorded-audio
+    /// [streaming-docs]: https://developers.deepgram.com/docs/callback#streaming-audio
     ///
     /// # Examples
     ///
