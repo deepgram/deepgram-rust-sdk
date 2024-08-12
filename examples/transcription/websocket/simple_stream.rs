@@ -10,17 +10,21 @@ use deepgram::{
 
 static PATH_TO_FILE: &str = "examples/audio/bueller.wav";
 static AUDIO_CHUNK_SIZE: usize = 3174;
+static FRAME_DELAY: Duration = Duration::from_millis(16);
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
-    let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap());
+    let deepgram_api_key =
+        env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+
+    let dg_client = Deepgram::new(&deepgram_api_key)?;
 
     let options = Options::builder()
         .smart_format(true)
         .language(Language::en_US)
         .build();
 
-    let mut results = dg
+    let mut results = dg_client
         .transcription()
         .stream_request_with_options(options)
         .keep_alive()
@@ -32,9 +36,7 @@ async fn main() -> Result<(), DeepgramError> {
         .utterance_end_ms(1000)
         .vad_events(true)
         .no_delay(true)
-        .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, Duration::from_millis(16))
-        .await?
-        .start()
+        .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, FRAME_DELAY)
         .await?;
 
     while let Some(result) = results.next().await {

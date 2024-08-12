@@ -50,6 +50,11 @@ pub struct Options {
     callback_method: Option<CallbackMethod>,
 }
 
+impl Default for Options {
+    fn default() -> Self {
+        Options::builder().build()
+    }
+}
 /// Detect Language value
 ///
 /// See the [Deepgram Detect Language feature docs][docs] for more info.
@@ -1018,10 +1023,10 @@ impl OptionsBuilder {
     /// #
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
-    /// # fn main() -> Result<(), reqwest::Error> {
+    /// # fn main() -> Result<(), deepgram::DeepgramError> {
     /// # let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     /// let dg_transcription = dg_client.transcription();
     ///
     /// let options1 = Options::builder()
@@ -2365,7 +2370,7 @@ mod serialize_options_tests {
     fn check_serialization(options: &Options, expected: &str) {
         let deepgram_api_key = env::var("DEEPGRAM_API_KEY").unwrap_or_default();
 
-        let dg_client = Deepgram::new(deepgram_api_key);
+        let dg_client = Deepgram::new(deepgram_api_key).unwrap();
 
         let request = dg_client
             .transcription()

@@ -43,7 +43,7 @@ impl Transcription<'_> {
     /// # let deepgram_api_key =
     /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// let source = AudioSource::from_url(AUDIO_URL);
     ///
@@ -97,7 +97,7 @@ impl Transcription<'_> {
     /// # let deepgram_api_key =
     /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
     /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key);
+    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
     ///
     /// let source = AudioSource::from_url(AUDIO_URL);
     ///
@@ -153,12 +153,12 @@ impl Transcription<'_> {
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
     /// # #[tokio::main]
-    /// # async fn main() -> reqwest::Result<()> {
+    /// # async fn main() -> Result<(), DeepgramError> {
     /// #
     /// # let deepgram_api_key =
     /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
     /// #
-    /// # let dg_client = Deepgram::new(&deepgram_api_key);
+    /// # let dg_client = Deepgram::new(&deepgram_api_key)?;
     /// #
     /// # let source = AudioSource::from_url(AUDIO_URL);
     /// #
@@ -221,12 +221,12 @@ impl Transcription<'_> {
     /// # static AUDIO_URL: &str = "https://static.deepgram.com/examples/Bueller-Life-moves-pretty-fast.wav";
     /// #
     /// # #[tokio::main]
-    /// # async fn main() -> reqwest::Result<()> {
+    /// # async fn main() -> Result<(), DeepgramError> {
     /// #
     /// # let deepgram_api_key =
     /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
     /// #
-    /// # let dg_client = Deepgram::new(&deepgram_api_key);
+    /// # let dg_client = Deepgram::new(&deepgram_api_key)?;
     /// #
     /// # let source = AudioSource::from_url(AUDIO_URL);
     /// #
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn listen_url() {
-        let dg = Deepgram::new("token");
+        let dg = Deepgram::new("token").unwrap();
         assert_eq!(
             &dg.transcription().listen_url().to_string(),
             "https://api.deepgram.com/v1/listen"
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn listen_url_custom_host() {
-        let dg = Deepgram::with_base_url("http://localhost:8888/abc/");
+        let dg = Deepgram::with_base_url("http://localhost:8888/abc/").unwrap();
         assert_eq!(
             &dg.transcription().listen_url().to_string(),
             "http://localhost:8888/abc/v1/listen"

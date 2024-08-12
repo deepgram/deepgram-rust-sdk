@@ -34,6 +34,8 @@ uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
 proc-macro2 = "1.0.60"
 pkg-config = { version = "0.3.30", optional = true }
+sha256 = "1.5.0"
+anyhow = "1.0.86"
 
 [dev-dependencies]
 cpal = "0.13"

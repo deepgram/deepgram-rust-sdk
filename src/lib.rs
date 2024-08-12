@@ -151,6 +151,27 @@ pub enum DeepgramError {
     /// Something went wrong during serialization/deserialization.
     #[error("Something went wrong during query serialization: {0}")]
     UrlencodedError(#[from] serde_urlencoded::ser::Error),
+
+    /// The data stream produced an error
+    #[error("The data stream produced an error: {0}")]
+    StreamError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
+
+    /// The provided base url is not valid
+    #[error("The provided base url is not valid")]
+    InvalidUrl,
+
+    /// A websocket close from was received indicating an error
+    #[error("websocket close frame received with error content: code: {code}, reason: {reason}")]
+    WebsocketClose {
+        /// The numerical code indicating the reason for the error
+        code: u16,
+        /// A textual description of the error reason
+        reason: String,
+    },
+
+    /// An unexpected error occurred in the client
+    #[error("an unepected error occurred in the deepgram client: {0}")]
+    InternalClientError(anyhow::Error),
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]
@@ -165,12 +186,15 @@ impl Deepgram {
     ///
     /// [console]: https://console.deepgram.com/
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics under the same conditions as [`reqwest::Client::new`].
-    pub fn new<K: AsRef<str>>(api_key: K) -> Self {
+    /// Errors under the same conditions as [`reqwest::ClientBuilder::build`].
+    pub fn new<K: AsRef<str>>(api_key: K) -> Result<Self> {
         let api_key = Some(api_key.as_ref().to_owned());
-        Self::inner_constructor(DEEPGRAM_BASE_URL.try_into().unwrap(), api_key)
+        // This cannot panic because we are converting a static value
+        // that is known-good.
+        let base_url = DEEPGRAM_BASE_URL.try_into().unwrap();
+        Self::inner_constructor(base_url, api_key)
     }
 
     /// Construct a new Deepgram client with the specified base URL.
@@ -200,16 +224,16 @@ impl Deepgram {
     /// );
     /// ```
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics under the same conditions as [`reqwest::Client::new`], or if `base_url`
+    /// Errors under the same conditions as [`reqwest::Client::new`], or if `base_url`
     /// is not a valid URL.
-    pub fn with_base_url<U>(base_url: U) -> Self
+    pub fn with_base_url<U>(base_url: U) -> Result<Self>
     where
         U: TryInto<Url>,
         U::Error: std::fmt::Debug,
     {
-        let base_url = base_url.try_into().expect("base_url must be a valid Url");
+        let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
         Self::inner_constructor(base_url, None)
     }
 
@@ -233,24 +257,24 @@ impl Deepgram {
     /// let deepgram = Deepgram::with_base_url_and_api_key(
     ///     "http://localhost:8080",
     ///     "apikey12345",
-    /// );
+    /// ).unwrap();
     /// ```
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics under the same conditions as [`reqwest::Client::new`], or if `base_url`
+    /// Errors under the same conditions as [`reqwest::ClientBuilder::build`], or if `base_url`
     /// is not a valid URL.
-    pub fn with_base_url_and_api_key<U, K>(base_url: U, api_key: K) -> Self
+    pub fn with_base_url_and_api_key<U, K>(base_url: U, api_key: K) -> Result<Self>
     where
         U: TryInto<Url>,
         U::Error: std::fmt::Debug,
         K: AsRef<str>,
     {
-        let base_url = base_url.try_into().expect("base_url must be a valid Url");
+        let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
         Self::inner_constructor(base_url, Some(api_key.as_ref().to_owned()))
     }
 
-    fn inner_constructor(base_url: Url, api_key: Option<String>) -> Self {
+    fn inner_constructor(base_url: Url, api_key: Option<String>) -> Result<Self> {
         static USER_AGENT: &str = concat!(
             env!("CARGO_PKG_NAME"),
             "/",
@@ -258,27 +282,27 @@ impl Deepgram {
             " rust",
         );
 
+        if base_url.cannot_be_a_base() {
+            return Err(DeepgramError::InvalidUrl);
+        }
         let authorization_header = {
             let mut header = HeaderMap::new();
             if let Some(api_key) = &api_key {
-                header.insert(
-                    "Authorization",
-                    HeaderValue::from_str(&format!("Token {}", api_key)).expect("Invalid API key"),
-                );
+                if let Ok(value) = HeaderValue::from_str(&format!("Token {}", api_key)) {
+                    header.insert("Authorization", value);
+                }
             }
             header
         };
 
-        Deepgram {
+        Ok(Deepgram {
             api_key: api_key.map(RedactedString),
             base_url,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
                 .default_headers(authorization_header)
-                .build()
-                // Even though `reqwest::Client::new` is not used here, it will always panic under the same conditions
-                .expect("See reqwest::Client::new docs for cause of panic"),
-        }
+                .build()?,
+        })
     }
 }
 
