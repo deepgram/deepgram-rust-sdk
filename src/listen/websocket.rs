@@ -261,7 +261,7 @@ impl<'a> WebsocketBuilder<'a> {
                 pairs.append_pair("vad_events", &vad_events.to_string());
             }
             if let Some(callback) = callback {
-                pairs.append_pair("callback", &callback.to_string());
+                pairs.append_pair("callback", callback.as_ref());
             }
         }
 
