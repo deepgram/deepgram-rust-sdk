@@ -349,6 +349,7 @@ impl<'a> WebsocketBuilder<'a> {
         let handle = self.handle().await?;
 
         let (tx, rx) = mpsc::channel(1);
+        let mut is_done = false;
         tokio::task::spawn(async move {
             let mut handle = handle;
             let mut tx = tx;
@@ -381,8 +382,8 @@ impl<'a> WebsocketBuilder<'a> {
                         }
                     }
                     // Receiving audio data from stream.
-                    result = stream.next().fuse() => {
-                        match result {
+                    chunk = stream.next().fuse() => {
+                        match chunk {
                             Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.to_vec()).await {
                                 // eprintln!("<stream> got audio");
                                 if tx.send(Err(err)).await.is_err() {
@@ -396,6 +397,9 @@ impl<'a> WebsocketBuilder<'a> {
                                 }
                             }
                             None => {
+                                if is_done {
+                                    continue;
+                                }
                                 if let Err(err) = handle.finalize().await {
                                     if tx.send(Err(err)).await.is_err() {
                                         break;
@@ -407,6 +411,7 @@ impl<'a> WebsocketBuilder<'a> {
                                         break;
                                     }
                                 }
+                                is_done = true;
                             }
                         }
                     }
