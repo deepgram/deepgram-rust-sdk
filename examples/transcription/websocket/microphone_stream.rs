@@ -90,9 +90,12 @@ fn microphone_as_stream() -> FuturesReceiver<Result<Bytes, RecvError>> {
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
-    let dg = Deepgram::new(env::var("DEEPGRAM_API_KEY").unwrap()).unwrap();
+    let deepgram_api_key =
+        env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
 
-    let mut results = dg
+    let dg_client = Deepgram::new(&deepgram_api_key)?;
+
+    let mut results = dg_client
         .transcription()
         .stream_request()
         .keep_alive()
