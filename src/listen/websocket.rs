@@ -326,7 +326,8 @@ impl<'a> WebsocketBuilder<'a> {
     ) -> Result<TranscriptionStream, DeepgramError> {
         let file = File::open(filename).await?;
         let mut chunker = FileChunker::new(file, frame_size);
-        let (mut tx, rx) = mpsc::channel(1);
+        let (tx, rx) = tokio::sync::mpsc::channel(1);
+        let rx_stream = tokio_stream::wrappers::ReceiverStream::new(rx);
         let task = async move {
             while let Some(frame) = chunker.next().await {
                 tokio::time::sleep(frame_delay).await;
@@ -338,7 +339,7 @@ impl<'a> WebsocketBuilder<'a> {
             }
         };
         tokio::spawn(task);
-        self.stream(rx).await
+        self.stream(rx_stream).await
     }
 
     pub async fn stream<S, E>(self, stream: S) -> Result<TranscriptionStream>
@@ -398,6 +399,7 @@ impl<'a> WebsocketBuilder<'a> {
                             }
                             None => {
                                 if is_done {
+
                                     continue;
                                 }
                                 if let Err(err) = handle.finalize().await {
