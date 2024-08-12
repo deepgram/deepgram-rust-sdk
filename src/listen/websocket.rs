@@ -62,6 +62,7 @@ pub struct WebsocketBuilder<'a> {
     vad_events: Option<bool>,
     stream_url: Url,
     keep_alive: Option<bool>,
+    callback: Option<Url>,
 }
 
 impl Transcription<'_> {
@@ -143,6 +144,7 @@ impl Transcription<'_> {
             vad_events: None,
             stream_url: self.listen_stream_url(),
             keep_alive: None,
+            callback: None,
         }
     }
 
@@ -214,6 +216,7 @@ impl<'a> WebsocketBuilder<'a> {
             no_delay,
             vad_events,
             stream_url,
+            callback,
         } = self;
 
         let mut url = stream_url.clone();
@@ -256,6 +259,9 @@ impl<'a> WebsocketBuilder<'a> {
             }
             if let Some(vad_events) = vad_events {
                 pairs.append_pair("vad_events", &vad_events.to_string());
+            }
+            if let Some(callback) = callback {
+                pairs.append_pair("callback", &callback.to_string());
             }
         }
 
@@ -312,6 +318,12 @@ impl<'a> WebsocketBuilder<'a> {
 
     pub fn keep_alive(mut self) -> Self {
         self.keep_alive = Some(true);
+
+        self
+    }
+
+    pub fn callback(mut self, callback: Url) -> Self {
+        self.callback = Some(callback);
 
         self
     }
