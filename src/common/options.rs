@@ -2224,6 +2224,52 @@ impl AsRef<str> for Model {
     }
 }
 
+impl From<String> for Model {
+    fn from(value: String) -> Self {
+        match &*value {
+            "nova-2" => Self::Nova2,
+            "nova" => Self::Nova,
+            "enhanced" => Self::Enhanced,
+            "base" => Self::Base,
+            "nova-2-meeting" => Self::Nova2Meeting,
+            "nova-2-phonecall" => Self::Nova2Phonecall,
+            "nova-2-finance" => Self::Nova2Finance,
+            "nova-2-conversationalai" => Self::Nova2Conversationalai,
+            "nova-2-voicemail" => Self::Nova2Voicemail,
+            "nova-2-video" => Self::Nova2Video,
+            "nova-2-medical" => Self::Nova2Medical,
+            "nova-2-drivethru" => Self::Nova2Drivethru,
+            "nova-2-automotive" => Self::Nova2Automotive,
+            "nova-phonecall" => Self::NovaPhonecall,
+            "nova-medical" => Self::NovaMedical,
+            "enhanced-meeting" => Self::EnhancedMeeting,
+            "enhanced-phonecall" => Self::EnhancedPhonecall,
+            "enhanced-finance" => Self::EnhancedFinance,
+            "base-meeting" => Self::BaseMeeting,
+            "base-phonecall" => Self::BasePhonecall,
+            "base-voicemail" => Self::BaseVoicemail,
+            "base-finance" => Self::BaseFinance,
+            "base-conversationalai" => Self::BaseConversationalai,
+            "base-video" => Self::BaseVideo,
+            #[allow(deprecated)]
+            "general" => Self::General,
+            #[allow(deprecated)]
+            "phonecall" => Self::Phonecall,
+            #[allow(deprecated)]
+            "voicemail" => Self::Voicemail,
+            #[allow(deprecated)]
+            "finance" => Self::Finance,
+            #[allow(deprecated)]
+            "meeting" => Self::Meeting,
+            #[allow(deprecated)]
+            "conversationalai" => Self::Conversationalai,
+            #[allow(deprecated)]
+            "video" => Self::Video,
+            _ => Self::CustomId(value),
+        }
+    }
+}
+
 impl AsRef<str> for Language {
     fn as_ref(&self) -> &str {
         match self {
@@ -2286,15 +2332,86 @@ impl AsRef<str> for Language {
     }
 }
 
+impl From<String> for Language {
+    fn from(value: String) -> Language {
+        match &*value {
+            "bg" => Self::bg,
+            "ca" => Self::ca,
+            "cs" => Self::cs,
+            "da" => Self::da,
+            "de" => Self::de,
+            "de-CH" => Self::de_CH,
+            "el" => Self::el,
+            "en" => Self::en,
+            "en-AU" => Self::en_AU,
+            "en-GB" => Self::en_GB,
+            "en-IN" => Self::en_IN,
+            "en-NZ" => Self::en_NZ,
+            "en-US" => Self::en_US,
+            "es" => Self::es,
+            "es-419" => Self::es_419,
+            "es-LATAM" => Self::es_LATAM,
+            "et" => Self::et,
+            "fi" => Self::fi,
+            "fr" => Self::fr,
+            "fr-CA" => Self::fr_CA,
+            "hi" => Self::hi,
+            "hi-Latn" => Self::hi_Latn,
+            "hu" => Self::hu,
+            "id" => Self::id,
+            "it" => Self::it,
+            "ja" => Self::ja,
+            "ko" => Self::ko,
+            "ko-KR" => Self::ko_KR,
+            "lv" => Self::lv,
+            "lt" => Self::lt,
+            "ms" => Self::ms,
+            "nl" => Self::nl,
+            "nl-BE" => Self::nl_BE,
+            "no" => Self::no,
+            "pl" => Self::pl,
+            "pt" => Self::pt,
+            "pt-BR" => Self::pt_BR,
+            "ro" => Self::ro,
+            "ru" => Self::ru,
+            "sk" => Self::sk,
+            "sv" => Self::sv,
+            "sv-SE" => Self::sv_SE,
+            "ta" => Self::ta,
+            "taq" => Self::taq,
+            "th" => Self::th,
+            "th-TH" => Self::th_TH,
+            "tr" => Self::tr,
+            "uk" => Self::uk,
+            "vi" => Self::vi,
+            "zh" => Self::zh,
+            "zh-CN" => Self::zh_CN,
+            "zh-Hans" => Self::zh_Hans,
+            "zh-Hant" => Self::zh_Hant,
+            "zh-TW" => Self::zh_TW,
+            _ => Self::Other(value),
+        }
+    }
+}
+
 impl AsRef<str> for Redact {
     fn as_ref(&self) -> &str {
-        use Redact::*;
-
         match self {
-            Pci => "pci",
-            Numbers => "numbers",
-            Ssn => "ssn",
-            Other(id) => id,
+            Redact::Pci => "pci",
+            Redact::Numbers => "numbers",
+            Redact::Ssn => "ssn",
+            Redact::Other(id) => id,
+        }
+    }
+}
+
+impl From<String> for Redact {
+    fn from(value: String) -> Redact {
+        match &*value {
+            "pci" => Redact::Pci,
+            "numbers" => Redact::Numbers,
+            "ssn" => Redact::Ssn,
+            _ => Redact::Other(value),
         }
     }
 }
