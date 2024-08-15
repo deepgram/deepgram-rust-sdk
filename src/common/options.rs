@@ -2425,6 +2425,32 @@ fn models_to_string(models: &[Model]) -> String {
 }
 
 #[cfg(test)]
+mod from_string_tests {
+    use super::{Language, Model, Redact};
+
+    #[test]
+    fn model_from_string() {
+        assert_eq!(Model::from("nova-2".to_string()), Model::Nova2);
+        assert_eq!(Model::from("custom".to_string()), Model::CustomId("custom".to_string()));
+        assert_eq!(Model::from("".to_string()), Model::CustomId("".to_string()));
+    }
+
+    #[test]
+    fn language_from_string() {
+        assert_eq!(Language::from("zh-Hant".to_string()), Language::zh_Hant);
+        assert_eq!(Language::from("custom".to_string()), Language::Other("custom".to_string()));
+        assert_eq!(Language::from("".to_string()), Language::Other("".to_string()));
+    }
+
+    #[test]
+    fn redact_from_string() {
+        assert_eq!(Redact::from("pci".to_string()), Redact::Pci);
+        assert_eq!(Redact::from("custom".to_string()), Redact::Other("custom".to_string()));
+        assert_eq!(Redact::from("".to_string()), Redact::Other("".to_string()));
+    }
+
+}
+#[cfg(test)]
 mod models_to_string_tests {
     use super::*;
 
