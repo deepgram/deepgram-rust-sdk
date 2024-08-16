@@ -2228,7 +2228,7 @@ impl From<String> for Model {
     fn from(value: String) -> Self {
         match &*value {
             "nova-2" | "nova-2-general" => Self::Nova2,
-            "nova" | "nova-general"  => Self::Nova,
+            "nova" | "nova-general" => Self::Nova,
             "enhanced" | "enhanced-general" => Self::Enhanced,
             "base" | "base-general" => Self::Base,
             "nova-2-meeting" => Self::Nova2Meeting,
