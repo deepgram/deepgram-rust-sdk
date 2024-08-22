@@ -18,6 +18,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::anyhow;
 use bytes::Bytes;
 use futures::{
     channel::mpsc::{self, Receiver, Sender},
@@ -676,15 +677,15 @@ impl<'a> WebsocketHandle {
         let request_id = upgrade_response
             .headers()
             .get("dg-request-id")
-            .ok_or(DeepgramError::UnexpectedServerResponse(
-                "Websocket upgrade headers missing request ID".to_string(),
-            ))?
+            .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
+                "Websocket upgrade headers missing request ID"
+            )))?
             .to_str()
             .ok()
             .and_then(|req_header_str| Uuid::parse_str(req_header_str).ok())
-            .ok_or(DeepgramError::UnexpectedServerResponse(
-                "Received malformed request ID in websocket upgrade headers".to_string(),
-            ))?;
+            .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
+                "Received malformed request ID in websocket upgrade headers"
+            )))?;
 
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
@@ -792,6 +793,10 @@ impl Stream for TranscriptionStream {
 }
 
 impl TranscriptionStream {
+    /// Returns the Deepgram request ID for the speech-to-text live request.
+    ///
+    /// A request ID needs to be provided to Deepgram as part of any support
+    /// or troubleshooting assistance related to a specific request.
     pub fn request_id(&self) -> Uuid {
         self.request_id
     }

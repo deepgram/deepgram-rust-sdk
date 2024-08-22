@@ -175,7 +175,7 @@ pub enum DeepgramError {
 
     /// A Deepgram API server response was not in the expected format.
     #[error("The Deepgram API server response was not in the expected format: {0}")]
-    UnexpectedServerResponse(String),
+    UnexpectedServerResponse(anyhow::Error),
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]
