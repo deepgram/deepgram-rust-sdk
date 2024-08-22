@@ -36,6 +36,7 @@ use tungstenite::{
     protocol::frame::coding::{Data, OpCode},
 };
 use url::Url;
+use uuid::Uuid;
 
 use self::file_chunker::FileChunker;
 use crate::{
@@ -363,6 +364,7 @@ impl<'a> WebsocketBuilder<'a> {
 
         let (tx, rx) = mpsc::channel(1);
         let mut is_done = false;
+        let request_id = handle.request_id();
         tokio::task::spawn(async move {
             let mut handle = handle;
             let mut tx = tx;
@@ -433,7 +435,11 @@ impl<'a> WebsocketBuilder<'a> {
                 }
             }
         });
-        Ok(TranscriptionStream { rx, done: false })
+        Ok(TranscriptionStream {
+            rx,
+            done: false,
+            request_id,
+        })
     }
 
     /// A low level interface to the Deepgram websocket transcription API.
@@ -640,6 +646,7 @@ impl Deref for Audio {
 pub struct WebsocketHandle {
     message_tx: Sender<WsMessage>,
     response_rx: Receiver<Result<StreamResponse>>,
+    request_id: Uuid,
 }
 
 impl<'a> WebsocketHandle {
@@ -664,7 +671,21 @@ impl<'a> WebsocketHandle {
             builder.body(())?
         };
 
-        let (ws_stream, _) = tokio_tungstenite::connect_async(request).await?;
+        let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
+
+        let request_id = upgrade_response
+            .headers()
+            .get("dg-request-id")
+            .ok_or(DeepgramError::UnexpectedServerResponse(
+                "Websocket upgrade headers missing request ID".to_string(),
+            ))?
+            .to_str()
+            .ok()
+            .and_then(|req_header_str| Uuid::parse_str(req_header_str).ok())
+            .ok_or(DeepgramError::UnexpectedServerResponse(
+                "Received malformed request ID in websocket upgrade headers".to_string(),
+            ))?;
+
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
 
@@ -682,6 +703,7 @@ impl<'a> WebsocketHandle {
         Ok(WebsocketHandle {
             message_tx,
             response_rx,
+            request_id,
         })
     }
 
@@ -737,6 +759,10 @@ impl<'a> WebsocketHandle {
         // eprintln!("<handle> receiving response: {resp:?}");
         resp
     }
+
+    pub fn request_id(&self) -> Uuid {
+        self.request_id
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -753,6 +779,7 @@ pub struct TranscriptionStream {
     #[pin]
     rx: Receiver<Result<StreamResponse>>,
     done: bool,
+    request_id: Uuid,
 }
 
 impl Stream for TranscriptionStream {
@@ -761,6 +788,12 @@ impl Stream for TranscriptionStream {
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
         this.rx.poll_next(cx)
+    }
+}
+
+impl TranscriptionStream {
+    pub fn request_id(&self) -> Uuid {
+        self.request_id
     }
 }
 

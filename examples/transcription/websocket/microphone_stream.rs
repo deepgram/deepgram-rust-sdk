@@ -107,6 +107,7 @@ async fn main() -> Result<(), DeepgramError> {
         .stream(microphone_as_stream())
         .await?;
 
+    println!("Deepgram Request ID: {}", results.request_id());
     while let Some(result) = results.next().await {
         println!("got: {:?}", result);
     }
