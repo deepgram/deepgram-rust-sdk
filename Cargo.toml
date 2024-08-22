@@ -73,6 +73,11 @@ path = "examples/transcription/websocket/simple_stream.rs"
 required-features = ["listen"]
 
 [[example]]
+name = "callback_stream"
+path = "examples/transcription/websocket/callback_stream.rs"
+required-features = ["listen"]
+
+[[example]]
 name = "microphone_stream"
 path = "examples/transcription/websocket/microphone_stream.rs"
 required-features = ["listen"]

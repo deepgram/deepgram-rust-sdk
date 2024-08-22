@@ -172,6 +172,10 @@ pub enum DeepgramError {
     /// An unexpected error occurred in the client
     #[error("an unepected error occurred in the deepgram client: {0}")]
     InternalClientError(anyhow::Error),
+
+    /// A Deepgram API server response was not in the expected format.
+    #[error("The Deepgram API server response was not in the expected format: {0}")]
+    UnexpectedServerResponse(anyhow::Error),
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]

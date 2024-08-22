@@ -24,6 +24,11 @@ async fn main() -> Result<(), DeepgramError> {
         .language(Language::en_US)
         .build();
 
+    let callback_url = env::var("DEEPGRAM_CALLBACK_URL")
+        .expect("DEEPGRAM_CALLBACK_URL environmental variable")
+        .parse()
+        .expect("DEEPGRAM_CALLBACK_URL not a valid URL");
+
     let mut results = dg_client
         .transcription()
         .stream_request_with_options(options)
@@ -36,6 +41,7 @@ async fn main() -> Result<(), DeepgramError> {
         .utterance_end_ms(1000)
         .vad_events(true)
         .no_delay(true)
+        .callback(callback_url)
         .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, FRAME_DELAY)
         .await?;
 
