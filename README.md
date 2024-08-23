@@ -1,25 +1,29 @@
 # Deepgram Rust SDK
 
-[![CI](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/deepgram-devs/deepgram-rust-sdk/actions/workflows/ci.yaml)
+[![Discord](https://dcbadge.vercel.app/api/server/xWRaCDBtW4?style=flat)](https://discord.gg/xWRaCDBtW4)
+[![CI](https://github.com/deepgram/deepgram-rust-sdk/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/deepgram/deepgram-rust-sdk/actions/workflows/ci.yaml)
 [![crates.io](https://img.shields.io/crates/v/deepgram)](https://crates.io/crates/deepgram)
 [![downloads](https://img.shields.io/crates/d/deepgram)](https://crates.io/crates/deepgram)
 [![docs](https://img.shields.io/docsrs/deepgram)](https://docs.rs/deepgram)
 [![license](https://img.shields.io/crates/l/deepgram)](./LICENSE)
 
-Experimental Rust SDK for [Deepgram](https://www.deepgram.com/). Power your apps with world-class speech and Language AI models.
+A Community Rust SDK for [Deepgram](https://www.deepgram.com/). Start building with our powerful transcription & speech understanding API.
 
-> This SDK only supports hosted usage of api.deepgram.com.
+## SDK Documentation
+
+This SDK implements the Deepgram API found at [https://developers.deepgram.com](https://developers.deepgram.com).
+
+Documentation and examples can be found on our [Docs.rs page](https://docs.rs/deepgram/latest/deepgram/).
 
 ## Getting an API Key
 
 🔑 To access the Deepgram API you will need a [free Deepgram API Key](https://console.deepgram.com/signup?jump=keys).
-## Documentation
 
-You can learn more about the Deepgram API at [developers.deepgram.com](https://developers.deepgram.com/docs).
 
 ## Current Status
 
-This SDK is still very much work-in-progress. The interface is subject to rapid change.
+This SDK is currently Community owned but is moving to a stable `1.0` version soon.
+
 ## Install
 
 From within your Cargo project directory, run the following command:
@@ -33,10 +37,6 @@ You will also probably need to install [`tokio`](https://crates.io/crates/tokio)
 ```sh
 cargo add tokio --features full
 ```
-
-## Documentation and Examples
-
-Documentation and examples can be found on our [Docs.rs page](https://docs.rs/deepgram/latest/deepgram/).
 
 ## Development and Contributing
 
