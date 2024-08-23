@@ -5,8 +5,14 @@ authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
 description = "Official Rust SDK for Deepgram's automated speech recognition APIs."
 license = "MIT"
-repository = "https://github.com/deepgram-devs/deepgram-rust-sdk"
-keywords = ["transcription", "voice-ai", "text-to-speech", "speech-to-text","asr"]
+repository = "https://github.com/deepgram/deepgram-rust-sdk"
+keywords = [
+  "transcription",
+  "voice-ai",
+  "text-to-speech",
+  "speech-to-text",
+  "asr",
+]
 categories = ["api-bindings", "multimedia::audio"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -18,7 +24,11 @@ bytes = "1"
 futures = "0.3"
 http = "0.2"
 pin-project = "1"
-reqwest = { version = "0.11.22", default-features = false, features = ["json", "rustls-tls", "stream"] }
+reqwest = { version = "0.11.22", default-features = false, features = [
+  "json",
+  "rustls-tls",
+  "stream",
+] }
 rodio = { version = "0.17.0", optional = true }
 serde = { version = "1.0.25", features = ["derive"] }
 serde_json = "1"
@@ -26,7 +36,9 @@ serde_urlencoded = "0.7"
 thiserror = "1"
 tokio = { version = "1.38.0", features = ["full"] }
 tokio-stream = "0.1.15"
-tokio-tungstenite = { version = "0.20.1", features = ["rustls-tls-webpki-roots"], optional = true }
+tokio-tungstenite = { version = "0.20.1", features = [
+  "rustls-tls-webpki-roots",
+], optional = true }
 tokio-util = { version = "0.7.1", features = ["codec", "io"] }
 tungstenite = { version = "0.20.1", optional = true }
 url = "2"
