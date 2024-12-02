@@ -1,6 +1,6 @@
 [package]
 name = "deepgram"
-version = "0.6.3"
+version = "0.6.4"
 authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
 description = "Community Rust SDK for Deepgram's automated speech recognition APIs."
@@ -30,7 +30,7 @@ reqwest = { version = "0.11.22", default-features = false, features = [
   "stream",
 ] }
 rodio = { version = "0.17.0", optional = true }
-serde = { version = "1.0.25", features = ["derive"] }
+serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
 thiserror = "1"
