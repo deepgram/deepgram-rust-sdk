@@ -131,7 +131,6 @@ impl Transcription<'_> {
     ///
     /// assert_eq!(&builder.urlencoded().unwrap(), "model=nova-2&detect_language=true&no_delay=true")
     /// ```
-
     pub fn stream_request_with_options(&self, options: Options) -> WebsocketBuilder<'_> {
         WebsocketBuilder {
             deepgram: self.0,
@@ -166,7 +165,7 @@ impl Transcription<'_> {
     }
 }
 
-impl<'a> WebsocketBuilder<'a> {
+impl WebsocketBuilder<'_> {
     /// Return the options in urlencoded format. If serialization would
     /// fail, this will also return an error.
     ///

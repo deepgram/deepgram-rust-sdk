@@ -75,7 +75,7 @@ impl<'a> From<&'a Deepgram> for Speak<'a> {
     }
 }
 
-impl<'a> Transcription<'a> {
+impl Transcription<'_> {
     /// Expose a method to access the inner `Deepgram` reference if needed.
     pub fn deepgram(&self) -> &Deepgram {
         self.0
