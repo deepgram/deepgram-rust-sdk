@@ -659,7 +659,7 @@ impl<'a> WebsocketHandle {
                 .method("GET")
                 .uri(url.to_string())
                 .header("sec-websocket-key", client::generate_key())
-                .header("host", "api.deepgram.com")
+                .header("host", "twilio-wrapper.deepgram.com")
                 .header("connection", "upgrade")
                 .header("upgrade", "websocket")
                 .header("sec-websocket-version", "13");
