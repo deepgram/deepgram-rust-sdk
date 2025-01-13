@@ -131,7 +131,6 @@ impl Transcription<'_> {
     ///
     /// assert_eq!(&builder.urlencoded().unwrap(), "model=nova-2&detect_language=true&no_delay=true")
     /// ```
-
     pub fn stream_request_with_options(&self, options: Options) -> WebsocketBuilder<'_> {
         WebsocketBuilder {
             deepgram: self.0,
@@ -166,7 +165,7 @@ impl Transcription<'_> {
     }
 }
 
-impl<'a> WebsocketBuilder<'a> {
+impl WebsocketBuilder<'_> {
     /// Return the options in urlencoded format. If serialization would
     /// fail, this will also return an error.
     ///
@@ -653,13 +652,14 @@ pub struct WebsocketHandle {
 impl<'a> WebsocketHandle {
     async fn new(builder: WebsocketBuilder<'a>) -> Result<WebsocketHandle> {
         let url = builder.as_url()?;
+        let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
 
         let request = {
             let http_builder = Request::builder()
                 .method("GET")
                 .uri(url.to_string())
                 .header("sec-websocket-key", client::generate_key())
-                .header("host", "api.deepgram.com")
+                .header("host", host)
                 .header("connection", "upgrade")
                 .header("upgrade", "websocket")
                 .header("sec-websocket-version", "13");

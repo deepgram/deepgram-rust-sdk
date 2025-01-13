@@ -45,11 +45,13 @@ impl Linear16AudioSource {
 impl Buf for Linear16AudioSource {
     type Sample = i16;
 
-    type Channel<'this> = LinearChannel<'this, i16>
+    type Channel<'this>
+        = LinearChannel<'this, i16>
     where
         Self: 'this;
 
-    type IterChannels<'this> = std::vec::IntoIter<LinearChannel<'this, i16>>
+    type IterChannels<'this>
+        = std::vec::IntoIter<LinearChannel<'this, i16>>
     where
         Self: 'this;
 
