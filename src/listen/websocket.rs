@@ -653,13 +653,14 @@ pub struct WebsocketHandle {
 impl<'a> WebsocketHandle {
     async fn new(builder: WebsocketBuilder<'a>) -> Result<WebsocketHandle> {
         let url = builder.as_url()?;
+        let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
 
         let request = {
             let http_builder = Request::builder()
                 .method("GET")
                 .uri(url.to_string())
                 .header("sec-websocket-key", client::generate_key())
-                .header("host", "twilio-wrapper.deepgram.com")
+                .header("host", host)
                 .header("connection", "upgrade")
                 .header("upgrade", "websocket")
                 .header("sec-websocket-version", "13");
