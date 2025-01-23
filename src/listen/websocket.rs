@@ -369,10 +369,14 @@ impl<'a> WebsocketBuilder<'a> {
             let mut handle = handle;
             let mut tx = tx;
             let mut stream = stream;
+
+            let mut ws_stream_recv = ws_stream_recv.fuse();
+            let mut message_rx = message_rx.fuse();
+            
             loop {
                 select_biased! {
                     // Receiving messages from WebsocketHandle
-                    response = handle.receive().fuse() => {
+                    response = ws_stream_recv.next() => {
                         // eprintln!("<stream> got response");
                         match response {
                             Some(Ok(response)) if matches!(response, StreamResponse::TerminalResponse { .. }) => {
@@ -397,7 +401,7 @@ impl<'a> WebsocketBuilder<'a> {
                         }
                     }
                     // Receiving audio data from stream.
-                    chunk = stream.next().fuse() => {
+                    chunk = message_rx.next() => {
                         match chunk {
                             Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.to_vec()).await {
                                 // eprintln!("<stream> got audio");
