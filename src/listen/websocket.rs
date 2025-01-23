@@ -366,7 +366,7 @@ impl<'a> WebsocketBuilder<'a> {
         let mut is_done = false;
         let request_id = handle.request_id();
         tokio::task::spawn(async move {
-            let mut handle = handle.fuse();
+            let mut handle = handle.as_stream().fuse();
             let mut tx = tx;
             let mut stream = stream.fuse();
             
