@@ -366,17 +366,14 @@ impl<'a> WebsocketBuilder<'a> {
         let mut is_done = false;
         let request_id = handle.request_id();
         tokio::task::spawn(async move {
-            let mut handle = handle;
+            let mut handle = handle.fuse();
             let mut tx = tx;
-            let mut stream = stream;
-
-            let mut ws_stream_recv = ws_stream_recv.fuse();
-            let mut message_rx = message_rx.fuse();
+            let mut stream = stream.fuse();
             
             loop {
                 select_biased! {
                     // Receiving messages from WebsocketHandle
-                    response = ws_stream_recv.next() => {
+                    response = handle.receive() => {
                         // eprintln!("<stream> got response");
                         match response {
                             Some(Ok(response)) if matches!(response, StreamResponse::TerminalResponse { .. }) => {
@@ -401,7 +398,7 @@ impl<'a> WebsocketBuilder<'a> {
                         }
                     }
                     // Receiving audio data from stream.
-                    chunk = message_rx.next() => {
+                    chunk = stream.next() => {
                         match chunk {
                             Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.to_vec()).await {
                                 // eprintln!("<stream> got audio");
