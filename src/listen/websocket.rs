@@ -368,11 +368,12 @@ impl WebsocketBuilder<'_> {
         tokio::task::spawn(async move {
             let mut handle = handle;
             let mut tx = tx;
-            let mut stream = stream;
+            let mut stream = stream.fuse();
+
             loop {
                 select_biased! {
                     // Receiving messages from WebsocketHandle
-                    response = handle.receive().fuse() => {
+                    response = handle.response_rx.next() => {
                         // eprintln!("<stream> got response");
                         match response {
                             Some(Ok(response)) if matches!(response, StreamResponse::TerminalResponse { .. }) => {
@@ -397,7 +398,7 @@ impl WebsocketBuilder<'_> {
                         }
                     }
                     // Receiving audio data from stream.
-                    chunk = stream.next().fuse() => {
+                    chunk = stream.next() => {
                         match chunk {
                             Some(Ok(audio)) => if let Err(err) = handle.send_data(audio.to_vec()).await {
                                 // eprintln!("<stream> got audio");
@@ -645,7 +646,7 @@ impl Deref for Audio {
 #[derive(Debug)]
 pub struct WebsocketHandle {
     message_tx: Sender<WsMessage>,
-    response_rx: Receiver<Result<StreamResponse>>,
+    response_rx: futures::stream::Fuse<Receiver<Result<StreamResponse>>>,
     request_id: Uuid,
 }
 
@@ -703,7 +704,7 @@ impl WebsocketHandle {
 
         Ok(WebsocketHandle {
             message_tx,
-            response_rx,
+            response_rx: response_rx.fuse(),
             request_id,
         })
     }
