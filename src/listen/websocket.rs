@@ -462,7 +462,7 @@ macro_rules! send_message {
 async fn run_worker(
     ws_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
     mut message_tx: Sender<WsMessage>,
-    message_rx: Receiver<WsMessage>,
+    mut message_rx: Receiver<WsMessage>,
     mut response_tx: Sender<Result<StreamResponse>>,
     keep_alive: bool,
 ) -> Result<()> {
@@ -472,7 +472,6 @@ async fn run_worker(
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
     let mut last_sent_message = tokio::time::Instant::now();
-    let mut message_rx = message_rx.fuse();
     loop {
         // eprintln!("<worker> loop");
         let sleep = tokio::time::sleep_until(last_sent_message + Duration::from_secs(3));
@@ -648,7 +647,7 @@ impl Deref for Audio {
 #[derive(Debug)]
 pub struct WebsocketHandle {
     message_tx: Sender<WsMessage>,
-    response_rx: futures::stream::Fuse<Receiver<Result<StreamResponse>>>,
+    response_rx: Receiver<Result<StreamResponse>>,
     request_id: Uuid,
 }
 
@@ -706,7 +705,7 @@ impl WebsocketHandle {
 
         Ok(WebsocketHandle {
             message_tx,
-            response_rx: response_rx.fuse(),
+            response_rx,
             request_id,
         })
     }
