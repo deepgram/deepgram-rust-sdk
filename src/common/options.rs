@@ -439,6 +439,9 @@ pub enum Language {
     ms,
 
     #[allow(missing_docs)]
+    multi,
+
+    #[allow(missing_docs)]
     nl,
 
     #[allow(missing_docs)]
