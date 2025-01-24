@@ -14,7 +14,7 @@ use super::options::{Options, SerializableOptions};
 
 static DEEPGRAM_API_URL_SPEAK: &str = "v1/speak";
 
-impl<'a> Speak<'a> {
+impl Speak<'_> {
     /// Sends a request to Deepgram to transcribe pre-recorded audio.
     pub async fn speak_to_file(
         &self,

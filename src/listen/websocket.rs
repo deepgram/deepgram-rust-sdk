@@ -330,7 +330,7 @@ impl WebsocketBuilder<'_> {
     }
 }
 
-impl<'a> WebsocketBuilder<'a> {
+impl WebsocketBuilder<'_> {
     pub async fn file(
         self,
         filename: impl AsRef<Path>,
@@ -649,8 +649,8 @@ pub struct WebsocketHandle {
     request_id: Uuid,
 }
 
-impl<'a> WebsocketHandle {
-    async fn new(builder: WebsocketBuilder<'a>) -> Result<WebsocketHandle> {
+impl WebsocketHandle {
+    async fn new(builder: WebsocketBuilder<'_>) -> Result<WebsocketHandle> {
         let url = builder.as_url()?;
         let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
 
