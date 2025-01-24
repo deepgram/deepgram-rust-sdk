@@ -2312,6 +2312,7 @@ impl AsRef<str> for Language {
             Self::lv => "lv",
             Self::lt => "lt",
             Self::ms => "ms",
+            Self::multi => "multi",
             Self::nl => "nl",
             Self::nl_BE => "nl-BE",
             Self::no => "no",
