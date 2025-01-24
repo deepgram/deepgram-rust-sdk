@@ -567,7 +567,7 @@ async fn run_worker(
                     }
                 }
             }
-            message = message_rx.next().fuse() => {
+            message = message_rx.next() => {
                 // eprintln!("<worker> received message: {message:?}, {is_open:?}");
                 if is_open {
                     match message {
