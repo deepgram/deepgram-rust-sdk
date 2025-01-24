@@ -462,15 +462,17 @@ macro_rules! send_message {
 async fn run_worker(
     ws_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
     mut message_tx: Sender<WsMessage>,
-    mut message_rx: Receiver<WsMessage>,
+    message_rx: Receiver<WsMessage>,
     mut response_tx: Sender<Result<StreamResponse>>,
     keep_alive: bool,
 ) -> Result<()> {
     // We use Vec<u8> for partial frames because we don't know if a fragment of a string is valid utf-8.
     let mut partial_frame: Vec<u8> = Vec::new();
-    let (mut ws_stream_send, mut ws_stream_recv) = ws_stream.split();
+    let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
+    let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
     let mut last_sent_message = tokio::time::Instant::now();
+    let mut message_rx = message_rx.fuse();
     loop {
         // eprintln!("<worker> loop");
         let sleep = tokio::time::sleep_until(last_sent_message + Duration::from_secs(3));
@@ -485,7 +487,7 @@ async fn run_worker(
                     pending::<()>().await;
                 }
             }
-            response = ws_stream_recv.next().fuse() => {
+            response = ws_stream_recv.next() => {
                 match response {
                     Some(Ok(Message::Text(response))) => {
                         // eprintln!("<worker> received dg response");
