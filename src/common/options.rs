@@ -196,6 +196,19 @@ impl fmt::Display for Endpointing {
 #[non_exhaustive]
 pub enum Model {
     /// Recommended for readability and Deepgram's lowest word error rates.
+    ///
+    /// Nova-3 represents a significant leap forward in speech AI technology, featuring
+    /// substantial improvements in accuracy and real-world application capabilities.
+    /// The model delivers industry-leading performance with a 54.2% reduction in word
+    /// error rate (WER) for streaming and 47.4% for batch processing compared to competitors.
+    ///
+    /// Nova-3 introduces groundbreaking features including real-time multilingual conversation
+    /// transcription, enhanced comprehension of domain-specific terminology, and optional
+    /// personal information redaction. It's the first voice AI model to offer self-serve
+    /// customization, enabling instant vocabulary adaptation without model retraining.
+    Nova3,
+
+    /// Recommended for readability and Deepgram's lowest word error rates.
     /// Recommended for most use cases.
     ///
     /// Nova-2 expands on Nova-1's advancements with speech-specific
@@ -222,6 +235,11 @@ pub enum Model {
     /// Recommended for large transcription volumes and high accuracy
     /// timestamps.
     Base,
+
+    /// Nova-3 model specialized for the medical domain.
+    ///
+    /// Optimized for medical terminology and healthcare-specific speech patterns.
+    Nova3Medical,
 
     #[allow(missing_docs)]
     Nova2Meeting,
@@ -2189,10 +2207,12 @@ impl Serialize for SerializableOptions<'_> {
 impl AsRef<str> for Model {
     fn as_ref(&self) -> &str {
         match self {
+            Self::Nova3 => "nova-3",
             Self::Nova2 => "nova-2",
             Self::Nova => "nova",
             Self::Enhanced => "enhanced",
             Self::Base => "base",
+            Self::Nova3Medical => "nova-3-medical",
             Self::Nova2Meeting => "nova-2-meeting",
             Self::Nova2Phonecall => "nova-2-phonecall",
             Self::Nova2Finance => "nova-2-finance",
@@ -2235,10 +2255,12 @@ impl AsRef<str> for Model {
 impl From<String> for Model {
     fn from(value: String) -> Self {
         match &*value {
+            "nova-3" | "nova-3-general" => Self::Nova3,
             "nova-2" | "nova-2-general" => Self::Nova2,
             "nova" | "nova-general" => Self::Nova,
             "enhanced" | "enhanced-general" => Self::Enhanced,
             "base" | "base-general" => Self::Base,
+            "nova-3-medical" => Self::Nova3Medical,
             "nova-2-meeting" => Self::Nova2Meeting,
             "nova-2-phonecall" => Self::Nova2Phonecall,
             "nova-2-finance" => Self::Nova2Finance,
