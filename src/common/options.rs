@@ -26,6 +26,7 @@ pub struct Options {
     search: Vec<String>,
     replace: Vec<Replace>,
     keywords: Vec<Keyword>,
+    keyterms: Vec<String>,
     keyword_boost_legacy: Option<bool>,
     utterances: Option<Utterances>,
     tags: Vec<String>,
@@ -195,6 +196,17 @@ impl fmt::Display for Endpointing {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum Model {
+    /// Recommended for challenging audio.
+    /// Recommended for most use cases.
+    ///
+    /// Nova-3 expands on Nova-2's advancements with speech-specific
+    /// optimizations to the underlying Transformer architecture, advanced
+    /// data curation techniques, and a multi-stage training methodology.
+    /// These changes yield reduced word error rate (WER) and enhancements
+    /// to entity recognition (i.e. proper nouns, alphanumerics, etc.),
+    /// punctuation, and capitalization and Keyterms.
+    Nova3,
+
     /// Recommended for readability and Deepgram's lowest word error rates.
     /// Recommended for most use cases.
     ///
@@ -703,6 +715,7 @@ impl OptionsBuilder {
             search: Vec::new(),
             replace: Vec::new(),
             keywords: Vec::new(),
+            keyterms: Vec::new(),
             keyword_boost_legacy: None,
             utterances: None,
             tags: Vec::new(),
@@ -1911,6 +1924,67 @@ impl OptionsBuilder {
         self
     }
 
+    /// Set the Keyterms feature.
+    ///
+    /// Calling this when already set will append to the existing keyterms, not overwrite them.
+    ///
+    /// See the [Deepgram Keyterms feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/keyterm
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::common::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .keyterms(["hello", "world"])
+    ///     .build();
+    /// ```
+    ///
+    /// ```
+    /// # use deepgram::common::options::Options;
+    /// #
+    /// let options1 = Options::builder()
+    ///     .keyterms(["hello"])
+    ///     .keyterms(["world"])
+    ///     .build();
+    ///
+    /// let options2 = Options::builder()
+    ///     .keyterms(["hello", "world"])
+    ///     .build();
+    ///
+    /// assert_eq!(options1, options2);
+    /// ```
+    pub fn keyterms<'a>(mut self, keyterms: impl IntoIterator<Item = &'a str>) -> Self {
+        self.0.keyterms.extend(keyterms.into_iter().map(String::from));
+        self
+    }
+
+    /// Add a single keyterm.
+    ///
+    /// This is a convenience method for adding a single keyterm.
+    /// For multiple keyterms, use [`OptionsBuilder::keyterms`] instead.
+    ///
+    /// See the [Deepgram Keyterms feature docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/keyterm
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::common::options::Options;
+    /// #
+    /// let options = Options::builder()
+    ///     .keyterm("hello")
+    ///     .keyterm("world")
+    ///     .build();
+    /// ```
+    pub fn keyterm(mut self, keyterm: impl Into<String>) -> Self {
+        self.0.keyterms.push(keyterm.into());
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -1958,6 +2032,7 @@ impl Serialize for SerializableOptions<'_> {
             search,
             replace,
             keywords,
+            keyterms,
             keyword_boost_legacy,
             utterances,
             tags,
@@ -2182,6 +2257,10 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("callback_method", callback_method.as_str()))?;
         }
 
+        for element in keyterms {
+            seq.serialize_element(&("keyterm", element))?;
+        }
+
         seq.end()
     }
 }
@@ -2189,6 +2268,7 @@ impl Serialize for SerializableOptions<'_> {
 impl AsRef<str> for Model {
     fn as_ref(&self) -> &str {
         match self {
+            Self::Nova3 => "nova-3",
             Self::Nova2 => "nova-2",
             Self::Nova => "nova",
             Self::Enhanced => "enhanced",
@@ -2983,6 +3063,86 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder().paragraphs(true).build(),
             "paragraphs=true",
+        );
+    }
+
+    #[test]
+    fn keyterms_serialization() {
+        check_serialization(&Options::builder().keyterms([]).build(), "");
+
+        check_serialization(
+            &Options::builder().keyterms(["hello"]).build(),
+            "keyterm=hello",
+        );
+
+        check_serialization(
+            &Options::builder().keyterms(["hello", "world"]).build(),
+            "keyterm=hello&keyterm=world",
+        );
+
+        // Test URL encoding of spaces
+        check_serialization(
+            &Options::builder().keyterm("hello world").build(),
+            "keyterm=hello+world",
+        );
+
+        // Test with other features
+        check_serialization(
+            &Options::builder()
+                .model(Model::Nova3)
+                .language(Language::en)
+                .keyterms(["hello", "world"])
+                .punctuate(true)
+                .build(),
+            "model=nova-3&language=en&punctuate=true&keyterm=hello&keyterm=world",
+        );
+
+        // Test with multiple words per keyterm
+        check_serialization(
+            &Options::builder()
+                .keyterms(["hello world", "rust programming"])
+                .build(),
+            "keyterm=hello+world&keyterm=rust+programming",
+        );
+    }
+
+    #[test]
+    fn keyterms() {
+        check_serialization(&Options::builder().keyterms([]).build(), "");
+
+        check_serialization(
+            &Options::builder().keyterms(["hello"]).build(),
+            "keyterm=hello",
+        );
+
+        check_serialization(
+            &Options::builder().keyterms(["hello", "world"]).build(),
+            "keyterm=hello&keyterm=world",
+        );
+
+        // Test URL encoding of spaces
+        check_serialization(
+            &Options::builder().keyterm("hello world").build(),
+            "keyterm=hello+world",
+        );
+
+        // Test with other features
+        check_serialization(
+            &Options::builder()
+                .model(Model::Nova3)
+                .language(Language::en)
+                .keyterms(["hello", "world"])
+                .punctuate(true)
+                .build(),
+            "model=nova-3&language=en&punctuate=true&keyterm=hello&keyterm=world",
+        );
+
+        // Test with multiple words per keyterm
+        check_serialization(
+            &Options::builder()
+                .keyterms(["hello world", "rust programming"])
+                .build(),
+            "keyterm=hello+world&keyterm=rust+programming",
         );
     }
 }
