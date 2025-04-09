@@ -1957,7 +1957,9 @@ impl OptionsBuilder {
     /// assert_eq!(options1, options2);
     /// ```
     pub fn keyterms<'a>(mut self, keyterms: impl IntoIterator<Item = &'a str>) -> Self {
-        self.0.keyterms.extend(keyterms.into_iter().map(String::from));
+        self.0
+            .keyterms
+            .extend(keyterms.into_iter().map(String::from));
         self
     }
 
