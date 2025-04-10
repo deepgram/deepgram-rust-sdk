@@ -1963,30 +1963,6 @@ impl OptionsBuilder {
         self
     }
 
-    /// Add a single keyterm.
-    ///
-    /// This is a convenience method for adding a single keyterm.
-    /// For multiple keyterms, use [`OptionsBuilder::keyterms`] instead.
-    ///
-    /// See the [Deepgram Keyterms feature docs][docs] for more info.
-    ///
-    /// [docs]: https://developers.deepgram.com/docs/keyterm
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use deepgram::common::options::Options;
-    /// #
-    /// let options = Options::builder()
-    ///     .keyterm("hello")
-    ///     .keyterm("world")
-    ///     .build();
-    /// ```
-    pub fn keyterm(mut self, keyterm: impl Into<String>) -> Self {
-        self.0.keyterms.push(keyterm.into());
-        self
-    }
-
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -3084,7 +3060,7 @@ mod serialize_options_tests {
 
         // Test URL encoding of spaces
         check_serialization(
-            &Options::builder().keyterm("hello world").build(),
+            &Options::builder().keyterms(["hello world"]).build(),
             "keyterm=hello+world",
         );
 
@@ -3124,7 +3100,7 @@ mod serialize_options_tests {
 
         // Test URL encoding of spaces
         check_serialization(
-            &Options::builder().keyterm("hello world").build(),
+            &Options::builder().keyterms(["hello world"]).build(),
             "keyterm=hello+world",
         );
 
