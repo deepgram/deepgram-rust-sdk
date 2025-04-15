@@ -208,19 +208,6 @@ pub enum Model {
     Nova3,
 
     /// Recommended for readability and Deepgram's lowest word error rates.
-    ///
-    /// Nova-3 represents a significant leap forward in speech AI technology, featuring
-    /// substantial improvements in accuracy and real-world application capabilities.
-    /// The model delivers industry-leading performance with a 54.2% reduction in word
-    /// error rate (WER) for streaming and 47.4% for batch processing compared to competitors.
-    ///
-    /// Nova-3 introduces groundbreaking features including real-time multilingual conversation
-    /// transcription, enhanced comprehension of domain-specific terminology, and optional
-    /// personal information redaction. It's the first voice AI model to offer self-serve
-    /// customization, enabling instant vocabulary adaptation without model retraining.
-    Nova3,
-
-    /// Recommended for readability and Deepgram's lowest word error rates.
     /// Recommended for most use cases.
     ///
     /// Nova-2 expands on Nova-1's advancements with speech-specific
