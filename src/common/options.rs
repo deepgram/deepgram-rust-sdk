@@ -226,7 +226,7 @@ pub enum Model {
     /// specific domain — it is ideal for a wide array of voice applications
     /// that require high accuracy in diverse contexts. See the benchmarks.
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova3 instead for better performance."
     )]
     Nova,
@@ -234,7 +234,7 @@ pub enum Model {
     /// Recommended for lower word error rates than Base, high accuracy
     /// timestamps, and use cases that require keyword boosting.
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova3 instead for better performance."
     )]
     Enhanced,
@@ -242,7 +242,7 @@ pub enum Model {
     /// Recommended for large transcription volumes and high accuracy
     /// timestamps.
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova3 instead for better performance."
     )]
     Base,
@@ -281,77 +281,77 @@ pub enum Model {
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova3 or a specialized Nova2 model instead."
     )]
     NovaPhonecall,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova3Medical instead."
     )]
     NovaMedical,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova2Meeting instead."
     )]
     EnhancedMeeting,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova2Phonecall instead."
     )]
     EnhancedPhonecall,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova2Finance instead."
     )]
     EnhancedFinance,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova2Meeting instead."
     )]
     BaseMeeting,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova2Phonecall instead."
     )]
     BasePhonecall,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova2Voicemail instead."
     )]
     BaseVoicemail,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova2Finance instead."
     )]
     BaseFinance,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova2Conversationalai instead."
     )]
     BaseConversationalai,
 
     #[allow(missing_docs)]
     #[deprecated(
-        since = "0.6.7",
+        since = "0.6.8",
         note = "Legacy model. Consider using Model::Nova2Video instead."
     )]
     BaseVideo,
