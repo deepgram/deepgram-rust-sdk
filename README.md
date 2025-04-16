@@ -43,8 +43,8 @@ cargo add tokio --features full
 Interested in contributing? We ❤️ pull requests!
 
 To make sure our community is safe for all, be sure to review and agree to our
-[Code of Conduct](./CODE_OF_CONDUCT.md). Then see the
-[Contributing Guidelines](./CONTRIBUTING.md) for more information.
+[Code of Conduct](./CODE_OF_CONDUCT.md) and review our
+[Contributing Guidelines](./CONTRIBUTING.md).
 
 ### Build the SDK
 
