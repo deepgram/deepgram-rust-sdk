@@ -225,15 +225,32 @@ pub enum Model {
     /// automatic speech-to-text model to date. Nova doesn't just excel in one
     /// specific domain — it is ideal for a wide array of voice applications
     /// that require high accuracy in diverse contexts. See the benchmarks.
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova3 instead for better performance."
+    )]
     Nova,
 
     /// Recommended for lower word error rates than Base, high accuracy
     /// timestamps, and use cases that require keyword boosting.
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova3 instead for better performance."
+    )]
     Enhanced,
 
     /// Recommended for large transcription volumes and high accuracy
     /// timestamps.
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova3 instead for better performance."
+    )]
     Base,
+
+    /// Nova-3 model specialized for the medical domain.
+    ///
+    /// Optimized for medical terminology and healthcare-specific speech patterns.
+    Nova3Medical,
 
     #[allow(missing_docs)]
     Nova2Meeting,
@@ -263,36 +280,80 @@ pub enum Model {
     Nova2Automotive,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova3 or a specialized Nova2 model instead."
+    )]
     NovaPhonecall,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova3Medical instead."
+    )]
     NovaMedical,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova2Meeting instead."
+    )]
     EnhancedMeeting,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova2Phonecall instead."
+    )]
     EnhancedPhonecall,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova2Finance instead."
+    )]
     EnhancedFinance,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova2Meeting instead."
+    )]
     BaseMeeting,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova2Phonecall instead."
+    )]
     BasePhonecall,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova2Voicemail instead."
+    )]
     BaseVoicemail,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova2Finance instead."
+    )]
     BaseFinance,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova2Conversationalai instead."
+    )]
     BaseConversationalai,
 
     #[allow(missing_docs)]
+    #[deprecated(
+        since = "0.6.8",
+        note = "Legacy model. Consider using Model::Nova2Video instead."
+    )]
     BaseVideo,
 
     #[deprecated(
@@ -2248,9 +2309,7 @@ impl AsRef<str> for Model {
         match self {
             Self::Nova3 => "nova-3",
             Self::Nova2 => "nova-2",
-            Self::Nova => "nova",
-            Self::Enhanced => "enhanced",
-            Self::Base => "base",
+            Self::Nova3Medical => "nova-3-medical",
             Self::Nova2Meeting => "nova-2-meeting",
             Self::Nova2Phonecall => "nova-2-phonecall",
             Self::Nova2Finance => "nova-2-finance",
@@ -2260,16 +2319,33 @@ impl AsRef<str> for Model {
             Self::Nova2Medical => "nova-2-medical",
             Self::Nova2Drivethru => "nova-2-drivethru",
             Self::Nova2Automotive => "nova-2-automotive",
+            #[allow(deprecated)]
+            Self::Nova => "nova",
+            #[allow(deprecated)]
+            Self::Enhanced => "enhanced",
+            #[allow(deprecated)]
+            Self::Base => "base",
+            #[allow(deprecated)]
             Self::NovaPhonecall => "nova-phonecall",
+            #[allow(deprecated)]
             Self::NovaMedical => "nova-medical",
+            #[allow(deprecated)]
             Self::EnhancedMeeting => "enhanced-meeting",
+            #[allow(deprecated)]
             Self::EnhancedPhonecall => "enhanced-phonecall",
+            #[allow(deprecated)]
             Self::EnhancedFinance => "enhanced-finance",
+            #[allow(deprecated)]
             Self::BaseMeeting => "base-meeting",
+            #[allow(deprecated)]
             Self::BasePhonecall => "base-phonecall",
+            #[allow(deprecated)]
             Self::BaseVoicemail => "base-voicemail",
+            #[allow(deprecated)]
             Self::BaseFinance => "base-finance",
+            #[allow(deprecated)]
             Self::BaseConversationalai => "base-conversationalai",
+            #[allow(deprecated)]
             Self::BaseVideo => "base-video",
             #[allow(deprecated)]
             Self::General => "general",
@@ -2293,10 +2369,9 @@ impl AsRef<str> for Model {
 impl From<String> for Model {
     fn from(value: String) -> Self {
         match &*value {
+            "nova-3" | "nova-3-general" => Self::Nova3,
             "nova-2" | "nova-2-general" => Self::Nova2,
-            "nova" | "nova-general" => Self::Nova,
-            "enhanced" | "enhanced-general" => Self::Enhanced,
-            "base" | "base-general" => Self::Base,
+            "nova-3-medical" => Self::Nova3Medical,
             "nova-2-meeting" => Self::Nova2Meeting,
             "nova-2-phonecall" => Self::Nova2Phonecall,
             "nova-2-finance" => Self::Nova2Finance,
@@ -2306,16 +2381,33 @@ impl From<String> for Model {
             "nova-2-medical" => Self::Nova2Medical,
             "nova-2-drivethru" => Self::Nova2Drivethru,
             "nova-2-automotive" => Self::Nova2Automotive,
+            #[allow(deprecated)]
+            "nova" | "nova-general" => Self::Nova,
+            #[allow(deprecated)]
+            "enhanced" | "enhanced-general" => Self::Enhanced,
+            #[allow(deprecated)]
+            "base" | "base-general" => Self::Base,
+            #[allow(deprecated)]
             "nova-phonecall" => Self::NovaPhonecall,
+            #[allow(deprecated)]
             "nova-medical" => Self::NovaMedical,
+            #[allow(deprecated)]
             "enhanced-meeting" => Self::EnhancedMeeting,
+            #[allow(deprecated)]
             "enhanced-phonecall" => Self::EnhancedPhonecall,
+            #[allow(deprecated)]
             "enhanced-finance" => Self::EnhancedFinance,
+            #[allow(deprecated)]
             "base-meeting" => Self::BaseMeeting,
+            #[allow(deprecated)]
             "base-phonecall" => Self::BasePhonecall,
+            #[allow(deprecated)]
             "base-voicemail" => Self::BaseVoicemail,
+            #[allow(deprecated)]
             "base-finance" => Self::BaseFinance,
+            #[allow(deprecated)]
             "base-conversationalai" => Self::BaseConversationalai,
+            #[allow(deprecated)]
             "base-video" => Self::BaseVideo,
             #[allow(deprecated)]
             "general" => Self::General,
@@ -2539,18 +2631,18 @@ mod models_to_string_tests {
 
     #[test]
     fn one() {
-        assert_eq!(models_to_string(&[Model::Base]), "base");
+        assert_eq!(models_to_string(&[Model::Nova3]), "nova-3");
     }
 
     #[test]
     fn many() {
         assert_eq!(
             models_to_string(&[
-                Model::BasePhonecall,
-                Model::BaseMeeting,
-                Model::BaseVoicemail
+                Model::Nova2Phonecall,
+                Model::Nova2Meeting,
+                Model::Nova2Voicemail
             ]),
-            "base-phonecall:base-meeting:base-voicemail"
+            "nova-2-phonecall:nova-2-meeting:nova-2-voicemail"
         );
     }
 
@@ -2558,11 +2650,11 @@ mod models_to_string_tests {
     fn custom() {
         assert_eq!(
             models_to_string(&[
-                Model::EnhancedFinance,
+                Model::Nova2Finance,
                 Model::CustomId(String::from("extra_crispy")),
                 Model::Nova2Conversationalai,
             ]),
-            "enhanced-finance:extra_crispy:nova-2-conversationalai"
+            "nova-2-finance:extra_crispy:nova-2-conversationalai"
         );
     }
 }
@@ -2624,7 +2716,7 @@ mod serialize_options_tests {
     #[test]
     fn all_options() {
         let options = Options::builder()
-            .model(Model::Base)
+            .model(Model::Nova3)
             .version("1.2.3")
             .language(Language::en)
             .detect_language(DetectLanguage::Restricted(vec![Language::en, Language::es]))
@@ -2635,7 +2727,7 @@ mod serialize_options_tests {
             .diarize_version("2021-07-14.0")
             .ner(true)
             .multichannel_with_models([
-                Model::EnhancedFinance,
+                Model::Nova2Finance,
                 Model::CustomId(String::from("extra_crispy")),
                 Model::Nova2Conversationalai,
             ])
@@ -2672,12 +2764,15 @@ mod serialize_options_tests {
             .callback_method(CallbackMethod::PUT)
             .build();
 
-        check_serialization(&options, "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en&detect_language=en&detect_language=es&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
+        check_serialization(&options, "model=nova-2-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en&detect_language=en&detect_language=es&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
     }
 
     #[test]
     fn model() {
-        check_serialization(&Options::builder().model(Model::Base).build(), "model=base");
+        check_serialization(
+            &Options::builder().model(Model::Nova3).build(),
+            "model=nova-3",
+        );
 
         check_serialization(
             &Options::builder()
@@ -2794,12 +2889,12 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder()
                 .multichannel_with_models([
-                    Model::EnhancedFinance,
+                    Model::Nova2Finance,
                     Model::CustomId(String::from("extra_crispy")),
                     Model::Nova2Conversationalai,
                 ])
                 .build(),
-            "model=enhanced-finance%3Aextra_crispy%3Anova-2-conversationalai&multichannel=true",
+            "model=nova-2-finance%3Aextra_crispy%3Anova-2-conversationalai&multichannel=true",
         );
     }
 
