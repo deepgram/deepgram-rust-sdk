@@ -292,7 +292,7 @@ impl Deepgram {
         let authorization_header = {
             let mut header = HeaderMap::new();
             if let Some(api_key) = &api_key {
-                if let Ok(value) = HeaderValue::from_str(&format!("Token {}", api_key)) {
+                if let Ok(value) = HeaderValue::from_str(&format!("Bearer {}", api_key)) {
                     header.insert("Authorization", value);
                 }
             }

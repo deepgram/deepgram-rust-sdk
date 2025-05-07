@@ -667,7 +667,9 @@ impl WebsocketHandle {
                 .header("sec-websocket-version", "13");
 
             let builder = if let Some(api_key) = builder.deepgram.api_key.as_deref() {
-                http_builder.header("authorization", format!("Token {}", api_key))
+                http_builder.header("authorization", format!("Bearer {}", api_key))
+            // TODO: make using temp tokens an option https://developers.deepgram.com/docs/token-based-authentication
+            // API Keys need to be sent as "Token dg_asdasdfjhsadjas" whereas temp tokens need to be sent as "Bearer dg_asdasdfjhsadjas"
             } else {
                 http_builder
             };
