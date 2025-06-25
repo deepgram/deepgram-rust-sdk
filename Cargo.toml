@@ -19,7 +19,6 @@ categories = ["api-bindings", "multimedia::audio"]
 
 [dependencies]
 # TODO Investigate which of these dependencies can go behind features.
-audio = "0.2.0"
 bytes = "1"
 futures = "0.3"
 http = "0.2"
@@ -29,7 +28,6 @@ reqwest = { version = "0.11.22", default-features = false, features = [
   "rustls-tls",
   "stream",
 ] }
-rodio = { version = "0.17.0", optional = true }
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
@@ -45,19 +43,21 @@ url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
 proc-macro2 = "1.0.60"
-pkg-config = { version = "0.3.30", optional = true }
 sha256 = "1.5.0"
 anyhow = "1.0.86"
 
 [dev-dependencies]
 cpal = "0.13"
 crossbeam = "0.8"
+audio = "0.2.0"
+rodio = { version = "0.17.0" }
+pkg-config = { version = "0.3.30"}
 
 [features]
 default = ["manage", "listen", "speak"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
-speak = ["dep:rodio", "dep:pkg-config"]
+speak = []
 
 [[example]]
 name = "prerecorded_from_file"
