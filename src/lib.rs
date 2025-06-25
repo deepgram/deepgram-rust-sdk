@@ -7,8 +7,14 @@
 //! Get started transcribing with a [`Transcription`] object.
 
 use core::fmt;
+pub use http::Error as HttpError;
+pub use reqwest::Error as ReqwestError;
+pub use serde_json::Error as SerdeJsonError;
+pub use serde_urlencoded::ser::Error as SerdeUrlencodedError;
 use std::io;
 use std::ops::Deref;
+#[cfg(feature = "listen")]
+pub use tungstenite::Error as TungsteniteError;
 
 use reqwest::{
     header::{HeaderMap, HeaderValue},
@@ -124,16 +130,16 @@ pub enum DeepgramError {
         body: String,
 
         /// Underlying [`reqwest::Error`] from the HTTP request.
-        err: reqwest::Error,
+        err: ReqwestError,
     },
 
     /// Something went wrong when generating the http request.
     #[error("Something went wrong when generating the http request: {0}")]
-    HttpError(#[from] http::Error),
+    HttpError(#[from] HttpError),
 
     /// Something went wrong when making the HTTP request.
     #[error("Something went wrong when making the HTTP request: {0}")]
-    ReqwestError(#[from] reqwest::Error),
+    ReqwestError(#[from] ReqwestError),
 
     /// Something went wrong during I/O.
     #[error("Something went wrong during I/O: {0}")]
@@ -142,15 +148,15 @@ pub enum DeepgramError {
     #[cfg(feature = "listen")]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
-    WsError(#[from] tungstenite::Error),
+    WsError(#[from] TungsteniteError),
 
     /// Something went wrong during serialization/deserialization.
     #[error("Something went wrong during json serialization/deserialization: {0}")]
-    JsonError(#[from] serde_json::Error),
+    JsonError(#[from] SerdeJsonError),
 
     /// Something went wrong during serialization/deserialization.
     #[error("Something went wrong during query serialization: {0}")]
-    UrlencodedError(#[from] serde_urlencoded::ser::Error),
+    UrlencodedError(#[from] SerdeUrlencodedError),
 
     /// The data stream produced an error
     #[error("The data stream produced an error: {0}")]
