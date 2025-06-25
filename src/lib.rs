@@ -148,7 +148,7 @@ pub enum DeepgramError {
     #[cfg(feature = "listen")]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
-    WsError(#[from] TungsteniteError),
+    WsError(#[from] Box<TungsteniteError>),
 
     /// Something went wrong during serialization/deserialization.
     #[error("Something went wrong during json serialization/deserialization: {0}")]
@@ -182,6 +182,13 @@ pub enum DeepgramError {
     /// A Deepgram API server response was not in the expected format.
     #[error("The Deepgram API server response was not in the expected format: {0}")]
     UnexpectedServerResponse(anyhow::Error),
+}
+
+#[cfg(feature = "listen")]
+impl From<TungsteniteError> for DeepgramError {
+    fn from(err: TungsteniteError) -> Self {
+        Self::from(Box::new(err))
+    }
 }
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]
