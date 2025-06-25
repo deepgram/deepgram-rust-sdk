@@ -35,6 +35,7 @@ use tokio_tungstenite::{tungstenite::protocol::Message, MaybeTlsStream, WebSocke
 use tungstenite::{
     handshake::client,
     protocol::frame::coding::{Data, OpCode},
+    Utf8Bytes,
 };
 use url::Url;
 use uuid::Uuid;
@@ -517,7 +518,7 @@ async fn run_worker(
                         // eprintln!("<worker> received websocket close");
                         return Err(DeepgramError::WebsocketClose {
                             code: closeframe.code.into(),
-                            reason: closeframe.reason.into_owned(),
+                            reason: closeframe.reason.to_string(),
                         });
                     }
 
@@ -571,13 +572,13 @@ async fn run_worker(
                 if is_open {
                     match message {
                         Some(WsMessage::Audio(audio))=> {
-                            send_message!(ws_stream_send, response_tx, Message::Binary(audio.0));
+                            send_message!(ws_stream_send, response_tx, Message::Binary(Bytes::from(audio.0)));
                             last_sent_message = tokio::time::Instant::now();
 
                         }
                         Some(WsMessage::ControlMessage(msg)) => {
                             send_message!(ws_stream_send, response_tx, Message::Text(
-                                serde_json::to_string(&msg).unwrap_or_default()
+                                Utf8Bytes::from(serde_json::to_string(&msg).unwrap_or_default())
                             ));
                             last_sent_message = tokio::time::Instant::now();
                             if msg == ControlMessage::CloseStream {
@@ -587,7 +588,7 @@ async fn run_worker(
                         None => {
                             // Input stream is shut down.  Keep processing responses.
                             send_message!(ws_stream_send, response_tx, Message::Text(
-                                serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default()
+                                Utf8Bytes::from(serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default())
                             ));
                             is_open = false;
                         }
@@ -598,9 +599,9 @@ async fn run_worker(
     }
     // eprintln!("<worker> post loop");
     if let Err(err) = ws_stream_send
-        .send(Message::Text(
+        .send(Message::Text(Utf8Bytes::from(
             serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default(),
-        ))
+        )))
         .await
     {
         // If the response channel is closed, there's nothing to be done about it now.
