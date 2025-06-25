@@ -15,10 +15,38 @@ This SDK implements the Deepgram API found at [https://developers.deepgram.com](
 
 Documentation and examples can be found on our [Docs.rs page](https://docs.rs/deepgram/latest/deepgram/).
 
-## Getting an API Key
+## Quick Start
+
+Check out the [examples folder](./examples/) for practical code examples showing how to use the SDK.
+
+## Authentication
 
 🔑 To access the Deepgram API you will need a [free Deepgram API Key](https://console.deepgram.com/signup?jump=keys).
 
+There are two ways to authenticate with the Deepgram API:
+
+1.  **API Key**: This is the simplest method. You can get a free API key from the
+    [Deepgram Console](https://console.deepgram.com/signup?jump=keys).
+
+    ```rust
+    use deepgram::Deepgram;
+
+    let dg = Deepgram::new("YOUR_DEEPGRAM_API_KEY");
+    ```
+
+2.  **Temporary Tokens**: If you are building an application where you need to
+    grant temporary access to the Deepgram API, you can use temporary tokens.
+    This is useful for client-side applications where you don't want to expose
+    your API key.
+
+    You can create temporary tokens using the Deepgram API. Learn more about
+    [token-based authentication](https://developers.deepgram.com/guides/fundamentals/token-based-authentication).
+
+    ```rust
+    use deepgram::Deepgram;
+
+    let dg = Deepgram::with_temp_token("YOUR_TEMPORARY_TOKEN");
+    ```
 
 ## Current Status
 

@@ -105,13 +105,35 @@ impl Deref for RedactedString {
     }
 }
 
+/// Authentication method for Deepgram API requests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AuthMethod {
+    /// Use an API key with "Token" prefix (e.g., "Token dg_xxx").
+    /// This is for permanent API keys created in the Deepgram console.
+    ApiKey(RedactedString),
+
+    /// Use a temporary token with "Bearer" prefix (e.g., "Bearer dg_xxx").
+    /// This is for temporary tokens obtained via token-based authentication.
+    TempToken(RedactedString),
+}
+
+impl AuthMethod {
+    /// Get the authorization header value for this authentication method.
+    pub(crate) fn header_value(&self) -> Option<String> {
+        match self {
+            AuthMethod::ApiKey(key) => Some(format!("Token {}", key.0)),
+            AuthMethod::TempToken(token) => Some(format!("Bearer {}", token.0)),
+        }
+    }
+}
+
 /// A client for the Deepgram API.
 ///
 /// Make transcriptions requests using [`Deepgram::transcription`].
 #[derive(Debug, Clone)]
 pub struct Deepgram {
     #[cfg_attr(not(feature = "listen"), allow(unused))]
-    api_key: Option<RedactedString>,
+    auth: Option<AuthMethod>,
     #[cfg_attr(not(feature = "listen"), allow(unused))]
     base_url: Url,
     #[cfg_attr(not(feature = "listen"), allow(unused))]
@@ -200,11 +222,20 @@ impl Deepgram {
     ///
     /// Errors under the same conditions as [`reqwest::ClientBuilder::build`].
     pub fn new<K: AsRef<str>>(api_key: K) -> Result<Self> {
-        let api_key = Some(api_key.as_ref().to_owned());
+        let auth = AuthMethod::ApiKey(RedactedString(api_key.as_ref().to_owned()));
         // This cannot panic because we are converting a static value
         // that is known-good.
         let base_url = DEEPGRAM_BASE_URL.try_into().unwrap();
-        Self::inner_constructor(base_url, api_key)
+        Self::inner_constructor(base_url, Some(auth))
+    }
+
+    /// Construct a new Deepgram client with a temporary token.
+    ///
+    /// This uses the "Bearer" prefix for authentication, suitable for temporary tokens.
+    pub fn with_temp_token<T: AsRef<str>>(temp_token: T) -> Result<Self> {
+        let auth = AuthMethod::TempToken(RedactedString(temp_token.as_ref().to_owned()));
+        let base_url = DEEPGRAM_BASE_URL.try_into().unwrap();
+        Self::inner_constructor(base_url, Some(auth))
     }
 
     /// Construct a new Deepgram client with the specified base URL.
@@ -281,10 +312,23 @@ impl Deepgram {
         K: AsRef<str>,
     {
         let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
-        Self::inner_constructor(base_url, Some(api_key.as_ref().to_owned()))
+        let auth = AuthMethod::ApiKey(RedactedString(api_key.as_ref().to_owned()));
+        Self::inner_constructor(base_url, Some(auth))
     }
 
-    fn inner_constructor(base_url: Url, api_key: Option<String>) -> Result<Self> {
+    /// Construct a new Deepgram client with the specified base URL and temp token.
+    pub fn with_base_url_and_temp_token<U, T>(base_url: U, temp_token: T) -> Result<Self>
+    where
+        U: TryInto<Url>,
+        U::Error: std::fmt::Debug,
+        T: AsRef<str>,
+    {
+        let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
+        let auth = AuthMethod::TempToken(RedactedString(temp_token.as_ref().to_owned()));
+        Self::inner_constructor(base_url, Some(auth))
+    }
+
+    fn inner_constructor(base_url: Url, auth: Option<AuthMethod>) -> Result<Self> {
         static USER_AGENT: &str = concat!(
             env!("CARGO_PKG_NAME"),
             "/",
@@ -297,16 +341,18 @@ impl Deepgram {
         }
         let authorization_header = {
             let mut header = HeaderMap::new();
-            if let Some(api_key) = &api_key {
-                if let Ok(value) = HeaderValue::from_str(&format!("Bearer {}", api_key)) {
-                    header.insert("Authorization", value);
+            if let Some(auth) = &auth {
+                if let Some(header_value) = auth.header_value() {
+                    if let Ok(value) = HeaderValue::from_str(&header_value) {
+                        header.insert("Authorization", value);
+                    }
                 }
             }
             header
         };
 
         Ok(Deepgram {
-            api_key: api_key.map(RedactedString),
+            auth,
             base_url,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
@@ -332,5 +378,47 @@ async fn send_and_translate_response<R: DeserializeOwned>(
             body: response.text().await?,
             err,
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_auth_method_header_value() {
+        let api_key = AuthMethod::ApiKey(RedactedString("test_api_key".to_string()));
+        assert_eq!(
+            api_key.header_value(),
+            Some("Token test_api_key".to_string())
+        );
+
+        let temp_token = AuthMethod::TempToken(RedactedString("test_temp_token".to_string()));
+        assert_eq!(
+            temp_token.header_value(),
+            Some("Bearer test_temp_token".to_string())
+        );
+    }
+
+    #[test]
+    fn test_deepgram_new_with_temp_token() {
+        let client = Deepgram::with_temp_token("test_temp_token").unwrap();
+        assert_eq!(
+            client.auth,
+            Some(AuthMethod::TempToken(RedactedString(
+                "test_temp_token".to_string()
+            )))
+        );
+    }
+
+    #[test]
+    fn test_deepgram_new_with_api_key() {
+        let client = Deepgram::new("test_api_key").unwrap();
+        assert_eq!(
+            client.auth,
+            Some(AuthMethod::ApiKey(RedactedString(
+                "test_api_key".to_string()
+            )))
+        );
     }
 }
