@@ -89,7 +89,8 @@ impl Transcription<'_> {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct RedactedString(pub String);
+/// A string wrapper that redacts its contents when formatted with `Debug`.
+pub struct RedactedString(pub String);
 
 impl fmt::Debug for RedactedString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
