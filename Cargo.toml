@@ -42,7 +42,6 @@ tungstenite = { version = "0.20.1", optional = true }
 url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
-proc-macro2 = "1.0.60"
 sha256 = "1.5.0"
 anyhow = "1.0.86"
 
