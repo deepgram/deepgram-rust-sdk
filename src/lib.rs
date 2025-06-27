@@ -90,7 +90,7 @@ impl Transcription<'_> {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 /// A string wrapper that redacts its contents when formatted with `Debug`.
-pub struct RedactedString(pub String);
+pub(crate) struct RedactedString(pub String);
 
 impl fmt::Debug for RedactedString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -108,7 +108,7 @@ impl Deref for RedactedString {
 
 /// Authentication method for Deepgram API requests.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AuthMethod {
+pub(crate) enum AuthMethod {
     /// Use an API key with "Token" prefix (e.g., "Token dg_xxx").
     /// This is for permanent API keys created in the Deepgram console.
     ApiKey(RedactedString),
@@ -120,10 +120,10 @@ pub enum AuthMethod {
 
 impl AuthMethod {
     /// Get the authorization header value for this authentication method.
-    pub(crate) fn header_value(&self) -> Option<String> {
+    pub(crate) fn header_value(&self) -> String {
         match self {
-            AuthMethod::ApiKey(key) => Some(format!("Token {}", key.0)),
-            AuthMethod::TempToken(token) => Some(format!("Bearer {}", token.0)),
+            AuthMethod::ApiKey(key) => format!("Token {}", key.0),
+            AuthMethod::TempToken(token) => format!("Bearer {}", token.0),
         }
     }
 }
@@ -343,10 +343,9 @@ impl Deepgram {
         let authorization_header = {
             let mut header = HeaderMap::new();
             if let Some(auth) = &auth {
-                if let Some(header_value) = auth.header_value() {
-                    if let Ok(value) = HeaderValue::from_str(&header_value) {
-                        header.insert("Authorization", value);
-                    }
+                let header_value = auth.header_value();
+                if let Ok(value) = HeaderValue::from_str(&header_value) {
+                    header.insert("Authorization", value);
                 }
             }
             header
@@ -389,15 +388,12 @@ mod tests {
     #[test]
     fn test_auth_method_header_value() {
         let api_key = AuthMethod::ApiKey(RedactedString("test_api_key".to_string()));
-        assert_eq!(
-            api_key.header_value(),
-            Some("Token test_api_key".to_string())
-        );
+        assert_eq!(api_key.header_value(), "Token test_api_key".to_string());
 
         let temp_token = AuthMethod::TempToken(RedactedString("test_temp_token".to_string()));
         assert_eq!(
             temp_token.header_value(),
-            Some("Bearer test_temp_token".to_string())
+            "Bearer test_temp_token".to_string()
         );
     }
 
