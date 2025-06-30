@@ -1,6 +1,6 @@
 [package]
 name = "deepgram"
-version = "0.6.8"
+version = "0.6.9"
 authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
 description = "Community Rust SDK for Deepgram's automated speech recognition APIs."
@@ -50,7 +50,7 @@ cpal = "0.13"
 crossbeam = "0.8"
 audio = "0.2.0"
 rodio = { version = "0.17.0" }
-pkg-config = { version = "0.3.30"}
+pkg-config = { version = "0.3.30" }
 
 [features]
 default = ["manage", "listen", "speak"]
