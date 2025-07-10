@@ -33,7 +33,7 @@ async fn main() -> Result<(), DeepgramError> {
         .await?;
 
     let transcript = &response.results.channels[0].alternatives[0].transcript;
-    println!("{}", transcript);
+    println!("{transcript}");
 
     Ok(())
 }

@@ -3,7 +3,7 @@ use std::thread;
 
 use bytes::{BufMut, Bytes, BytesMut};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::Sample;
+use cpal::{Sample, SampleFormat};
 use crossbeam::channel::RecvError;
 use deepgram::common::options::Encoding;
 use futures::channel::mpsc::{self, Receiver as FuturesReceiver};
@@ -11,6 +11,25 @@ use futures::stream::StreamExt;
 use futures::SinkExt;
 
 use deepgram::{Deepgram, DeepgramError};
+
+macro_rules! create_stream {
+    ($device:ident, $config:expr, $sync_tx:ident, $sample_type:ty) => {
+        $device
+            .build_input_stream(
+                &$config.into(),
+                move |data: &[$sample_type], _: &_| {
+                    let mut bytes = BytesMut::with_capacity(data.len() * 2);
+                    for sample in data {
+                        bytes.put_i16_le(sample.to_sample());
+                    }
+                    $sync_tx.send(bytes.freeze()).unwrap();
+                },
+                |_| panic!(),
+                None,
+            )
+            .unwrap()
+    };
+}
 
 fn microphone_as_stream() -> FuturesReceiver<Result<Bytes, RecvError>> {
     let (sync_tx, sync_rx) = crossbeam::channel::unbounded();
@@ -30,45 +49,12 @@ fn microphone_as_stream() -> FuturesReceiver<Result<Bytes, RecvError>> {
         // dbg!(&config);
 
         let stream = match config.sample_format() {
-            cpal::SampleFormat::F32 => device
-                .build_input_stream(
-                    &config.into(),
-                    move |data: &[f32], _: &_| {
-                        let mut bytes = BytesMut::with_capacity(data.len() * 2);
-                        for sample in data {
-                            bytes.put_i16_le(sample.to_i16());
-                        }
-                        sync_tx.send(bytes.freeze()).unwrap();
-                    },
-                    |_| panic!(),
-                )
-                .unwrap(),
-            cpal::SampleFormat::I16 => device
-                .build_input_stream(
-                    &config.into(),
-                    move |data: &[i16], _: &_| {
-                        let mut bytes = BytesMut::with_capacity(data.len() * 2);
-                        for sample in data {
-                            bytes.put_i16_le(*sample);
-                        }
-                        sync_tx.send(bytes.freeze()).unwrap();
-                    },
-                    |_| panic!(),
-                )
-                .unwrap(),
-            cpal::SampleFormat::U16 => device
-                .build_input_stream(
-                    &config.into(),
-                    move |data: &[u16], _: &_| {
-                        let mut bytes = BytesMut::with_capacity(data.len() * 2);
-                        for sample in data {
-                            bytes.put_i16_le(sample.to_i16());
-                        }
-                        sync_tx.send(bytes.freeze()).unwrap();
-                    },
-                    |_| panic!(),
-                )
-                .unwrap(),
+            SampleFormat::F32 => create_stream!(device, config, sync_tx, f32),
+            SampleFormat::I16 => create_stream!(device, config, sync_tx, i16),
+            SampleFormat::U16 => create_stream!(device, config, sync_tx, u16),
+            sample_format => {
+                panic!("Unsupported sample format: {sample_format:?}");
+            }
         };
 
         stream.play().unwrap();
@@ -109,7 +95,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     println!("Deepgram Request ID: {}", results.request_id());
     while let Some(result) = results.next().await {
-        println!("got: {:?}", result);
+        println!("got: {result:?}");
     }
 
     Ok(())

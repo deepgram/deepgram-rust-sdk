@@ -20,43 +20,46 @@ categories = ["api-bindings", "multimedia::audio"]
 [dependencies]
 # TODO Investigate which of these dependencies can go behind features.
 bytes = "1"
-futures = "0.3"
-http = "0.2"
+futures = "^0.3"
+http = "1.3"
 pin-project = "1"
-reqwest = { version = "0.11.22", default-features = false, features = [
+reqwest = { version = "^0.12", default-features = false, features = [
   "json",
-  "rustls-tls",
   "stream",
 ] }
-serde = { version = "1.0.215", features = ["derive"] }
+serde = { version = "^1.0.219", features = ["derive"] }
 serde_json = "1"
 serde_urlencoded = "0.7"
-thiserror = "1"
-tokio = { version = "1.38.0", features = ["full"] }
-tokio-stream = "0.1.15"
-tokio-tungstenite = { version = "0.20.1", features = [
-  "rustls-tls-webpki-roots",
+thiserror = "2"
+tokio = { version = "^1.45.1", features = ["full"] }
+tokio-stream = "^0.1.17"
+tokio-tungstenite = { version = "^0.27.0", features = [
 ], optional = true }
-tokio-util = { version = "0.7.1", features = ["codec", "io"] }
-tungstenite = { version = "0.20.1", optional = true }
+tokio-util = { version = "^0.7", features = ["codec", "io"] }
+tungstenite = { version = "^0.27", optional = true }
 url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
-sha256 = "1.5.0"
-anyhow = "1.0.86"
+sha256 = "^1.6.0"
+anyhow = "^1.0.98"
+tracing = ">=0.1.41"
 
 [dev-dependencies]
-cpal = "0.13"
+cpal = "^0.16"
 crossbeam = "0.8"
 audio = "0.2.0"
-rodio = { version = "0.17.0" }
+rodio = { version = "0.20" }
 pkg-config = { version = "0.3.30" }
 
 [features]
-default = ["manage", "listen", "speak"]
+default = ["__default_no_tls", "rust-tls"]
+default_native_tls = ["__default_no_tls", "native-tls" ]
+__default_no_tls = ["manage", "listen", "speak"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
 speak = []
+rust-tls = ["tokio-tungstenite?/rustls-tls-webpki-roots", "reqwest/rustls-tls"]
+native-tls = ["reqwest/native-tls", "tokio-tungstenite?/native-tls"]
 
 [[example]]
 name = "prerecorded_from_file"

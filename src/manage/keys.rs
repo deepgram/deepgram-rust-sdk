@@ -74,7 +74,7 @@ impl Keys<'_> {
     /// # }
     /// ```
     pub async fn list(&self, project_id: &str) -> crate::Result<MembersAndApiKeys> {
-        let url = format!("https://api.deepgram.com/v1/projects/{}/keys", project_id);
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/keys");
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -113,10 +113,7 @@ impl Keys<'_> {
     /// # }
     /// ```
     pub async fn get(&self, project_id: &str, key_id: &str) -> crate::Result<MemberAndApiKey> {
-        let url = format!(
-            "https://api.deepgram.com/v1/projects/{}/keys/{}",
-            project_id, key_id,
-        );
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/keys/{key_id}",);
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -156,7 +153,7 @@ impl Keys<'_> {
     /// # }
     /// ```
     pub async fn create(&self, project_id: &str, options: &Options) -> crate::Result<NewApiKey> {
-        let url = format!("https://api.deepgram.com/v1/projects/{}/keys", project_id);
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/keys");
         let request = self
             .0
             .client
@@ -200,10 +197,7 @@ impl Keys<'_> {
     /// # }
     /// ```
     pub async fn delete(&self, project_id: &str, key_id: &str) -> crate::Result<Message> {
-        let url = format!(
-            "https://api.deepgram.com/v1/projects/{}/keys/{}",
-            project_id, key_id,
-        );
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/keys/{key_id}",);
 
         send_and_translate_response(self.0.client.delete(url)).await
     }

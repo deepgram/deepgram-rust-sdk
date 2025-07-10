@@ -31,7 +31,7 @@ async fn main() -> Result<(), DeepgramError> {
         .await?;
 
     let elapsed_time = start_time.elapsed();
-    println!("Time to download audio: {:.2?}", elapsed_time);
+    println!("Time to download audio: {elapsed_time:.2?}");
 
     Ok(())
 }
