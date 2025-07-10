@@ -50,8 +50,8 @@ impl Speak<'_> {
         if let Err(err) = response.error_for_status_ref() {
             let status = response.status();
             let error_text = response.text().await?;
-            eprintln!("Failed to generate speech: {}", status);
-            eprintln!("Error details: {}", error_text);
+            eprintln!("Failed to generate speech: {status}");
+            eprintln!("Error details: {error_text}");
             return Err(DeepgramError::DeepgramApiError {
                 body: error_text,
                 err,
@@ -66,7 +66,7 @@ impl Speak<'_> {
             std::io::copy(&mut chunk.as_ref(), &mut file)?;
         }
 
-        println!("Audio saved to {:?}", output_file);
+        println!("Audio saved to {output_file:?}");
 
         Ok(())
     }
@@ -103,8 +103,8 @@ impl Speak<'_> {
         if let Err(err) = response.error_for_status_ref() {
             let status = response.status();
             let error_text = response.text().await?;
-            eprintln!("Failed to generate speech: {}", status);
-            eprintln!("Error details: {}", error_text);
+            eprintln!("Failed to generate speech: {status}");
+            eprintln!("Error details: {error_text}");
             return Err(DeepgramError::DeepgramApiError {
                 body: error_text,
                 err,
@@ -125,7 +125,7 @@ impl Speak<'_> {
                         }
                     }
                     Err(e) => {
-                        eprintln!("Error streaming response: {}", e);
+                        eprintln!("Error streaming response: {e}");
                         break;
                     }
                 }

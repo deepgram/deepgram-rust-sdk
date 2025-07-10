@@ -67,7 +67,7 @@ impl Invitations<'_> {
     /// # }
     /// ```
     pub async fn leave_project(&self, project_id: &str) -> crate::Result<Message> {
-        let url = format!("https://api.deepgram.com/v1/projects/{}/leave", project_id,);
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/leave",);
 
         send_and_translate_response(self.0.client.delete(url)).await
     }

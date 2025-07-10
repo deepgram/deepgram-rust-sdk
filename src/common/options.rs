@@ -2288,7 +2288,7 @@ impl Serialize for SerializableOptions<'_> {
 
         if let Some(extra) = extra {
             for (key, value) in extra.iter() {
-                seq.serialize_element(&("extra", format!("{}:{}", key, value)))?;
+                seq.serialize_element(&("extra", format!("{key}:{value}")))?;
             }
         }
 
@@ -2706,7 +2706,7 @@ mod serialize_options_tests {
 
         let expected = limited_letters
             .iter()
-            .map(|letter| format!("{}={}", key, letter))
+            .map(|letter| format!("{key}={letter}"))
             .collect::<Vec<String>>()
             .join("&");
 

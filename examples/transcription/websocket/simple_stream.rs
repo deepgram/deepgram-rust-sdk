@@ -41,7 +41,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     println!("Deepgram Request ID: {}", results.request_id());
     while let Some(result) = results.next().await {
-        println!("got: {:?}", result);
+        println!("got: {result:?}");
     }
 
     Ok(())

@@ -137,7 +137,7 @@ async fn main() -> Result<(), DeepgramError> {
         // Print timing information if not already printed
         if !time_to_first_byte_printed {
             let elapsed_time = start_time.elapsed();
-            println!("Time to first audio byte: {:.2?}", elapsed_time);
+            println!("Time to first audio byte: {elapsed_time:.2?}");
             time_to_first_byte_printed = true;
         }
 
