@@ -107,7 +107,7 @@ impl Projects<'_> {
     /// # }
     /// ```
     pub async fn get(&self, project_id: &str) -> crate::Result<Project> {
-        let url = format!("https://api.deepgram.com/v1/projects/{}", project_id);
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}");
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -149,7 +149,7 @@ impl Projects<'_> {
     /// # }
     /// ```
     pub async fn update(&self, project_id: &str, options: &Options) -> crate::Result<Message> {
-        let url = format!("https://api.deepgram.com/v1/projects/{}", project_id);
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}");
         let request = self
             .0
             .client
@@ -191,7 +191,7 @@ impl Projects<'_> {
     /// # }
     /// ```
     pub async fn delete(&self, project_id: &str) -> crate::Result<Message> {
-        let url = format!("https://api.deepgram.com/v1/projects/{}", project_id);
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}");
         let request = self.0.client.delete(url);
 
         send_and_translate_response(request).await

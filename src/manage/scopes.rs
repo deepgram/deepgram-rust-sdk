@@ -77,8 +77,7 @@ impl Scopes<'_> {
         member_id: &str,
     ) -> crate::Result<response::Scopes> {
         let url = format!(
-            "https://api.deepgram.com/v1/projects/{}/members/{}/scopes ",
-            project_id, member_id
+            "https://api.deepgram.com/v1/projects/{project_id}/members/{member_id}/scopes "
         );
 
         send_and_translate_response(self.0.client.get(url)).await
@@ -129,10 +128,8 @@ impl Scopes<'_> {
             scope: &'a str,
         }
 
-        let url = format!(
-            "https://api.deepgram.com/v1/projects/{}/members/{}/scopes",
-            project_id, member_id
-        );
+        let url =
+            format!("https://api.deepgram.com/v1/projects/{project_id}/members/{member_id}/scopes");
         let request = self.0.client.put(url).json(&Scope { scope });
 
         send_and_translate_response(request).await

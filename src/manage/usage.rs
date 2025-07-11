@@ -78,10 +78,7 @@ impl Usage<'_> {
         project_id: &str,
         options: &list_requests_options::Options,
     ) -> crate::Result<Requests> {
-        let url = format!(
-            "https://api.deepgram.com/v1/projects/{}/requests",
-            project_id,
-        );
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/requests",);
         let request = self
             .0
             .client
@@ -129,10 +126,8 @@ impl Usage<'_> {
     /// # }
     /// ```
     pub async fn get_request(&self, project_id: &str, request_id: &str) -> crate::Result<Request> {
-        let url = format!(
-            "https://api.deepgram.com/v1/projects/{}/requests/{}",
-            project_id, request_id,
-        );
+        let url =
+            format!("https://api.deepgram.com/v1/projects/{project_id}/requests/{request_id}",);
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -177,7 +172,7 @@ impl Usage<'_> {
         project_id: &str,
         options: &get_usage_options::Options,
     ) -> crate::Result<UsageSummary> {
-        let url = format!("https://api.deepgram.com/v1/projects/{}/usage", project_id);
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/usage");
         let request = self
             .0
             .client
@@ -227,10 +222,7 @@ impl Usage<'_> {
         project_id: &str,
         options: &get_fields_options::Options,
     ) -> crate::Result<Fields> {
-        let url = format!(
-            "https://api.deepgram.com/v1/projects/{}/usage/fields",
-            project_id,
-        );
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/usage/fields",);
         let request = self
             .0
             .client
