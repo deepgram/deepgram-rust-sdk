@@ -26,6 +26,9 @@ pub struct Word {
 
     #[allow(missing_docs)]
     pub punctuated_word: Option<String>,
+
+    #[allow(missing_docs)]
+    pub language: Option<String>,
 }
 
 /// Transcript alternatives.
@@ -43,6 +46,9 @@ pub struct Alternatives {
 
     #[allow(missing_docs)]
     pub confidence: f64,
+
+    #[allow(missing_docs)]
+    pub languages: Option<Vec<String>>,
 }
 
 /// Transcription results for a single audio channel.
