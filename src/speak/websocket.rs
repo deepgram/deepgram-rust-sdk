@@ -32,6 +32,7 @@ pub struct WebsocketBuilder<'a> {
     encoding: Option<Encoding>,
     model: Option<Model>,
     sample_rate: Option<u32>,
+    no_delay: bool,
 }
 
 impl<'a> WebsocketBuilder<'a> {
@@ -70,6 +71,26 @@ impl<'a> WebsocketBuilder<'a> {
         WebsocketHandle::new(self).await
     }
 
+    pub fn encoding(mut self, encoding: Encoding) -> Self {
+        self.encoding = Some(encoding);
+        self
+    }
+
+    pub fn sample_rate(mut self, sample_rate: u32) -> Self {
+        self.sample_rate = Some(sample_rate);
+        self
+    }
+
+    pub fn model(mut self, model: Model) -> Self {
+        self.model = Some(model);
+        self
+    }
+
+    pub fn no_delay(mut self, no_delay: bool) -> Self {
+        self.no_delay = no_delay;
+        self
+    }
+
     pub async fn stream<S, E>(self, stream: S) -> Result<SpeakAudioStream>
     where
         S: Stream<Item = Result<String, E>> + Send + Unpin + 'static,
@@ -84,7 +105,6 @@ impl<'a> WebsocketBuilder<'a> {
             loop {
                 select! {
                     t = text_stream.next() => {
-                        eprintln!("Text stream: {:?}", t);
                         match t {
                             Some(Ok(text)) => {
                                 if let Err(_) = request_tx.send(SpeakWsMessage::Speak { text }).await {
@@ -102,7 +122,9 @@ impl<'a> WebsocketBuilder<'a> {
                         }
                     }
                     r = response_rx.next() => {
-                        eprintln!("Response: {:?}", r);
+                        if r.is_none() {
+                            break;
+                        }
                     }
                 }
             }
@@ -148,9 +170,8 @@ impl WebsocketHandle {
             builder.body(())?
         };
 
-        eprintln!("WS Speech Request: {:?}", request);
-
-        let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
+        let (ws_stream, upgrade_response) =
+            tokio_tungstenite::connect_async_with_config(request, None, !builder.no_delay).await?;
 
         let request_id = upgrade_response
             .headers()
@@ -192,7 +213,6 @@ impl WebsocketHandle {
     }
 
     pub async fn send_text(&self, text: String) -> Result<()> {
-        eprintln!("Sending text: {}", text);
         if let Err(_) = self.message_tx.send(SpeakWsMessage::Speak { text }).await {
             return Err(DeepgramError::UnexpectedServerResponse(anyhow!(
                 "websocket closed"
@@ -227,9 +247,10 @@ impl<'a> Speak<'a> {
     pub fn continuous_speak_to_stream(&self) -> WebsocketBuilder<'_> {
         WebsocketBuilder {
             deepgram: self.0,
-            encoding: Some(Encoding::Linear16),
-            model: Some(Model::CustomId("aura-2-thalia-en".to_string())),
-            sample_rate: Some(24000),
+            encoding: None,
+            model: None,
+            sample_rate: None,
+            no_delay: false,
         }
     }
 }
@@ -322,7 +343,7 @@ impl WsWorker {
                             }
                         }
                         Some(Ok(Message::Binary(audio))) => {
-                            eprintln!("Received audio");
+                            // eprintln!("Received audio");
                             if (self.audio_tx.send(Ok(audio)).await).is_err() {
                                 break;
                             }
@@ -336,7 +357,7 @@ impl WsWorker {
                         }
                         Some(Ok(Message::Pong(_))) => { }
                         Some(Ok(Message::Frame(_))) => {
-                            eprintln!("Received frame");
+                            // eprintln!("Received frame");
                             // We don't care about frames (I think).
                         }
                         Some(Err(err)) => {
