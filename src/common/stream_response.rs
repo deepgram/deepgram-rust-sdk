@@ -48,7 +48,7 @@ pub struct Alternatives {
     pub confidence: f64,
 
     #[allow(missing_docs)]
-    pub languages: Option<Vec<String>>,
+    pub languages: Vec<String>,
 }
 
 /// Transcription results for a single audio channel.
