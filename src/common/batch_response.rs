@@ -339,7 +339,7 @@ pub struct ResultAlternative {
 
     #[allow(missing_docs)]
     pub entities: Option<Vec<Entity>>,
-    
+
     #[allow(missing_docs)]
     #[serde(default)]
     pub languages: Vec<String>,
