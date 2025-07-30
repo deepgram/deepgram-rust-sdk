@@ -48,6 +48,7 @@ pub struct Alternatives {
     pub confidence: f64,
 
     #[allow(missing_docs)]
+    #[serde(default)]
     pub languages: Vec<String>,
 }
 
