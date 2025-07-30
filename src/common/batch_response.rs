@@ -59,6 +59,9 @@ pub struct ListenMetadata {
 
     #[allow(missing_docs)]
     pub channels: usize,
+
+    #[allow(missing_docs)]
+    pub language: Option<String>,
 }
 
 /// Transcription results.
@@ -336,6 +339,10 @@ pub struct ResultAlternative {
 
     #[allow(missing_docs)]
     pub entities: Option<Vec<Entity>>,
+
+    #[allow(missing_docs)]
+    #[serde(default)]
+    pub languages: Vec<String>,
 }
 
 /// A single transcribed word.
