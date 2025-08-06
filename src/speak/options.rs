@@ -144,7 +144,7 @@ impl Container {
         match self {
             Container::Wav => "wav",
             Container::Ogg => "ogg",
-            Container::None => "nonne",
+            Container::None => "none",
             Container::CustomContainer(container) => container,
         }
     }
