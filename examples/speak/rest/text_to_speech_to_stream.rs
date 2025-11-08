@@ -155,6 +155,9 @@ async fn main() -> Result<(), DeepgramError> {
         // Check if buffer has reached the initial threshold
         if buffer.len() >= buffer_threshold {
             // Convert buffer to i16 samples and push to source
+            // Note: Clippy suggests is_multiple_of() but it requires unstable Rust
+            // Using manual check with allow attribute for compatibility
+            #[allow(clippy::all)]
             if buffer.len() % 2 != 0 {
                 extra_byte = Some(buffer.split_off(buffer.len() - 1)[0]);
             }

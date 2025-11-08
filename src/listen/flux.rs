@@ -283,6 +283,12 @@ impl FluxBuilder<'_> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "type")]
+enum ControlMessage {
+    CloseStream,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum WsMessage {
     Audio(Vec<u8>),
@@ -472,9 +478,8 @@ async fn run_flux_worker(
                             }
                         }
                         Some(WsMessage::CloseStream) | None => {
-                            let close_msg = serde_json::json!({"type": "CloseStream"});
                             if let Err(err) = ws_stream_send.send(Message::Text(
-                                Utf8Bytes::from(close_msg.to_string())
+                                Utf8Bytes::from(serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default())
                             )).await {
                                 let _ = response_tx.send(Err(err.into())).await;
                             }
@@ -487,10 +492,9 @@ async fn run_flux_worker(
     }
     // Post-loop cleanup: ensure CloseStream is sent if connection is still open
     if is_open {
-        let close_msg = serde_json::json!({"type": "CloseStream"});
         if let Err(err) = ws_stream_send
             .send(Message::Text(Utf8Bytes::from(
-                serde_json::to_string(&close_msg).unwrap_or_default(),
+                serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default(),
             )))
             .await
         {
