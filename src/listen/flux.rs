@@ -28,7 +28,6 @@ use http::Request;
 use pin_project::pin_project;
 use serde_urlencoded;
 use tokio::fs::File;
-use tokio_stream::wrappers::ReceiverStream;
 use tokio_tungstenite::{tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream};
 use tungstenite::{
     handshake::client,
