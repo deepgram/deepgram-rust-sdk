@@ -95,6 +95,16 @@ path = "examples/transcription/websocket/microphone_stream.rs"
 required-features = ["listen"]
 
 [[example]]
+name = "simple_flux"
+path = "examples/transcription/flux/simple_flux.rs"
+required-features = ["listen"]
+
+[[example]]
+name = "microphone_flux"
+path = "examples/transcription/flux/microphone_flux.rs"
+required-features = ["listen"]
+
+[[example]]
 name = "text_to_speech_to_file"
 path = "examples/speak/rest/text_to_speech_to_file.rs"
 required-features = ["speak"]

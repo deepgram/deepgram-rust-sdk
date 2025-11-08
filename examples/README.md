@@ -29,6 +29,14 @@ cargo run --example microphone_stream
 ```
 
 ```sh
+cargo run --example simple_flux
+```
+
+```sh
+cargo run --example microphone_flux
+```
+
+```sh
 cargo run --example text_to_speech_to_file
 ```
 

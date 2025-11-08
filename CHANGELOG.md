@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased](https://github.com/deepgram/deepgram-rust-sdk/compare/0.6.2...HEAD)
 
+- Add Flux conversational speech recognition model support (`flux-general-en`)
+  - New `flux_request()` and `flux_request_with_options()` methods for Flux streaming
+  - Support for turn-based conversation detection with `FluxResponse` types
+  - Configurable end-of-turn detection parameters (`eot_threshold`, `eager_eot_threshold`, `eot_timeout_ms`)
+  - New `TurnEvent` enum: `StartOfTurn`, `EndOfTurn`, `EagerEndOfTurn`, `TurnResumed`, `Update`
+  - Examples: `simple_flux` (file streaming) and `microphone_flux` (real-time microphone)
+  - Uses `/v2/listen` endpoint for Flux API
 - Update documentation to point to 
   [deepgram/deepgram-rust-sdk](https://github.com/deepgram/deepgram-rust-sdk).
 
