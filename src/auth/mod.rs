@@ -108,7 +108,10 @@ impl Auth<'_> {
         let url = "https://api.deepgram.com/v1/auth/grant";
 
         let request = if let Some(opts) = options {
-            self.0.client.post(url).json(&SerializableOptions::from(opts))
+            self.0
+                .client
+                .post(url)
+                .json(&SerializableOptions::from(opts))
         } else {
             // Send empty JSON object when no options provided
             self.0.client.post(url).json(&serde_json::json!({}))

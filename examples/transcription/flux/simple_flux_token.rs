@@ -27,7 +27,7 @@ use deepgram::{
 // - Determine the desired interval based on the chunk size (eg. send X bytes every Y milliseconds)
 //
 // You may receive no transcription or unpredictable transcription results if you do not get these numbers close to real-time.
-// 
+//
 static PATH_TO_FILE: &str = "examples/audio/sample-mono.wav";
 static AUDIO_CHUNK_SIZE: usize = 18_063;
 static FRAME_DELAY: Duration = Duration::from_millis(100);
