@@ -35,11 +35,11 @@ serde_urlencoded = "0.7.1"
 thiserror = "2"
 tokio = { version = "^1.45.1", features = ["full"] }
 tokio-stream = "^0.1.17"
-tokio-tungstenite = { version = "^0.27.0", features = [
+tokio-tungstenite = { version = "^0.28.0", features = [
   "rustls-tls-webpki-roots",
 ], optional = true }
 tokio-util = { version = "^0.7", features = ["codec", "io"] }
-tungstenite = { version = "^0.27", optional = true }
+tungstenite = { version = "^0.28.0", optional = true }
 url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
@@ -51,7 +51,7 @@ tracing = ">=0.1.41"
 cpal = "^0.16"
 crossbeam = "0.8"
 audio = "0.2.0"
-rodio = { version = "0.20" }
+rodio = { version = "0.21.1" }
 pkg-config = { version = "0.3.30" }
 
 [features]
