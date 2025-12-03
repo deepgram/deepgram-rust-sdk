@@ -125,6 +125,8 @@ impl CallbackMethod {
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum Encoding {
+    /// 32-bit floating point linear PCM (LPCM) data
+    Linear32,
     /// 16-bit, little endian, signed PCM WAV data
     Linear16,
     /// Free Lossless Audio Codec (FLAC) encoded data
@@ -150,6 +152,7 @@ pub enum Encoding {
 impl Encoding {
     pub(crate) fn as_str(&self) -> &str {
         match self {
+            Encoding::Linear32 => "linear32",
             Encoding::Linear16 => "linear16",
             Encoding::Flac => "flac",
             Encoding::Mulaw => "mulaw",
