@@ -1,3 +1,11 @@
+/* Expected result from running this example program.
+Flux Request ID: 5add2b9f-42a7-406f-9fac-7ac4be9dc2cb
+Connected: 5add2b9f-42a7-406f-9fac-7ac4be9dc2cb (seq: 0)
+
+▶ [Turn 0] START
+[Turn 0] UPDATE: Hello from Deepgram. Welcome to our voice AI APIs.I
+*/
+
 use std::env;
 use std::io::Write;
 use std::time::Duration;
@@ -12,9 +20,17 @@ use deepgram::{
     Deepgram, DeepgramError,
 };
 
-static PATH_TO_FILE: &str = "examples/audio/bueller.wav";
-static AUDIO_CHUNK_SIZE: usize = 3174;
-static FRAME_DELAY: Duration = Duration::from_millis(16);
+// IMPORTANT: To stream a pre-recorded audio file to Flux, you will need to:
+//
+// - Specify the path to a mono-channel audio file
+// - Determine the sample rate and corresponding chunk size (eg. 88.2 KB/sec divided by 10 chunks per second)
+// - Determine the desired interval based on the chunk size (eg. send X bytes every Y milliseconds)
+//
+// You may receive no transcription or unpredictable transcription results if you do not get these numbers close to real-time.
+// 
+static PATH_TO_FILE: &str = "examples/audio/sample-mono.wav";
+static AUDIO_CHUNK_SIZE: usize = 18_063;
+static FRAME_DELAY: Duration = Duration::from_millis(100);
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
@@ -39,7 +55,7 @@ async fn main() -> Result<(), DeepgramError> {
     let mut results = dg_client
         .transcription()
         .flux_request_with_options(options)
-        .encoding(Encoding::Linear16)
+        .encoding(Encoding::Linear32)
         .sample_rate(44100)
         .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, FRAME_DELAY)
         .await?;
