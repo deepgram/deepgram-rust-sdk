@@ -1,6 +1,6 @@
 [package]
 name = "deepgram"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
 description = "Community Rust SDK for Deepgram's automated speech recognition APIs."
@@ -12,8 +12,9 @@ keywords = [
   "text-to-speech",
   "speech-to-text",
   "asr",
+  "deepgram"
 ]
-categories = ["api-bindings", "multimedia::audio"]
+categories = ["api-bindings", "multimedia::audio", "network-programming"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
