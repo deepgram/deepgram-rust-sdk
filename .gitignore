@@ -1,3 +1,4 @@
 /target
 your_output_file.wav
 .DS_Store
+Cargo.lock
