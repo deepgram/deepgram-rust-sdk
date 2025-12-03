@@ -49,6 +49,9 @@ pub struct Options {
     measurements: Option<bool>,
     extra: Option<HashMap<String, String>>,
     callback_method: Option<CallbackMethod>,
+    eager_eot_threshold: Option<f64>,
+    eot_threshold: Option<f64>,
+    eot_timeout_ms: Option<u32>,
 }
 
 impl Default for Options {
@@ -122,6 +125,8 @@ impl CallbackMethod {
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum Encoding {
+    /// 32-bit floating point linear PCM (LPCM) data
+    Linear32,
     /// 16-bit, little endian, signed PCM WAV data
     Linear16,
     /// Free Lossless Audio Codec (FLAC) encoded data
@@ -147,6 +152,7 @@ pub enum Encoding {
 impl Encoding {
     pub(crate) fn as_str(&self) -> &str {
         match self {
+            Encoding::Linear32 => "linear32",
             Encoding::Linear16 => "linear16",
             Encoding::Flac => "flac",
             Encoding::Mulaw => "mulaw",
@@ -251,6 +257,17 @@ pub enum Model {
     ///
     /// Optimized for medical terminology and healthcare-specific speech patterns.
     Nova3Medical,
+
+    /// Flux conversational model for voice agents.
+    ///
+    /// Designed for turn-based conversational speech recognition with automatic
+    /// turn detection and end-of-turn confidence scoring. Optimized for voice
+    /// agents and real-time dialogue systems.
+    ///
+    /// See the [Deepgram Flux API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/speech-to-text/listen-flux
+    FluxGeneralEn,
 
     #[allow(missing_docs)]
     Nova2Meeting,
@@ -799,6 +816,9 @@ impl OptionsBuilder {
             measurements: None,
             extra: None,
             callback_method: None,
+            eager_eot_threshold: None,
+            eot_threshold: None,
+            eot_timeout_ms: None,
         })
     }
 
@@ -2024,6 +2044,71 @@ impl OptionsBuilder {
         self
     }
 
+    /// Set the eager end-of-turn threshold (0.3-0.9).
+    ///
+    /// When set, enables `EagerEndOfTurn` and `TurnResumed` events.
+    /// The model will fire an eager end-of-turn when confidence reaches this threshold.
+    ///
+    /// See the [Deepgram Flux API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/speech-to-text/listen-flux
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::common::options::Options;
+    /// let options = Options::builder()
+    ///     .eager_eot_threshold(0.8)
+    ///     .build();
+    /// ```
+    pub fn eager_eot_threshold(mut self, threshold: f64) -> Self {
+        self.0.eager_eot_threshold = Some(threshold);
+        self
+    }
+
+    /// Set the end-of-turn confidence threshold (0.5-0.9).
+    ///
+    /// A turn will be finished when confidence reaches this threshold.
+    ///
+    /// See the [Deepgram Flux API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/speech-to-text/listen-flux
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::common::options::Options;
+    /// let options = Options::builder()
+    ///     .eot_threshold(0.7)
+    ///     .build();
+    /// ```
+    pub fn eot_threshold(mut self, threshold: f64) -> Self {
+        self.0.eot_threshold = Some(threshold);
+        self
+    }
+
+    /// Set the end-of-turn timeout in milliseconds.
+    ///
+    /// A turn will be finished when this much time has passed after speech,
+    /// regardless of EOT confidence.
+    ///
+    /// See the [Deepgram Flux API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/speech-to-text/listen-flux
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::common::options::Options;
+    /// let options = Options::builder()
+    ///     .eot_timeout_ms(1000)
+    ///     .build();
+    /// ```
+    pub fn eot_timeout_ms(mut self, timeout_ms: u32) -> Self {
+        self.0.eot_timeout_ms = Some(timeout_ms);
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -2094,6 +2179,9 @@ impl Serialize for SerializableOptions<'_> {
             measurements,
             extra,
             callback_method,
+            eager_eot_threshold,
+            eot_threshold,
+            eot_timeout_ms,
         } = self.0;
 
         match multichannel {
@@ -2300,6 +2388,18 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("keyterm", element))?;
         }
 
+        if let Some(eager_eot_threshold) = eager_eot_threshold {
+            seq.serialize_element(&("eager_eot_threshold", eager_eot_threshold))?;
+        }
+
+        if let Some(eot_threshold) = eot_threshold {
+            seq.serialize_element(&("eot_threshold", eot_threshold))?;
+        }
+
+        if let Some(eot_timeout_ms) = eot_timeout_ms {
+            seq.serialize_element(&("eot_timeout_ms", eot_timeout_ms))?;
+        }
+
         seq.end()
     }
 }
@@ -2310,6 +2410,7 @@ impl AsRef<str> for Model {
             Self::Nova3 => "nova-3",
             Self::Nova2 => "nova-2",
             Self::Nova3Medical => "nova-3-medical",
+            Self::FluxGeneralEn => "flux-general-en",
             Self::Nova2Meeting => "nova-2-meeting",
             Self::Nova2Phonecall => "nova-2-phonecall",
             Self::Nova2Finance => "nova-2-finance",
@@ -2372,6 +2473,7 @@ impl From<String> for Model {
             "nova-3" | "nova-3-general" => Self::Nova3,
             "nova-2" | "nova-2-general" => Self::Nova2,
             "nova-3-medical" => Self::Nova3Medical,
+            "flux-general-en" => Self::FluxGeneralEn,
             "nova-2-meeting" => Self::Nova2Meeting,
             "nova-2-phonecall" => Self::Nova2Phonecall,
             "nova-2-finance" => Self::Nova2Finance,
@@ -2590,6 +2692,10 @@ mod from_string_tests {
     #[test]
     fn model_from_string() {
         assert_eq!(Model::from("nova-2".to_string()), Model::Nova2);
+        assert_eq!(
+            Model::from("flux-general-en".to_string()),
+            Model::FluxGeneralEn
+        );
         assert_eq!(
             Model::from("custom".to_string()),
             Model::CustomId("custom".to_string())
@@ -3216,6 +3322,44 @@ mod serialize_options_tests {
                 .keyterms(["hello world", "rust programming"])
                 .build(),
             "keyterm=hello+world&keyterm=rust+programming",
+        );
+    }
+
+    #[test]
+    fn flux_options() {
+        check_serialization(
+            &Options::builder()
+                .model(Model::FluxGeneralEn)
+                .eager_eot_threshold(0.8)
+                .build(),
+            "model=flux-general-en&eager_eot_threshold=0.8",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .model(Model::FluxGeneralEn)
+                .eot_threshold(0.7)
+                .build(),
+            "model=flux-general-en&eot_threshold=0.7",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .model(Model::FluxGeneralEn)
+                .eot_timeout_ms(1000)
+                .build(),
+            "model=flux-general-en&eot_timeout_ms=1000",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .model(Model::FluxGeneralEn)
+                .eager_eot_threshold(0.8)
+                .eot_threshold(0.7)
+                .eot_timeout_ms(1000)
+                .keyterms(["activate", "cancel"])
+                .build(),
+            "model=flux-general-en&keyterm=activate&keyterm=cancel&eager_eot_threshold=0.8&eot_threshold=0.7&eot_timeout_ms=1000",
         );
     }
 }

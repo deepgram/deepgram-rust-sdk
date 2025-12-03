@@ -1,6 +1,6 @@
 [package]
 name = "deepgram"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
 description = "Community Rust SDK for Deepgram's automated speech recognition APIs."
@@ -12,8 +12,9 @@ keywords = [
   "text-to-speech",
   "speech-to-text",
   "asr",
+  "deepgram"
 ]
-categories = ["api-bindings", "multimedia::audio"]
+categories = ["api-bindings", "multimedia::audio", "network-programming"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -28,17 +29,17 @@ reqwest = { version = "^0.12", default-features = false, features = [
   "rustls-tls",
   "stream",
 ] }
-serde = { version = "^1.0.219", features = ["derive"] }
-serde_json = "1"
-serde_urlencoded = "0.7"
+serde = { version = "^1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+serde_urlencoded = "0.7.1"
 thiserror = "2"
 tokio = { version = "^1.45.1", features = ["full"] }
 tokio-stream = "^0.1.17"
-tokio-tungstenite = { version = "^0.27.0", features = [
+tokio-tungstenite = { version = "^0.28.0", features = [
   "rustls-tls-webpki-roots",
 ], optional = true }
 tokio-util = { version = "^0.7", features = ["codec", "io"] }
-tungstenite = { version = "^0.27", optional = true }
+tungstenite = { version = "^0.28.0", optional = true }
 url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
@@ -50,7 +51,7 @@ tracing = ">=0.1.41"
 cpal = "^0.16"
 crossbeam = "0.8"
 audio = "0.2.0"
-rodio = { version = "0.20" }
+rodio = { version = "0.20.1" }
 pkg-config = { version = "0.3.30" }
 
 [features]
@@ -58,6 +59,10 @@ default = ["manage", "listen", "speak"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
 speak = []
+
+[[example]]
+name = "grant_token"
+path = "examples/auth/grant_token.rs"
 
 [[example]]
 name = "prerecorded_from_file"
@@ -92,6 +97,21 @@ required-features = ["listen"]
 [[example]]
 name = "microphone_stream"
 path = "examples/transcription/websocket/microphone_stream.rs"
+required-features = ["listen"]
+
+[[example]]
+name = "simple_flux"
+path = "examples/transcription/flux/simple_flux.rs"
+required-features = ["listen"]
+
+[[example]]
+name = "simple_flux_token"
+path = "examples/transcription/flux/simple_flux_token.rs"
+required-features = ["listen"]
+
+[[example]]
+name = "microphone_flux"
+path = "examples/transcription/flux/microphone_flux.rs"
 required-features = ["listen"]
 
 [[example]]

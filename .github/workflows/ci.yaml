@@ -11,7 +11,10 @@ jobs:
   Features:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        components: rustfmt
+    - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -28,7 +31,7 @@ jobs:
   Build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -39,7 +42,10 @@ jobs:
   Clippy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        components: rustfmt
+    - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -50,7 +56,7 @@ jobs:
   Test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -61,13 +67,13 @@ jobs:
   Format:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Cargo Fmt
       run: cargo fmt --check --all
   Documentation:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -78,7 +84,7 @@ jobs:
   Audit:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Install dependencies
       run: sudo apt-get update
     - name: Install cargo-audit
@@ -93,7 +99,7 @@ jobs:
   Minimal-Versions:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -115,7 +121,7 @@ jobs:
   SemVer:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
         sudo apt-get update
