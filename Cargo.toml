@@ -51,7 +51,7 @@ tracing = ">=0.1.41"
 cpal = "^0.16"
 crossbeam = "0.8"
 audio = "0.2.0"
-rodio = { version = "0.21.1" }
+rodio = { version = "0.20.1" }
 pkg-config = { version = "0.3.30" }
 
 [features]
