@@ -24,6 +24,7 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 use url::Url;
 
+pub mod auth;
 #[cfg(feature = "listen")]
 pub mod common;
 #[cfg(feature = "listen")]

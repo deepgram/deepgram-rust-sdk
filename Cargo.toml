@@ -60,6 +60,10 @@ listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
 speak = []
 
 [[example]]
+name = "grant_token"
+path = "examples/auth/grant_token.rs"
+
+[[example]]
 name = "prerecorded_from_file"
 path = "examples/transcription/rest/prerecorded_from_file.rs"
 required-features = ["listen"]
@@ -97,6 +101,11 @@ required-features = ["listen"]
 [[example]]
 name = "simple_flux"
 path = "examples/transcription/flux/simple_flux.rs"
+required-features = ["listen"]
+
+[[example]]
+name = "simple_flux_token"
+path = "examples/transcription/flux/simple_flux_token.rs"
 required-features = ["listen"]
 
 [[example]]
