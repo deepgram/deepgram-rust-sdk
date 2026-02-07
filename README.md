@@ -1,6 +1,6 @@
 # Deepgram Rust SDK
 
-[![Discord](https://dcbadge.vercel.app/api/server/xWRaCDBtW4?style=flat)](https://discord.gg/xWRaCDBtW4)
+[![Discord](https://img.shields.io/badge/Discord-Deepgram-5865F2?logo=discord&logoColor=white&style=flat)](https://discord.gg/deepgram)
 [![CI](https://github.com/deepgram/deepgram-rust-sdk/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/deepgram/deepgram-rust-sdk/actions/workflows/ci.yaml)
 [![crates.io](https://img.shields.io/crates/v/deepgram)](https://crates.io/crates/deepgram)
 [![downloads](https://img.shields.io/crates/d/deepgram)](https://crates.io/crates/deepgram)
