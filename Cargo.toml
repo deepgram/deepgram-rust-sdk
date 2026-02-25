@@ -22,12 +22,13 @@ categories = ["api-bindings", "multimedia::audio", "network-programming"]
 # TODO Investigate which of these dependencies can go behind features.
 bytes = "1"
 futures = "^0.3"
-http = "1.3"
+http = "1.4"
 pin-project = "1"
-reqwest = { version = "^0.12", default-features = false, features = [
+reqwest = { version = "^0.13", default-features = false, features = [
   "json",
-  "rustls-tls",
+  "rustls",
   "stream",
+  "query",
 ] }
 serde = { version = "^1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
