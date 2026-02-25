@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **BREAKING**: Upgrade `reqwest` from 0.12 to 0.13. Consumers using re-exported `ReqwestError`, `RequestBuilder`, or `reqwest::Body` types must also upgrade to `reqwest` 0.13.
-- **BREAKING**: Upgrade `http` from 1.3 to 1.4. Consumers using re-exported `HttpError` must also upgrade to `http` 1.4.
+- Upgrade `http` from 1.3 to 1.4. Consumers using re-exported `HttpError` must also upgrade to `http` 1.4.
 - TLS backend changed from `ring` to `aws-lc-rs` via rustls update. Certificate verification now uses platform-native trust stores via `rustls-platform-verifier`.
 - Reqwest feature `rustls-tls` renamed to `rustls`; `query` feature now explicitly enabled.
 

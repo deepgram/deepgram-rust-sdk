@@ -12,7 +12,6 @@ keywords = [
   "text-to-speech",
   "speech-to-text",
   "asr",
-  "deepgram"
 ]
 categories = ["api-bindings", "multimedia::audio", "network-programming"]
 
