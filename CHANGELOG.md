@@ -5,7 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.6.2...HEAD)
+## [0.9.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.8.0...HEAD)
+
+### Changed
+
+- **BREAKING**: Upgrade `reqwest` from 0.12 to 0.13. Consumers using re-exported `ReqwestError`, `RequestBuilder`, or `reqwest::Body` types must also upgrade to `reqwest` 0.13.
+- **BREAKING**: Upgrade `http` from 1.3 to 1.4. Consumers using re-exported `HttpError` must also upgrade to `http` 1.4.
+- TLS backend changed from `ring` to `aws-lc-rs` via rustls update. Certificate verification now uses platform-native trust stores via `rustls-platform-verifier`.
+- Reqwest feature `rustls-tls` renamed to `rustls`; `query` feature now explicitly enabled.
+
+## [0.8.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.6.2...0.8.0)
 
 - Add Flux conversational speech recognition model support (`flux-general-en`)
   - New `flux_request()` and `flux_request_with_options()` methods for Flux streaming
