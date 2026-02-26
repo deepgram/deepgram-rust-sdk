@@ -36,6 +36,13 @@ pub mod speak;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 
+pub(crate) static USER_AGENT: &str = concat!(
+    env!("CARGO_PKG_NAME"),
+    "/",
+    env!("CARGO_PKG_VERSION"),
+    " rust",
+);
+
 /// Transcribe audio using Deepgram's automated speech recognition.
 ///
 /// Constructed using [`Deepgram::transcription`].
@@ -338,13 +345,6 @@ impl Deepgram {
     }
 
     fn inner_constructor(base_url: Url, auth: Option<AuthMethod>) -> Result<Self> {
-        static USER_AGENT: &str = concat!(
-            env!("CARGO_PKG_NAME"),
-            "/",
-            env!("CARGO_PKG_VERSION"),
-            " rust",
-        );
-
         if base_url.cannot_be_a_base() {
             return Err(DeepgramError::InvalidUrl);
         }

@@ -315,7 +315,8 @@ impl FluxHandle {
                 .header("host", host)
                 .header("connection", "upgrade")
                 .header("upgrade", "websocket")
-                .header("sec-websocket-version", "13");
+                .header("sec-websocket-version", "13")
+                .header("user-agent", crate::USER_AGENT);
 
             let builder = if let Some(auth) = &builder.deepgram.auth {
                 http_builder.header("authorization", auth.header_value())
