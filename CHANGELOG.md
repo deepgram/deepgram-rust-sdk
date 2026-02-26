@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.8.0...HEAD)
+## [0.9.1](https://github.com/deepgram/deepgram-rust-sdk/compare/0.9.0...HEAD)
+
+### Fixed
+
+- Fix `Container::None` serialization typo (`"nonne"` → `"none"`) that caused 400 errors from the TTS API when requesting raw audio output.
+- Add missing `User-Agent` header to WebSocket handshake requests for streaming and Flux endpoints, fixing compatibility with AWS WAF and similar firewalls.
+- Replace broken Discord badge in README with working shields.io badge.
+
+## [0.9.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.8.0...0.9.0)
 
 ### Changed
 
