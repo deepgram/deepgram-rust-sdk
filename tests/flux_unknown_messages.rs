@@ -28,10 +28,8 @@ mod mock {
             let callback =
                 |_req: &tungstenite::handshake::server::Request,
                  mut resp: tungstenite::handshake::server::Response| {
-                    resp.headers_mut().insert(
-                        "dg-request-id",
-                        FAKE_REQUEST_ID.parse().unwrap(),
-                    );
+                    resp.headers_mut()
+                        .insert("dg-request-id", FAKE_REQUEST_ID.parse().unwrap());
                     Ok(resp)
                 };
 
@@ -132,12 +130,7 @@ mod mock {
 
         let addr = mock_flux_server(messages).await;
         let dg = make_client(addr);
-        let mut handle = dg
-            .transcription()
-            .flux_request()
-            .handle()
-            .await
-            .unwrap();
+        let mut handle = dg.transcription().flux_request().handle().await.unwrap();
 
         let msg1 = handle.receive().await.unwrap().unwrap();
         assert!(matches!(msg1, FluxResponse::Connected { .. }));
@@ -182,12 +175,7 @@ mod mock {
 
         let addr = mock_flux_server(messages).await;
         let dg = make_client(addr);
-        let mut handle = dg
-            .transcription()
-            .flux_request()
-            .handle()
-            .await
-            .unwrap();
+        let mut handle = dg.transcription().flux_request().handle().await.unwrap();
 
         let mut turn_events: Vec<TurnEvent> = Vec::new();
         let mut unknown_count = 0u32;
@@ -213,7 +201,11 @@ mod mock {
         assert_eq!(unknown_count, 2, "should have received 2 unknown messages");
         assert_eq!(
             turn_events,
-            vec![TurnEvent::StartOfTurn, TurnEvent::Update, TurnEvent::EndOfTurn]
+            vec![
+                TurnEvent::StartOfTurn,
+                TurnEvent::Update,
+                TurnEvent::EndOfTurn
+            ]
         );
         assert_eq!(final_transcript, "hello world");
     }
