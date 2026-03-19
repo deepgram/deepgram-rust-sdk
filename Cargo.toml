@@ -100,6 +100,11 @@ path = "examples/transcription/websocket/microphone_stream.rs"
 required-features = ["listen"]
 
 [[example]]
+name = "16_keepalive_close_stream"
+path = "examples/transcription/websocket/16_keepalive_close_stream.rs"
+required-features = ["listen"]
+
+[[example]]
 name = "simple_flux"
 path = "examples/transcription/flux/simple_flux.rs"
 required-features = ["listen"]

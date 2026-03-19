@@ -481,7 +481,11 @@ async fn run_worker(
             _ = sleep.fuse() => {
                 // eprintln!("<worker> sleep");
                 if keep_alive && is_open {
-                    message_tx.send(WsMessage::ControlMessage(ControlMessage::KeepAlive)).await.expect("we hold the receiver, so we know it hasn't been dropped");
+                    // Ignore send errors: the channel may have been closed by
+                    // close_stream() (via close_channel()) before the worker
+                    // processes the pending CloseStream message. In that case
+                    // the next iteration will pick up CloseStream and exit.
+                    let _ = message_tx.send(WsMessage::ControlMessage(ControlMessage::KeepAlive)).await;
                     last_sent_message = tokio::time::Instant::now();
                 } else {
                     pending::<()>().await;
@@ -872,8 +876,10 @@ mod file_chunker {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::ControlMessage;
-    use crate::common::options::Options;
+    use crate::common::options::{Encoding, Endpointing, Options};
 
     #[test]
     fn test_stream_url() {
@@ -909,5 +915,78 @@ mod tests {
             &serde_json::to_string(&ControlMessage::CloseStream).unwrap(),
             r#"{"type":"CloseStream"}"#
         );
+    }
+
+    /// Reproduces the worker panic from issue #143: close_stream() calls
+    /// close_channel(), so when the worker's keep-alive sleep fires it sends
+    /// into a closed channel. Before the fix, .expect() would panic.
+    #[tokio::test]
+    #[ignore = "requires DEEPGRAM_API_KEY and network; run manually"]
+    async fn keepalive_then_close_stream_panic_repro() {
+        let Ok(api_key) = std::env::var("DEEPGRAM_API_KEY") else {
+            eprintln!("skipping: DEEPGRAM_API_KEY not set");
+            return;
+        };
+
+        let dg = crate::Deepgram::new(&api_key).expect("Deepgram::new");
+        let transcription = dg.transcription();
+
+        let options = Options::builder()
+            .query_params([("mip_opt_out".to_string(), "true".to_string())])
+            .build();
+        let mut handle = transcription
+            .stream_request_with_options(options)
+            .encoding(Encoding::Linear16)
+            .endpointing(Endpointing::Disabled)
+            .keep_alive()
+            .handle()
+            .await
+            .expect("handle");
+
+        // No audio sent: worker only has the keep-alive timer.
+        // Close the channel before the keep-alive fires so the
+        // send(KeepAlive) hits a closed channel.
+        tokio::time::sleep(Duration::from_millis(5)).await;
+        let _ = handle.close_stream().await;
+
+        // Wait long enough for the worker's keep-alive to fire.
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    /// Runs the close_stream race in a loop to increase the probability of
+    /// hitting the timing window (scheduling variance).
+    #[tokio::test]
+    #[ignore = "requires DEEPGRAM_API_KEY and network; run manually"]
+    async fn keepalive_close_stream_panic_repro_loop() {
+        let Ok(api_key) = std::env::var("DEEPGRAM_API_KEY") else {
+            eprintln!("skipping: DEEPGRAM_API_KEY not set");
+            return;
+        };
+
+        const ITERATIONS: u32 = 10;
+
+        let options = Options::builder()
+            .query_params([("mip_opt_out".to_string(), "true".to_string())])
+            .build();
+        let dg = crate::Deepgram::new(&api_key).expect("Deepgram::new");
+        let transcription = dg.transcription();
+
+        for _iteration in 0..ITERATIONS {
+            let mut handle = transcription
+                .stream_request_with_options(options.clone())
+                .encoding(Encoding::Linear16)
+                .endpointing(Endpointing::Disabled)
+                .keep_alive()
+                .handle()
+                .await
+                .expect("handle");
+
+            tokio::time::sleep(Duration::from_millis(5)).await;
+            let _ = handle.close_stream().await;
+            tokio::time::sleep(Duration::from_millis(20)).await;
+
+            // Slight pause between iterations for scheduling variance.
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
     }
 }
