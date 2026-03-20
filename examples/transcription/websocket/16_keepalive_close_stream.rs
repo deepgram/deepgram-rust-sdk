@@ -21,7 +21,7 @@ use deepgram::{
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
     let deepgram_api_key =
-        env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
+        env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environment variable");
 
     let dg_client = Deepgram::new(&deepgram_api_key)?;
 
