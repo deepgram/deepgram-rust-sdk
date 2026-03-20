@@ -484,7 +484,8 @@ async fn run_worker(
                     // Ignore send errors: the channel may have been closed by
                     // close_stream() (via close_channel()) before the worker
                     // processes the pending CloseStream message. In that case
-                    // the next iteration will pick up CloseStream and exit.
+                    // the next iteration will handle CloseStream, stop sending new
+                    // messages, and proceed toward shutdown.
                     let _ = message_tx.send(WsMessage::ControlMessage(ControlMessage::KeepAlive)).await;
                     last_sent_message = tokio::time::Instant::now();
                 } else {
