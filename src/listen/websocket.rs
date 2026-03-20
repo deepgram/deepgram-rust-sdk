@@ -943,14 +943,15 @@ mod tests {
             .await
             .expect("handle");
 
-        // No audio sent: worker only has the keep-alive timer.
+        // No audio sent: worker only has the keep-alive timer (3s interval).
         // Close the channel before the keep-alive fires so the
         // send(KeepAlive) hits a closed channel.
-        tokio::time::sleep(Duration::from_millis(5)).await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
         let _ = handle.close_stream().await;
 
-        // Wait long enough for the worker's keep-alive to fire.
-        tokio::time::sleep(Duration::from_millis(20)).await;
+        // Wait longer than the 3s keep-alive interval so the keep-alive
+        // send path runs after close. Before the fix this would panic.
+        tokio::time::sleep(Duration::from_secs(4)).await;
     }
 
     /// Runs the close_stream race in a loop to increase the probability of
@@ -963,7 +964,7 @@ mod tests {
             return;
         };
 
-        const ITERATIONS: u32 = 10;
+        const ITERATIONS: u32 = 3;
 
         let options = Options::builder()
             .query_params([("mip_opt_out".to_string(), "true".to_string())])
@@ -981,12 +982,12 @@ mod tests {
                 .await
                 .expect("handle");
 
-            tokio::time::sleep(Duration::from_millis(5)).await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
             let _ = handle.close_stream().await;
-            tokio::time::sleep(Duration::from_millis(20)).await;
 
-            // Slight pause between iterations for scheduling variance.
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            // Wait longer than the 3s keep-alive interval so the keep-alive
+            // send path runs after close. Before the fix this would panic.
+            tokio::time::sleep(Duration::from_secs(4)).await;
         }
     }
 }

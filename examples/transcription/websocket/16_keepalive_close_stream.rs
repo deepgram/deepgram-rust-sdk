@@ -51,10 +51,11 @@ async fn main() -> Result<(), DeepgramError> {
     handle.close_stream().await?;
     println!("Stream closed.");
 
-    // Wait long enough for the worker's keep-alive timer to fire. Before the
-    // fix this would panic; now the send error is silently ignored and the
-    // worker exits cleanly.
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    // Wait longer than the 3s keep-alive interval so the keep-alive send
+    // path runs after close. Before the fix this would panic; now the send
+    // error is silently ignored and the worker exits cleanly.
+    println!("Waiting for keep-alive timer to fire (>3s)...");
+    tokio::time::sleep(Duration::from_secs(4)).await;
 
     println!("No panic — keep-alive + close_stream works correctly.");
 
