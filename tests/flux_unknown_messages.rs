@@ -25,6 +25,7 @@ mod mock {
         tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
 
+            #[allow(clippy::result_large_err)]
             let callback =
                 |_req: &tungstenite::handshake::server::Request,
                  mut resp: tungstenite::handshake::server::Response| {
