@@ -1,6 +1,6 @@
 [package]
 name = "deepgram"
-version = "0.9.1"
+version = "0.9.2"
 authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
 description = "Community Rust SDK for Deepgram's automated speech recognition APIs."
