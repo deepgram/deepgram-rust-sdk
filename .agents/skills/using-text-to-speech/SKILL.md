@@ -138,3 +138,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 - `examples/speak/rest/text_to_speech_to_file.rs`
 - `examples/speak/rest/text_to_speech_to_stream.rs`
+
+## Central product skills
+
+For cross-language Deepgram product knowledge — the consolidated API reference, documentation finder, focused runnable recipes, third-party integration examples, and MCP setup — install the central skills:
+
+```bash
+npx skills add deepgram/skills
+```
+
+This SDK ships language-idiomatic code skills; `deepgram/skills` ships cross-language product knowledge (see `api`, `docs`, `recipes`, `examples`, `starters`, `setup-mcp`).
