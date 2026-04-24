@@ -1,5 +1,5 @@
 ---
-name: using-voice-agent
+name: deepgram-rust-voice-agent
 description: Use when a user asks for Deepgram Voice Agent support from Rust. Route honestly: this crate does not currently expose the Agent WebSocket API, reusable agent configurations, or typed voice-agent events.
 ---
 

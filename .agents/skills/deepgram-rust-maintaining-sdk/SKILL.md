@@ -1,5 +1,5 @@
 ---
-name: maintaining-rust-sdk
+name: deepgram-rust-maintaining-sdk
 description: Use when maintaining the Deepgram Rust SDK itself: feature flags, examples, tests, cargo fmt/clippy/build/test, CHANGELOG updates, crate releases, and adding new endpoints without Fern workflows.
 ---
 

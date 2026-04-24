@@ -1,5 +1,5 @@
 ---
-name: using-conversational-stt
+name: deepgram-rust-conversational-stt
 description: Use when implementing Deepgram Flux conversational STT from the Rust SDK, including flux_request APIs, turn events, FluxResponse handling, and turn-detection tuning for voice-agent-style pipelines.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: using-text-intelligence
+name: deepgram-rust-text-intelligence
 description: Use when a user asks for Deepgram text intelligence from Rust. Route to raw HTTP guidance because this crate does not currently expose a dedicated /v1/read client or typed text-intelligence module.
 ---
 

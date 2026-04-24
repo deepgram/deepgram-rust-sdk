@@ -1,5 +1,5 @@
 ---
-name: using-audio-intelligence
+name: deepgram-rust-audio-intelligence
 description: Use when implementing Deepgram audio intelligence from the Rust SDK, especially when intelligence features are attached to STT Options and batch responses instead of a separate audio-intelligence module.
 ---
 

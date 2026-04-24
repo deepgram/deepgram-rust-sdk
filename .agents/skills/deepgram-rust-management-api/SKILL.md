@@ -1,5 +1,5 @@
 ---
-name: using-management-api
+name: deepgram-rust-management-api
 description: Use when implementing Deepgram project, key, member, scope, billing, invitation, or usage operations from the Rust SDK, including manage feature flags and the real Deepgram::projects/keys/members/scopes/billing/usage APIs.
 ---
 

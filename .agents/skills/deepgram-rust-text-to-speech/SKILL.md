@@ -1,5 +1,5 @@
 ---
-name: using-text-to-speech
+name: deepgram-rust-text-to-speech
 description: Use when implementing Deepgram text-to-speech in the Rust SDK, including Aura model selection, speak feature flags, output file or byte-stream handling, and real crate APIs under speak::options and Speak.
 ---
 
