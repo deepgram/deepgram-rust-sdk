@@ -19,9 +19,17 @@ Use this skill when the user wants the full Voice Agent API from Rust.
 
 Use raw WebSocket code if you must call Agent before the crate adds support.
 
-## Quick start
-
 ## Quick start: raw WebSocket fallback
+
+The raw fallback requires three extra crates. Add these to your `Cargo.toml`:
+
+```toml
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+futures = "0.3"
+http = "1"
+```
 
 ```rust
 use futures::{SinkExt, StreamExt};
@@ -32,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api_key = std::env::var("DEEPGRAM_API_KEY")?;
 
     let request = http::Request::builder()
-        .uri("wss://api.deepgram.com/v1/agent/converse")
+        .uri("wss://agent.deepgram.com/v1/agent/converse")
         .header("Authorization", format!("Token {api_key}"))
         .body(())?;
 
@@ -50,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Key parameters
 
-- Endpoint: `wss://api.deepgram.com/v1/agent/converse`.
+- Endpoint: `wss://agent.deepgram.com/v1/agent/converse` (distinct from `api.deepgram.com` — Voice Agent runs on its own host).
 - Auth header: `Authorization: Token <api_key>`.
 - Initial message ordering matters: send settings/config before media.
 - If the request is really about turn-based STT only, prefer the supported Flux Rust APIs instead.
