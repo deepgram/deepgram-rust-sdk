@@ -13,6 +13,13 @@ Use this skill for prerecorded transcription, live streaming transcription, or w
 - Streaming audio over WebSocket with `stream_request()` / `stream_request_with_options(...)`.
 - Using `common::options::Options` for STT features such as `model`, `language`, `punctuate`, `diarize`, `smart_format`, `utterances`, and streaming knobs like `endpointing`.
 
+This skill covers **Nova models on `/v1/listen`** — Deepgram's general-purpose STT family (nova-3, nova-2, nova, enhanced, base). Both Nova and Flux are actively maintained, industry-leading STT model families.
+
+**Use a different skill when:**
+- You need conversational-audio transcription with built-in turn detection (voice agents, interactive assistants) → `using-conversational-stt` (Flux on `/v2/listen`).
+- You want analytics overlays on the transcript (summarize, sentiment, topics, intents) → `using-audio-intelligence` (same `/v1/listen` endpoint, different params).
+- You need a full-duplex voice agent (STT + LLM + TTS in one WSS) → `using-voice-agent`.
+
 ## Authentication
 
 `deepgram` defaults to `manage + listen + speak`. For STT-only installs, trim features explicitly:
