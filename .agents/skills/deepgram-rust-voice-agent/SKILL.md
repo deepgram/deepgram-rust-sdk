@@ -21,14 +21,14 @@ Use raw WebSocket code if you must call Agent before the crate adds support.
 
 ## Quick start: raw WebSocket fallback
 
-The raw fallback requires three extra crates. Add these to your `Cargo.toml`:
+The raw fallback requires four extra crates. These versions + features match the ones already used by this repo (`Cargo.toml`), so you won't pull in duplicate major versions or an unexpected OpenSSL dependency:
 
 ```toml
 [dependencies]
 tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 futures = "0.3"
-http = "1"
+http = "1.4"
 ```
 
 ```rust

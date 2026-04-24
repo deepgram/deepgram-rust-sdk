@@ -22,7 +22,8 @@ For a TTS-only install:
 deepgram = { version = "0.9.2", default-features = false, features = ["speak"] }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
-bytes = "1"
+# Only add `bytes = "1"` if you need to name `bytes::Bytes` in your own signatures.
+# The code below relies on type inference and does not import bytes directly.
 ```
 
 ```rust
