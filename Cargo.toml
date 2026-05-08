@@ -129,3 +129,8 @@ required-features = ["speak"]
 name = "text_to_speech_to_stream"
 path = "examples/speak/rest/text_to_speech_to_stream.rs"
 required-features = ["speak"]
+
+[[example]]
+name = "agent_simple"
+path = "examples/agent/websocket/simple_agent.rs"
+required-features = ["agent"]
