@@ -27,12 +27,14 @@ use url::Url;
 #[cfg(feature = "agent")]
 pub mod agent;
 pub mod auth;
-#[cfg(feature = "listen")]
+#[cfg(any(feature = "listen", feature = "read"))]
 pub mod common;
 #[cfg(feature = "listen")]
 pub mod listen;
 #[cfg(feature = "manage")]
 pub mod manage;
+#[cfg(feature = "read")]
+pub mod read;
 #[cfg(feature = "speak")]
 pub mod speak;
 
@@ -65,6 +67,17 @@ pub struct Transcription<'a>(#[allow(unused)] pub &'a Deepgram);
 #[derive(Debug, Clone)]
 pub struct Speak<'a>(#[allow(unused)] pub &'a Deepgram);
 
+/// Analyze text using Deepgram's text intelligence API.
+///
+/// Constructed using [`Deepgram::read`].
+///
+/// See the [Deepgram API Reference][api] for more info.
+///
+/// [api]: https://developers.deepgram.com/reference/read-api
+#[cfg(feature = "read")]
+#[derive(Debug, Clone)]
+pub struct Read<'a>(#[allow(unused)] pub &'a Deepgram);
+
 impl Deepgram {
     /// Construct a new [`Transcription`] from a [`Deepgram`].
     pub fn transcription(&self) -> Transcription<'_> {
@@ -83,6 +96,15 @@ impl Deepgram {
     pub fn agent(&self) -> crate::agent::Agent<'_> {
         self.into()
     }
+
+    /// Construct a new [`Read`] sub-client.
+    ///
+    /// Use this to analyze text via Deepgram's `/v1/read` endpoint
+    /// (sentiment, summarize, topics, intents).
+    #[cfg(feature = "read")]
+    pub fn read(&self) -> Read<'_> {
+        self.into()
+    }
 }
 
 impl<'a> From<&'a Deepgram> for Transcription<'a> {
@@ -94,6 +116,13 @@ impl<'a> From<&'a Deepgram> for Transcription<'a> {
 
 impl<'a> From<&'a Deepgram> for Speak<'a> {
     /// Construct a new [`Speak`] from a [`Deepgram`].
+    fn from(deepgram: &'a Deepgram) -> Self {
+        Self(deepgram)
+    }
+}
+
+#[cfg(feature = "read")]
+impl<'a> From<&'a Deepgram> for Read<'a> {
     fn from(deepgram: &'a Deepgram) -> Self {
         Self(deepgram)
     }
@@ -151,14 +180,24 @@ impl AuthMethod {
 /// Make transcriptions requests using [`Deepgram::transcription`].
 #[derive(Debug, Clone)]
 pub struct Deepgram {
+    // `auth` is consumed by `inner_constructor` to bake the
+    // Authorization header into the reqwest client's default headers.
+    // Only the WS code paths in listen/agent/speak read the field
+    // afterwards; the REST code paths (including `read`) don't.
     #[cfg_attr(
         not(any(feature = "listen", feature = "agent", feature = "speak")),
         allow(unused)
     )]
     auth: Option<AuthMethod>,
-    #[cfg_attr(not(feature = "listen"), allow(unused))]
+    #[cfg_attr(
+        not(any(feature = "listen", feature = "speak", feature = "read")),
+        allow(unused)
+    )]
     base_url: Url,
-    #[cfg_attr(not(feature = "listen"), allow(unused))]
+    #[cfg_attr(
+        not(any(feature = "listen", feature = "speak", feature = "read")),
+        allow(unused)
+    )]
     client: reqwest::Client,
 }
 

@@ -60,6 +60,7 @@ manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
 speak = ["dep:tungstenite", "dep:tokio-tungstenite"]
 agent = ["dep:tungstenite", "dep:tokio-tungstenite"]
+read = []
 
 [[example]]
 name = "grant_token"
@@ -149,6 +150,21 @@ required-features = ["speak"]
 name = "speak_websocket_flush_clear"
 path = "examples/speak/websocket/flush_clear.rs"
 required-features = ["speak"]
+
+[[example]]
+name = "read_sentiment_url"
+path = "examples/read/sentiment_url.rs"
+required-features = ["read"]
+
+[[example]]
+name = "read_summarize_text"
+path = "examples/read/summarize_text.rs"
+required-features = ["read"]
+
+[[example]]
+name = "read_intents_topics"
+path = "examples/read/intents_topics.rs"
+required-features = ["read"]
 
 [[example]]
 name = "agent_simple"
