@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.9.2...0.10.0)
+
+### Added
+
+- Multilingual Flux support: `Model::FluxGeneralMulti` selects the `flux-general-multi` model, and `OptionsBuilder::language_hint` takes BCP-47 codes that serialize as repeated `language_hint=…` query params.
+- `FluxResponse::TurnInfo` now exposes `languages` (detected on the turn) and `languages_hinted` (active hints for the request).
+- Mid-session reconfiguration: `FluxHandle::configure(ConfigureRequest)` adjusts thresholds, keyterms, and language hints without restarting the WebSocket. Server replies surface as the new `FluxResponse::ConfigureSuccess` / `ConfigureFailure` variants. `ConfigureRequest` and `ConfigureThresholds` are `#[non_exhaustive]` and built via `new()` + `with_*` methods.
+- New examples: `flux_multi_language` and `flux_dynamic_configure` under `examples/transcription/flux/`, plus `examples/audio/bueller-mono.wav` (a mono Linear16 downmix of the existing stereo sample) so the Flux examples have enough audio + trailing silence to trigger `EndOfTurn` against the live server.
+
+### Changed
+
+- **BREAKING**: `FluxResponse::TurnInfo` is now `#[non_exhaustive]` and gained the `languages` and `languages_hinted` fields. Callers destructuring `TurnInfo` with a literal struct pattern must add `..` (or explicitly name the new fields).
+
 ## [0.9.2](https://github.com/deepgram/deepgram-rust-sdk/compare/0.9.1...0.9.2)
 
 ### Fixed

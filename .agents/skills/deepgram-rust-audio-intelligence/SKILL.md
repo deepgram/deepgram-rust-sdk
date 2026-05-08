@@ -18,7 +18,7 @@ Audio intelligence rides on the `listen` feature because it is implemented throu
 
 ```toml
 [dependencies]
-deepgram = { version = "0.9.2", default-features = false, features = ["listen"] }
+deepgram = { version = "0.10.0", default-features = false, features = ["listen"] }
 tokio = { version = "1", features = ["full"] }
 ```
 
