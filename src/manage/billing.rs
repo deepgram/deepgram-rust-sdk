@@ -5,10 +5,13 @@
 //! [api]: https://developers.deepgram.com/api-reference/#billing
 
 use crate::{
-    manage::billing::response::{Balance, Balances},
+    manage::billing::response::{
+        Balance, Balances, BillingBreakdown, BillingFields, PurchaseOrders,
+    },
     send_and_translate_response, Deepgram,
 };
 
+pub mod breakdown_options;
 pub mod response;
 
 /// Get the outstanding balances for a Deepgram Project.
@@ -112,6 +115,63 @@ impl Billing<'_> {
             format!("https://api.deepgram.com/v1/projects/{project_id}/balances/{balance_id}",);
 
         send_and_translate_response(self.0.client.get(url)).await
+    }
+
+    /// `GET /v1/projects/{project_id}/billing/breakdown` — billing
+    /// summary for the project, with optional filters and grouping.
+    pub async fn breakdown(
+        &self,
+        project_id: &str,
+        options: &breakdown_options::Options,
+    ) -> crate::Result<BillingBreakdown> {
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/billing/breakdown");
+        let request = self
+            .0
+            .client
+            .get(url)
+            .query(&breakdown_options::SerializableOptions(options));
+        send_and_translate_response(request).await
+    }
+
+    /// `GET /v1/projects/{project_id}/billing/fields` — list the
+    /// dimensions (accessors, deployments, tags, line items) available
+    /// for filtering [`Billing::breakdown`] queries over the given
+    /// date range.
+    pub async fn fields(
+        &self,
+        project_id: &str,
+        start: Option<&str>,
+        end: Option<&str>,
+    ) -> crate::Result<BillingFields> {
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/billing/fields");
+        let mut request = self.0.client.get(url);
+        let mut query: Vec<(&str, &str)> = Vec::new();
+        if let Some(start) = start {
+            query.push(("start", start));
+        }
+        if let Some(end) = end {
+            query.push(("end", end));
+        }
+        if !query.is_empty() {
+            request = request.query(&query);
+        }
+        send_and_translate_response(request).await
+    }
+
+    /// `GET /v1/projects/{project_id}/purchases` — list purchase
+    /// orders for the project. `limit` is forwarded as the
+    /// per-page-size query param (1-1000 per spec).
+    pub async fn purchases(
+        &self,
+        project_id: &str,
+        limit: Option<usize>,
+    ) -> crate::Result<PurchaseOrders> {
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/purchases");
+        let mut request = self.0.client.get(url);
+        if let Some(limit) = limit {
+            request = request.query(&[("limit", limit)]);
+        }
+        send_and_translate_response(request).await
     }
 }
 

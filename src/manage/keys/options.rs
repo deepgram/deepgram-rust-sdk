@@ -6,6 +6,25 @@
 
 use serde::Serialize;
 
+/// `?status=` filter values for [`Keys::list`](super::Keys::list).
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[non_exhaustive]
+pub enum KeyStatus {
+    /// Only return keys that are currently active.
+    Active,
+    /// Only return keys that have expired.
+    Expired,
+}
+
+impl KeyStatus {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Active => "active",
+            Self::Expired => "expired",
+        }
+    }
+}
+
 /// Used as a parameter for [`Keys::create`](super::Keys::create).
 ///
 /// See the [Deepgram API Reference][api] for more info.

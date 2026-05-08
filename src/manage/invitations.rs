@@ -6,8 +6,9 @@
 
 use crate::{send_and_translate_response, Deepgram};
 
-use response::Message;
+use response::{Invites, Message};
 
+pub mod options;
 pub mod response;
 
 /// Manage the invitations to a Deepgram Project.
@@ -69,6 +70,31 @@ impl Invitations<'_> {
     pub async fn leave_project(&self, project_id: &str) -> crate::Result<Message> {
         let url = format!("https://api.deepgram.com/v1/projects/{project_id}/leave",);
 
+        send_and_translate_response(self.0.client.delete(url)).await
+    }
+
+    /// `GET /v1/projects/{project_id}/invites` — list every pending
+    /// invite for the project.
+    pub async fn list(&self, project_id: &str) -> crate::Result<Invites> {
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/invites");
+        send_and_translate_response(self.0.client.get(url)).await
+    }
+
+    /// `POST /v1/projects/{project_id}/invites` — invite an email to
+    /// the project with the given scope.
+    pub async fn create(
+        &self,
+        project_id: &str,
+        request: &options::Options,
+    ) -> crate::Result<Message> {
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/invites");
+        send_and_translate_response(self.0.client.post(url).json(request)).await
+    }
+
+    /// `DELETE /v1/projects/{project_id}/invites/{email}` — revoke a
+    /// pending invite by email address.
+    pub async fn delete(&self, project_id: &str, email: &str) -> crate::Result<Message> {
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/invites/{email}");
         send_and_translate_response(self.0.client.delete(url)).await
     }
 }

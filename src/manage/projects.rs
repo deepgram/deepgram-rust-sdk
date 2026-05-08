@@ -100,16 +100,31 @@ impl Projects<'_> {
     ///
     /// let project = dg_client
     ///     .projects()
-    ///     .get(&project_id)
+    ///     .get(&project_id, None, None)
     ///     .await?;
     /// #
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn get(&self, project_id: &str) -> crate::Result<Project> {
+    pub async fn get(
+        &self,
+        project_id: &str,
+        limit: Option<u32>,
+        page: Option<u32>,
+    ) -> crate::Result<Project> {
         let url = format!("https://api.deepgram.com/v1/projects/{project_id}");
-
-        send_and_translate_response(self.0.client.get(url)).await
+        let mut request = self.0.client.get(url);
+        let mut params: Vec<(&str, String)> = Vec::new();
+        if let Some(limit) = limit {
+            params.push(("limit", limit.to_string()));
+        }
+        if let Some(page) = page {
+            params.push(("page", page.to_string()));
+        }
+        if !params.is_empty() {
+            request = request.query(&params);
+        }
+        send_and_translate_response(request).await
     }
 
     /// Update the specified project.

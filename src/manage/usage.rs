@@ -4,11 +4,12 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#usage
 
-use response::{Fields, Request, Requests, UsageSummary};
+use response::{Fields, Request, Requests, UsageBreakdown, UsageSummary};
 
 use crate::{send_and_translate_response, Deepgram};
 
 pub mod get_fields_options;
+pub mod get_usage_breakdown_options;
 pub mod get_usage_options;
 pub mod list_requests_options;
 pub mod response;
@@ -167,6 +168,10 @@ impl Usage<'_> {
     /// # Ok(())
     /// # }
     /// ```
+    #[deprecated(
+        since = "0.10.0",
+        note = "use `get_usage_breakdown` instead — `/v1/projects/{id}/usage` is deprecated server-side"
+    )]
     pub async fn get_usage(
         &self,
         project_id: &str,
@@ -178,6 +183,33 @@ impl Usage<'_> {
             .client
             .get(url)
             .query(&get_usage_options::SerializableOptions::from(options));
+
+        send_and_translate_response(request).await
+    }
+
+    /// Get a richer usage breakdown.
+    ///
+    /// Replaces [`Usage::get_usage`], which calls a server-deprecated
+    /// endpoint. The breakdown response adds agent hours, token counts,
+    /// and TTS character counts on top of the basic
+    /// [`UsageSummary`] shape, plus a `grouping` block per row.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/api-reference/manage/get-project-usage-breakdown
+    pub async fn get_usage_breakdown(
+        &self,
+        project_id: &str,
+        options: &get_usage_breakdown_options::Options,
+    ) -> crate::Result<UsageBreakdown> {
+        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/usage/breakdown");
+        let request =
+            self.0
+                .client
+                .get(url)
+                .query(&get_usage_breakdown_options::SerializableOptions::from(
+                    options,
+                ));
 
         send_and_translate_response(request).await
     }

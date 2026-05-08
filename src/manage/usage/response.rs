@@ -239,6 +239,100 @@ pub struct Result {
     pub requests: usize,
 }
 
+/// Returned by [`Usage::get_usage_breakdown`](super::Usage::get_usage_breakdown).
+///
+/// Same overall shape as [`UsageSummary`] but with richer per-result
+/// metrics (agent hours, token counts, TTS characters) and a
+/// `grouping` block that reflects the dimensions you requested via
+/// `?grouping=`.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UsageBreakdown {
+    #[allow(missing_docs)]
+    pub start: String,
+
+    #[allow(missing_docs)]
+    pub end: String,
+
+    #[allow(missing_docs)]
+    pub resolution: Resolution,
+
+    #[allow(missing_docs)]
+    pub results: Vec<UsageBreakdownResult>,
+}
+
+/// One row of a [`UsageBreakdown`].
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UsageBreakdownResult {
+    /// Audio hours processed.
+    pub hours: f64,
+
+    /// Total hours including all processing.
+    pub total_hours: f64,
+
+    /// Voice Agent hours used.
+    pub agent_hours: f64,
+
+    /// Number of input tokens.
+    pub tokens_in: f64,
+
+    /// Number of output tokens.
+    pub tokens_out: f64,
+
+    /// Number of TTS characters processed.
+    pub tts_characters: f64,
+
+    /// Number of requests in this group.
+    pub requests: f64,
+
+    /// Grouping dimensions that produced this row.
+    pub grouping: UsageBreakdownGrouping,
+}
+
+/// Grouping metadata on a [`UsageBreakdownResult`]. All fields are
+/// optional — only the dimensions that were requested via `?grouping=`
+/// (or that the API decided to surface) are populated.
+#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UsageBreakdownGrouping {
+    #[allow(missing_docs)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start: Option<String>,
+
+    #[allow(missing_docs)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end: Option<String>,
+
+    #[allow(missing_docs)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accessor: Option<String>,
+
+    #[allow(missing_docs)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoint: Option<String>,
+
+    #[allow(missing_docs)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature_set: Option<String>,
+
+    #[allow(missing_docs)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub models: Option<Vec<String>>,
+
+    #[allow(missing_docs)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+
+    #[allow(missing_docs)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+
+    #[allow(missing_docs)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deployment: Option<String>,
+}
+
 /// Returned by [`Usage::get_fields`](super::Usage::get_fields).
 ///
 /// See the [Deepgram API Reference][api] for more info.

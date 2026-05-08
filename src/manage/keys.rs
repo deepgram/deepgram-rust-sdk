@@ -67,16 +67,23 @@ impl Keys<'_> {
     ///
     /// let keys = dg_client
     ///     .keys()
-    ///     .list(&project_id)
+    ///     .list(&project_id, None)
     ///     .await?;
     /// #
     /// # Ok(())
     /// # }
     /// ```
-    pub async fn list(&self, project_id: &str) -> crate::Result<MembersAndApiKeys> {
+    pub async fn list(
+        &self,
+        project_id: &str,
+        status: Option<options::KeyStatus>,
+    ) -> crate::Result<MembersAndApiKeys> {
         let url = format!("https://api.deepgram.com/v1/projects/{project_id}/keys");
-
-        send_and_translate_response(self.0.client.get(url)).await
+        let mut request = self.0.client.get(url);
+        if let Some(status) = status {
+            request = request.query(&[("status", status.as_str())]);
+        }
+        send_and_translate_response(request).await
     }
 
     /// Get details of the specified key.
