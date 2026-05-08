@@ -16,17 +16,21 @@
 //!   used by `agent.context.messages[]` and the server-emitted `History` event.
 //! - [`settings`] — top-level `SettingsMessage` and the `AgentConfig`
 //!   oneOf (`Inline(InlineAgentConfig)` vs. `Saved(Uuid)`).
+//! - [`messages`] — the remaining client-to-server messages
+//!   (`UpdateSpeak`, `UpdateThink`, `UpdatePrompt`, `InjectUserMessage`,
+//!   `InjectAgentMessage`, `FunctionCallResponse`, `KeepAlive`) plus the
+//!   `ClientMessage` discriminated union over all eight.
 //!
 //! Wire format matches the AsyncAPI schemas in `deepgram-docs` under
-//! `api/specs/asyncapi/schemas/agent/`. The remaining client-to-server
-//! messages, the server-to-client event enum, and the WebSocket handle
-//! land in subsequent commits.
+//! `api/specs/asyncapi/schemas/agent/`. The server-to-client event
+//! enum and the WebSocket connection helpers land in subsequent commits.
 
 pub mod audio;
 pub mod aws_credentials;
 pub mod endpoint;
 pub mod history;
 pub mod listen;
+pub mod messages;
 pub mod settings;
 pub mod speak;
 pub mod think;
@@ -43,6 +47,12 @@ pub use history::{
 pub use listen::{
     AgentListenProvider, AgentListenSettings, DeepgramListenV1Provider, DeepgramListenV1Version,
     DeepgramListenV2Provider, DeepgramListenV2Version, DeepgramProviderType,
+};
+pub use messages::{
+    ClientMessage, FunctionCallResponseMessage, FunctionCallResponseType, InjectAgentBehavior,
+    InjectAgentMessageMessage, InjectAgentMessageType, InjectUserMessageMessage,
+    InjectUserMessageType, KeepAliveMessage, KeepAliveType, UpdatePromptMessage, UpdatePromptType,
+    UpdateSpeakMessage, UpdateSpeakType, UpdateThinkMessage, UpdateThinkType,
 };
 pub use settings::{
     AgentConfig, AgentContext, InlineAgentConfig, SettingsFlags, SettingsMessage,
