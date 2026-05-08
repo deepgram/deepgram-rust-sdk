@@ -87,11 +87,12 @@ const AGENT_WS_URL: &str = "wss://agent.deepgram.com/v1/agent/converse";
 
 /// Sub-client for the Voice Agent.
 ///
-/// Construct via [`Deepgram::agent`]. Currently exposes [`Agent::start`]
-/// to open a session; future work may add builder-style configuration
-/// (custom URL, timeouts, custom headers).
+/// Construct via [`Deepgram::agent`]. Exposes [`Agent::start`] /
+/// [`Agent::start_at_url`] for the WebSocket and the
+/// [`Agent::configurations`], [`Agent::variables`],
+/// [`Agent::think_models`] sub-client accessors for the REST surface.
 #[derive(Debug, Clone)]
-pub struct Agent<'a>(&'a Deepgram);
+pub struct Agent<'a>(#[allow(unused)] pub &'a Deepgram);
 
 impl<'a> From<&'a Deepgram> for Agent<'a> {
     fn from(deepgram: &'a Deepgram) -> Self {

@@ -185,3 +185,13 @@ required-features = ["agent"]
 name = "agent_microphone"
 path = "examples/agent/websocket/microphone_agent.rs"
 required-features = ["agent"]
+
+[[example]]
+name = "agent_configurations"
+path = "examples/agent/rest/configurations.rs"
+required-features = ["agent"]
+
+[[example]]
+name = "agent_variables"
+path = "examples/agent/rest/variables.rs"
+required-features = ["agent"]

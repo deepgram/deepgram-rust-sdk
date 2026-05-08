@@ -38,6 +38,7 @@
 
 pub mod audio;
 pub mod aws_credentials;
+pub mod configurations;
 pub mod endpoint;
 pub mod history;
 pub mod listen;
@@ -46,6 +47,8 @@ pub mod response;
 pub mod settings;
 pub mod speak;
 pub mod think;
+pub mod think_models;
+pub mod variables;
 pub mod websocket;
 
 pub use audio::{
