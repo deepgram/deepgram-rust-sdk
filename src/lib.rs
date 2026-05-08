@@ -13,7 +13,7 @@ pub use serde_json::Error as SerdeJsonError;
 pub use serde_urlencoded::ser::Error as SerdeUrlencodedError;
 use std::io;
 use std::ops::Deref;
-#[cfg(any(feature = "listen", feature = "agent"))]
+#[cfg(any(feature = "listen", feature = "agent", feature = "speak"))]
 pub use tungstenite::Error as TungsteniteError;
 
 use reqwest::{
@@ -151,7 +151,10 @@ impl AuthMethod {
 /// Make transcriptions requests using [`Deepgram::transcription`].
 #[derive(Debug, Clone)]
 pub struct Deepgram {
-    #[cfg_attr(not(any(feature = "listen", feature = "agent")), allow(unused))]
+    #[cfg_attr(
+        not(any(feature = "listen", feature = "agent", feature = "speak")),
+        allow(unused)
+    )]
     auth: Option<AuthMethod>,
     #[cfg_attr(not(feature = "listen"), allow(unused))]
     base_url: Url,
@@ -186,7 +189,7 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
-    #[cfg(any(feature = "listen", feature = "agent"))]
+    #[cfg(any(feature = "listen", feature = "agent", feature = "speak"))]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] Box<TungsteniteError>),
@@ -225,14 +228,17 @@ pub enum DeepgramError {
     UnexpectedServerResponse(anyhow::Error),
 }
 
-#[cfg(any(feature = "listen", feature = "agent"))]
+#[cfg(any(feature = "listen", feature = "agent", feature = "speak"))]
 impl From<TungsteniteError> for DeepgramError {
     fn from(err: TungsteniteError) -> Self {
         Self::from(Box::new(err))
     }
 }
 
-#[cfg_attr(not(any(feature = "listen", feature = "agent")), allow(unused))]
+#[cfg_attr(
+    not(any(feature = "listen", feature = "agent", feature = "speak")),
+    allow(unused)
+)]
 type Result<T, E = DeepgramError> = std::result::Result<T, E>;
 
 impl Deepgram {
@@ -384,7 +390,10 @@ impl Deepgram {
 ///
 /// If there is an error, it translates it into a [`DeepgramError::DeepgramApiError`].
 /// Otherwise, it deserializes the JSON accordingly.
-#[cfg_attr(not(any(feature = "listen", feature = "agent")), allow(unused))]
+#[cfg_attr(
+    not(any(feature = "listen", feature = "agent", feature = "speak")),
+    allow(unused)
+)]
 async fn send_and_translate_response<R: DeserializeOwned>(
     request_builder: RequestBuilder,
 ) -> crate::Result<R> {
