@@ -134,3 +134,18 @@ required-features = ["speak"]
 name = "agent_simple"
 path = "examples/agent/websocket/simple_agent.rs"
 required-features = ["agent"]
+
+[[example]]
+name = "agent_function_calling"
+path = "examples/agent/websocket/function_calling.rs"
+required-features = ["agent"]
+
+[[example]]
+name = "agent_dynamic_provider_swap"
+path = "examples/agent/websocket/dynamic_provider_swap.rs"
+required-features = ["agent"]
+
+[[example]]
+name = "agent_microphone"
+path = "examples/agent/websocket/microphone_agent.rs"
+required-features = ["agent"]

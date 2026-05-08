@@ -58,6 +58,36 @@ impl ThinkSettings {
             context_length: None,
         }
     }
+
+    /// Set a custom LLM endpoint.
+    pub fn with_endpoint(mut self, endpoint: Endpoint) -> Self {
+        self.endpoint = Some(endpoint);
+        self
+    }
+
+    /// Replace the function list.
+    pub fn with_functions(mut self, functions: impl IntoIterator<Item = ThinkFunction>) -> Self {
+        self.functions = functions.into_iter().collect();
+        self
+    }
+
+    /// Append a single function definition.
+    pub fn with_function(mut self, function: ThinkFunction) -> Self {
+        self.functions.push(function);
+        self
+    }
+
+    /// Set the system prompt.
+    pub fn with_prompt(mut self, prompt: impl Into<String>) -> Self {
+        self.prompt = Some(prompt.into());
+        self
+    }
+
+    /// Set the context length policy.
+    pub fn with_context_length(mut self, context_length: ContextLength) -> Self {
+        self.context_length = Some(context_length);
+        self
+    }
 }
 
 /// LLM provider variants supported by the Voice Agent.
@@ -101,6 +131,30 @@ pub struct ThinkFunction {
     /// When omitted, the function is executed client-side.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<FunctionEndpoint>,
+}
+
+impl ThinkFunction {
+    /// Construct a client-side function (no `endpoint`).
+    ///
+    /// `parameters` is the JSON Schema describing the function's args.
+    pub fn new(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        parameters: serde_json::Value,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            description: description.into(),
+            parameters,
+            endpoint: None,
+        }
+    }
+
+    /// Attach a server-side execution endpoint.
+    pub fn with_endpoint(mut self, endpoint: FunctionEndpoint) -> Self {
+        self.endpoint = Some(endpoint);
+        self
+    }
 }
 
 /// HTTP endpoint for server-side function execution.

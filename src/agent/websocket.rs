@@ -105,7 +105,8 @@ impl Agent<'_> {
         self.0
     }
 
-    /// Open a new Voice Agent WebSocket session.
+    /// Open a new Voice Agent WebSocket session at the SaaS endpoint
+    /// (`wss://agent.deepgram.com/v1/agent/converse`).
     ///
     /// Returns a handle for sending messages and a stream of incoming
     /// events. The first message you typically send is a
@@ -115,7 +116,21 @@ impl Agent<'_> {
     /// the underlying handle is dropped, or when the server closes the
     /// connection.
     pub async fn start(&self) -> Result<(AgentHandle, AgentEventStream)> {
-        let url: url::Url = AGENT_WS_URL.parse().expect("agent URL is valid");
+        self.start_at_url(AGENT_WS_URL).await
+    }
+
+    /// Open a session at a custom WebSocket URL.
+    ///
+    /// Use cases:
+    /// - **Self-hosted agent deployments** — point at your own
+    ///   `wss://agent.your-domain.example/...` host.
+    /// - **Integration tests** — point at a local mock server (e.g.
+    ///   `ws://127.0.0.1:NNNN/...`).
+    ///
+    /// All other behavior matches [`Agent::start`]: same auth headers,
+    /// same handshake, same returned types.
+    pub async fn start_at_url(&self, url: &str) -> Result<(AgentHandle, AgentEventStream)> {
+        let url: url::Url = url.parse().map_err(|_| DeepgramError::InvalidUrl)?;
         let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
 
         let request = {
