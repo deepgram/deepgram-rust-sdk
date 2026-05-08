@@ -27,10 +27,14 @@
 //!   `SpeakUpdated`, `ThinkUpdated`, `InjectionRefused`,
 //!   `FunctionCallResponse`) plus an `Unknown` catch-all for forward
 //!   compatibility, all unified under the [`response::AgentResponse`] enum.
+//! - [`websocket`] — the [`Agent`] sub-client and live-session
+//!   primitives ([`AgentHandle`], [`AgentEventStream`], [`AgentEvent`])
+//!   that connect to `wss://agent.deepgram.com/v1/agent/converse`.
 //!
 //! Wire format matches the AsyncAPI schemas in `deepgram-docs` under
-//! `api/specs/asyncapi/schemas/agent/`. The WebSocket connection helpers
-//! (builder, handle, stream) land in subsequent commits.
+//! `api/specs/asyncapi/schemas/agent/`. Examples and additional
+//! convenience layers (e.g. file-based audio input) follow in
+//! subsequent commits.
 
 pub mod audio;
 pub mod aws_credentials;
@@ -42,6 +46,7 @@ pub mod response;
 pub mod settings;
 pub mod speak;
 pub mod think;
+pub mod websocket;
 
 pub use audio::{
     AudioConfig, AudioContainer, AudioInput, AudioInputEncoding, AudioOutput, AudioOutputEncoding,
@@ -77,3 +82,4 @@ pub use settings::{
 };
 pub use speak::{SpeakProvider, SpeakSettings};
 pub use think::{ContextLength, FunctionEndpoint, ThinkFunction, ThinkProvider, ThinkSettings};
+pub use websocket::{Agent, AgentEvent, AgentEventStream, AgentHandle};

@@ -59,7 +59,7 @@ default = ["manage", "listen", "speak"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
 speak = []
-agent = []
+agent = ["dep:tungstenite", "dep:tokio-tungstenite"]
 
 [[example]]
 name = "grant_token"

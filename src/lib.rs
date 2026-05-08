@@ -13,7 +13,7 @@ pub use serde_json::Error as SerdeJsonError;
 pub use serde_urlencoded::ser::Error as SerdeUrlencodedError;
 use std::io;
 use std::ops::Deref;
-#[cfg(feature = "listen")]
+#[cfg(any(feature = "listen", feature = "agent"))]
 pub use tungstenite::Error as TungsteniteError;
 
 use reqwest::{
@@ -73,6 +73,14 @@ impl Deepgram {
 
     /// Construct a new [`Speak`] from a [`Deepgram`].
     pub fn text_to_speech(&self) -> Speak<'_> {
+        self.into()
+    }
+
+    /// Construct a new [`crate::agent::Agent`] sub-client.
+    ///
+    /// Use this to open a connection to Deepgram's Voice Agent WebSocket.
+    #[cfg(feature = "agent")]
+    pub fn agent(&self) -> crate::agent::Agent<'_> {
         self.into()
     }
 }
@@ -143,7 +151,7 @@ impl AuthMethod {
 /// Make transcriptions requests using [`Deepgram::transcription`].
 #[derive(Debug, Clone)]
 pub struct Deepgram {
-    #[cfg_attr(not(feature = "listen"), allow(unused))]
+    #[cfg_attr(not(any(feature = "listen", feature = "agent")), allow(unused))]
     auth: Option<AuthMethod>,
     #[cfg_attr(not(feature = "listen"), allow(unused))]
     base_url: Url,
@@ -178,7 +186,7 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
-    #[cfg(feature = "listen")]
+    #[cfg(any(feature = "listen", feature = "agent"))]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] Box<TungsteniteError>),
@@ -217,14 +225,14 @@ pub enum DeepgramError {
     UnexpectedServerResponse(anyhow::Error),
 }
 
-#[cfg(feature = "listen")]
+#[cfg(any(feature = "listen", feature = "agent"))]
 impl From<TungsteniteError> for DeepgramError {
     fn from(err: TungsteniteError) -> Self {
         Self::from(Box::new(err))
     }
 }
 
-#[cfg_attr(not(feature = "listen"), allow(unused))]
+#[cfg_attr(not(any(feature = "listen", feature = "agent")), allow(unused))]
 type Result<T, E = DeepgramError> = std::result::Result<T, E>;
 
 impl Deepgram {
@@ -376,7 +384,7 @@ impl Deepgram {
 ///
 /// If there is an error, it translates it into a [`DeepgramError::DeepgramApiError`].
 /// Otherwise, it deserializes the JSON accordingly.
-#[cfg_attr(not(feature = "listen"), allow(unused))]
+#[cfg_attr(not(any(feature = "listen", feature = "agent")), allow(unused))]
 async fn send_and_translate_response<R: DeserializeOwned>(
     request_builder: RequestBuilder,
 ) -> crate::Result<R> {
