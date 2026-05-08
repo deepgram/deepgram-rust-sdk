@@ -20,10 +20,17 @@
 //!   (`UpdateSpeak`, `UpdateThink`, `UpdatePrompt`, `InjectUserMessage`,
 //!   `InjectAgentMessage`, `FunctionCallResponse`, `KeepAlive`) plus the
 //!   `ClientMessage` discriminated union over all eight.
+//! - [`response`] — every server-emitted JSON event (`Welcome`,
+//!   `SettingsApplied`, `ConversationText`, `UserStartedSpeaking`,
+//!   `AgentThinking`, `FunctionCallRequest`, `AgentStartedSpeaking`,
+//!   `AgentAudioDone`, `Error`, `Warning`, `History`, `PromptUpdated`,
+//!   `SpeakUpdated`, `ThinkUpdated`, `InjectionRefused`,
+//!   `FunctionCallResponse`) plus an `Unknown` catch-all for forward
+//!   compatibility, all unified under the [`response::AgentResponse`] enum.
 //!
 //! Wire format matches the AsyncAPI schemas in `deepgram-docs` under
-//! `api/specs/asyncapi/schemas/agent/`. The server-to-client event
-//! enum and the WebSocket connection helpers land in subsequent commits.
+//! `api/specs/asyncapi/schemas/agent/`. The WebSocket connection helpers
+//! (builder, handle, stream) land in subsequent commits.
 
 pub mod audio;
 pub mod aws_credentials;
@@ -31,6 +38,7 @@ pub mod endpoint;
 pub mod history;
 pub mod listen;
 pub mod messages;
+pub mod response;
 pub mod settings;
 pub mod speak;
 pub mod think;
@@ -53,6 +61,15 @@ pub use messages::{
     InjectAgentMessageMessage, InjectAgentMessageType, InjectUserMessageMessage,
     InjectUserMessageType, KeepAliveMessage, KeepAliveType, UpdatePromptMessage, UpdatePromptType,
     UpdateSpeakMessage, UpdateSpeakType, UpdateThinkMessage, UpdateThinkType,
+};
+pub use response::{
+    AgentAudioDoneEvent, AgentAudioDoneType, AgentFunctionCall, AgentResponse,
+    AgentStartedSpeakingEvent, AgentStartedSpeakingType, AgentThinkingEvent, AgentThinkingType,
+    ConversationTextEvent, ConversationTextType, ErrorEvent, ErrorType, FunctionCallRequestEvent,
+    FunctionCallRequestType, InjectionRefusedEvent, InjectionRefusedType, PromptUpdatedEvent,
+    PromptUpdatedType, SettingsAppliedEvent, SettingsAppliedType, SpeakUpdatedEvent,
+    SpeakUpdatedType, ThinkUpdatedEvent, ThinkUpdatedType, UserStartedSpeakingEvent,
+    UserStartedSpeakingType, WarningEvent, WarningType, WelcomeEvent, WelcomeType,
 };
 pub use settings::{
     AgentConfig, AgentContext, InlineAgentConfig, SettingsFlags, SettingsMessage,
