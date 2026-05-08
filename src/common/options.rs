@@ -52,6 +52,7 @@ pub struct Options {
     eager_eot_threshold: Option<f64>,
     eot_threshold: Option<f64>,
     eot_timeout_ms: Option<u32>,
+    language_hint: Vec<String>,
 }
 
 impl Default for Options {
@@ -268,6 +269,13 @@ pub enum Model {
     ///
     /// [api]: https://developers.deepgram.com/reference/speech-to-text/listen-flux
     FluxGeneralEn,
+
+    /// Multilingual variant of the Flux conversational model.
+    ///
+    /// Supports code-switching across multiple languages. Combine with
+    /// [`OptionsBuilder::language_hint`] to bias detection toward
+    /// specific BCP-47 codes.
+    FluxGeneralMulti,
 
     #[allow(missing_docs)]
     Nova2Meeting,
@@ -819,6 +827,7 @@ impl OptionsBuilder {
             eager_eot_threshold: None,
             eot_threshold: None,
             eot_timeout_ms: None,
+            language_hint: Vec::new(),
         })
     }
 
@@ -2109,6 +2118,37 @@ impl OptionsBuilder {
         self
     }
 
+    /// Set BCP-47 language hints to bias detection. Only meaningful with
+    /// the `flux-general-multi` model — Deepgram ignores hints for other
+    /// models. Each hint serializes as a separate `language_hint=…`
+    /// query parameter (matching the spec's repeated-param shape).
+    ///
+    /// Calling this when already set replaces the existing hints rather
+    /// than appending.
+    ///
+    /// See the [Deepgram Flux Language Prompting guide][docs] for
+    /// guidance on choosing hints.
+    ///
+    /// [docs]: https://developers.deepgram.com/reference/speech-to-text/listen-flux
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use deepgram::common::options::{Model, Options};
+    /// let options = Options::builder()
+    ///     .model(Model::FluxGeneralMulti)
+    ///     .language_hint(["en", "es"])
+    ///     .build();
+    /// ```
+    pub fn language_hint<I, S>(mut self, hints: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.0.language_hint = hints.into_iter().map(Into::into).collect();
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -2182,6 +2222,7 @@ impl Serialize for SerializableOptions<'_> {
             eager_eot_threshold,
             eot_threshold,
             eot_timeout_ms,
+            language_hint,
         } = self.0;
 
         match multichannel {
@@ -2400,6 +2441,10 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("eot_timeout_ms", eot_timeout_ms))?;
         }
 
+        for hint in language_hint {
+            seq.serialize_element(&("language_hint", hint))?;
+        }
+
         seq.end()
     }
 }
@@ -2411,6 +2456,7 @@ impl AsRef<str> for Model {
             Self::Nova2 => "nova-2",
             Self::Nova3Medical => "nova-3-medical",
             Self::FluxGeneralEn => "flux-general-en",
+            Self::FluxGeneralMulti => "flux-general-multi",
             Self::Nova2Meeting => "nova-2-meeting",
             Self::Nova2Phonecall => "nova-2-phonecall",
             Self::Nova2Finance => "nova-2-finance",
@@ -2474,6 +2520,7 @@ impl From<String> for Model {
             "nova-2" | "nova-2-general" => Self::Nova2,
             "nova-3-medical" => Self::Nova3Medical,
             "flux-general-en" => Self::FluxGeneralEn,
+            "flux-general-multi" => Self::FluxGeneralMulti,
             "nova-2-meeting" => Self::Nova2Meeting,
             "nova-2-phonecall" => Self::Nova2Phonecall,
             "nova-2-finance" => Self::Nova2Finance,
