@@ -432,12 +432,10 @@ async fn run_flux_worker(
                             OpCode::Data(Data::Text) => {
                                 partial_frame.extend(frame.payload());
                             }
-                            OpCode::Data(Data::Continue) => {
-                                // We know we're continuing a text frame because otherwise
-                                // partial_frame would be empty.
-                                if !partial_frame.is_empty() {
-                                    partial_frame.extend(frame.payload())
-                                }
+                            // We know we're continuing a text frame because otherwise
+                            // partial_frame would be empty.
+                            OpCode::Data(Data::Continue) if !partial_frame.is_empty() => {
+                                partial_frame.extend(frame.payload())
                             }
                             _ => {
                                 // Ignore other partial frames.
