@@ -35,6 +35,8 @@ pub mod listen;
 pub mod manage;
 #[cfg(feature = "read")]
 pub mod read;
+#[cfg(feature = "self_hosted")]
+pub mod self_hosted;
 #[cfg(feature = "speak")]
 pub mod speak;
 

@@ -61,6 +61,7 @@ listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
 speak = ["dep:tungstenite", "dep:tokio-tungstenite"]
 agent = ["dep:tungstenite", "dep:tokio-tungstenite"]
 read = []
+self_hosted = []
 
 [[example]]
 name = "grant_token"
@@ -195,3 +196,13 @@ required-features = ["agent"]
 name = "agent_variables"
 path = "examples/agent/rest/variables.rs"
 required-features = ["agent"]
+
+[[example]]
+name = "manage_models"
+path = "examples/manage/models.rs"
+required-features = ["manage"]
+
+[[example]]
+name = "self_hosted_distribution_credentials"
+path = "examples/self_hosted/distribution_credentials.rs"
+required-features = ["self_hosted"]
