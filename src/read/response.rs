@@ -16,6 +16,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::common::batch_response::{Intents, Sentiments, Topics};
 
+/// Per-feature token usage and model identifier.
+///
+/// Re-exported from [`crate::common::batch_response::TokenInfo`] —
+/// `summary_info` / `sentiment_info` / `topics_info` / `intents_info`
+/// share the same shape between the Read and Listen response schemas.
+#[doc(inline)]
+pub use crate::common::batch_response::TokenInfo;
+
 /// Top-level response from `POST /v1/read`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -89,23 +97,6 @@ pub struct ReadMetadata {
     /// Token usage and model UUID for the intent detection step.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub intents_info: Option<TokenInfo>,
-}
-
-/// Per-feature token usage and model identifier.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct TokenInfo {
-    /// UUID of the model that produced this output.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub model_uuid: Option<String>,
-
-    /// Number of tokens of input consumed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub input_tokens: Option<u64>,
-
-    /// Number of tokens of output produced.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub output_tokens: Option<u64>,
 }
 
 /// Results block on a [`ReadResponse`].

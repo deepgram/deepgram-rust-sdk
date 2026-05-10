@@ -4,6 +4,8 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded-responses
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -60,8 +62,70 @@ pub struct ListenMetadata {
     #[allow(missing_docs)]
     pub channels: usize,
 
-    #[allow(missing_docs)]
+    /// Top-level language. Not in the current
+    /// `ListenV1ResponseMetadata` schema (the language is on each
+    /// channel via `ChannelResult.detected_language`); kept for
+    /// backward compatibility, will be removed in 0.10.0 (Phase 8e).
     pub language: Option<String>,
+
+    /// Model UUIDs that served the request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub models: Option<Vec<String>>,
+
+    /// Per-model metadata, keyed by model UUID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_info: Option<HashMap<String, ModelInfoEntry>>,
+
+    /// Token usage for the summarization step (when `summarize` was set).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary_info: Option<TokenInfo>,
+
+    /// Token usage for the sentiment-analysis step.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sentiment_info: Option<TokenInfo>,
+
+    /// Token usage for the topic-detection step.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topics_info: Option<TokenInfo>,
+
+    /// Token usage for the intent-detection step.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intents_info: Option<TokenInfo>,
+
+    /// Tags echoed back from the request's `tag` query param(s).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+}
+
+/// Per-model metadata entry inside [`ListenMetadata::model_info`].
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ModelInfoEntry {
+    /// Display name of the model.
+    pub name: String,
+    /// Version string.
+    pub version: String,
+    /// Model architecture (e.g. `nova-2`).
+    pub arch: String,
+}
+
+/// Token usage and model identifier for one analytics feature
+/// (summarize / sentiment / topics / intents). Shared with
+/// [`crate::read::response::TokenInfo`].
+#[derive(Debug, PartialEq, Eq, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct TokenInfo {
+    /// UUID of the model that produced this output.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_uuid: Option<String>,
+
+    /// Number of input tokens consumed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<u64>,
+
+    /// Number of output tokens produced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<u64>,
 }
 
 /// Transcription results.
@@ -187,6 +251,9 @@ pub struct Paragraph {
     num_words: usize,
     start: f64,
     end: f64,
+    /// Speaker label when diarization is enabled. None otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker: Option<usize>,
 }
 
 /// Paragraph results.
@@ -216,6 +283,9 @@ pub struct Entity {
     confidence: f64,
     start_word: usize,
     end_word: usize,
+    /// Original spoken text of the entity, present when smart formatting is enabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_value: Option<String>,
 }
 
 /// Intent
@@ -343,6 +413,43 @@ pub struct ResultAlternative {
     #[allow(missing_docs)]
     #[serde(default)]
     pub languages: Vec<String>,
+
+    /// Channel-level summaries (when `summarize` was set). Distinct
+    /// from [`ListenResults::summary`] (document-level).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summaries: Option<Vec<ChannelSummary>>,
+
+    /// Channel-level topic detections (when `topics` was set).
+    /// Distinct from [`ListenResults::topics`] (document-level).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topics: Option<Vec<ChannelTopic>>,
+}
+
+/// One channel-level summary entry on a [`ResultAlternative`].
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ChannelSummary {
+    /// Summary text.
+    pub summary: String,
+    /// Index of the first word covered by this summary.
+    pub start_word: f64,
+    /// Index of the last word covered by this summary.
+    pub end_word: f64,
+}
+
+/// One channel-level topic entry on a [`ResultAlternative`].
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ChannelTopic {
+    /// Snippet of text that was classified.
+    pub text: String,
+    /// Index of the first word in the snippet.
+    pub start_word: f64,
+    /// Index of the last word in the snippet.
+    pub end_word: f64,
+    /// Topic labels detected on this snippet.
+    #[serde(default)]
+    pub topics: Vec<String>,
 }
 
 /// A single transcribed word.
@@ -369,6 +476,11 @@ pub struct Word {
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/diarize/
     pub speaker: Option<usize>,
+
+    /// Confidence of the [`speaker`](Word::speaker) assignment, when
+    /// diarization is enabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker_confidence: Option<f64>,
 
     /// [`None`] unless the [Punctuation feature][docs] is set.
     ///
@@ -397,4 +509,134 @@ pub struct Hit {
 
     #[allow(missing_docs)]
     pub snippet: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // Tests below assert deserialization shape only (not strict JSON
+    // round-trip equality). Several pre-existing optional fields on
+    // batch_response types serialize `None` as `null` rather than
+    // omitting them — normalizing that wire behavior is a Phase 8
+    // cleanup, not Phase 7.
+
+    #[test]
+    fn metadata_with_model_info_and_token_info() {
+        let raw = json!({
+            "request_id": "550e8400-e29b-41d4-a716-446655440000",
+            "transaction_key": "deprecated",
+            "sha256": "abc",
+            "created": "2026-05-08T12:00:00Z",
+            "duration": 12.5,
+            "channels": 1,
+            "models": ["30089e05-99d1-4376-b32e-c263170674af"],
+            "model_info": {
+                "30089e05-99d1-4376-b32e-c263170674af": {
+                    "name": "2-general-nova",
+                    "version": "2024-01-09.29447",
+                    "arch": "nova-2"
+                }
+            },
+            "summary_info": {
+                "model_uuid": "67875a7f-c9c4-48a0-aa55-5bdb8a91c34a",
+                "input_tokens": 95,
+                "output_tokens": 63
+            },
+            "tags": ["staging"]
+        });
+        let m: ListenMetadata = serde_json::from_value(raw).unwrap();
+        assert_eq!(m.models.as_ref().unwrap().len(), 1);
+        let info = m.model_info.as_ref().unwrap();
+        assert_eq!(info["30089e05-99d1-4376-b32e-c263170674af"].arch, "nova-2");
+        assert_eq!(m.summary_info.as_ref().unwrap().input_tokens, Some(95));
+        assert_eq!(m.tags.as_deref().unwrap(), &["staging".to_string()]);
+    }
+
+    #[test]
+    fn metadata_minimal_deserializes_without_new_fields() {
+        let raw = json!({
+            "request_id": "550e8400-e29b-41d4-a716-446655440000",
+            "transaction_key": "deprecated",
+            "sha256": "abc",
+            "created": "2026-05-08T12:00:00Z",
+            "duration": 12.5,
+            "channels": 1
+        });
+        let m: ListenMetadata = serde_json::from_value(raw).unwrap();
+        assert!(m.models.is_none());
+        assert!(m.summary_info.is_none());
+        assert!(m.tags.is_none());
+    }
+
+    #[test]
+    fn word_speaker_confidence_round_trip() {
+        let raw = json!({
+            "word": "hello",
+            "start": 0.0,
+            "end": 0.5,
+            "confidence": 0.95,
+            "speaker": 0,
+            "speaker_confidence": 0.88,
+            "punctuated_word": "Hello,"
+        });
+        let w: Word = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(w.speaker_confidence, Some(0.88));
+        assert_eq!(serde_json::to_value(&w).unwrap(), raw);
+    }
+
+    #[test]
+    fn entity_raw_value_round_trip() {
+        let raw = json!({
+            "label": "PHONE_NUMBER",
+            "value": "555-1234",
+            "raw_value": "five five five one two three four",
+            "confidence": 0.91,
+            "start_word": 3,
+            "end_word": 6
+        });
+        let e: Entity = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(
+            e.raw_value.as_deref(),
+            Some("five five five one two three four")
+        );
+        assert_eq!(serde_json::to_value(&e).unwrap(), raw);
+    }
+
+    #[test]
+    fn paragraph_speaker_round_trip() {
+        let raw = json!({
+            "sentences": [{"text": "Hi.", "start": 0.0, "end": 0.5}],
+            "num_words": 1,
+            "start": 0.0,
+            "end": 0.5,
+            "speaker": 2
+        });
+        let p: Paragraph = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(p.speaker, Some(2));
+        assert_eq!(serde_json::to_value(&p).unwrap(), raw);
+    }
+
+    #[test]
+    fn channel_summaries_and_topics_deserialize() {
+        let raw = json!({
+            "transcript": "Hello world",
+            "confidence": 0.97,
+            "words": [],
+            "summaries": [
+                {"summary": "A greeting.", "start_word": 0.0, "end_word": 1.0}
+            ],
+            "topics": [
+                {"text": "Hello world", "start_word": 0.0, "end_word": 1.0,
+                 "topics": ["greeting"]}
+            ]
+        });
+        let alt: ResultAlternative = serde_json::from_value(raw).unwrap();
+        assert_eq!(alt.summaries.as_ref().unwrap().len(), 1);
+        assert_eq!(
+            alt.topics.as_ref().unwrap()[0].topics,
+            vec!["greeting".to_string()]
+        );
+    }
 }
