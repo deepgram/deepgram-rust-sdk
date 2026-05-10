@@ -18,16 +18,12 @@ pub struct Options {
     profanity_filter: Option<bool>,
     redact: Vec<Redact>,
     diarize: Option<bool>,
-    diarize_version: Option<String>,
-    ner: Option<bool>,
     multichannel: Option<Multichannel>,
-    alternatives: Option<usize>,
     numerals: Option<bool>,
     search: Vec<String>,
     replace: Vec<Replace>,
     keywords: Vec<Keyword>,
     keyterms: Vec<String>,
-    keyword_boost_legacy: Option<bool>,
     utterances: Option<Utterances>,
     tags: Vec<String>,
     detect_language: Option<DetectLanguage>,
@@ -53,6 +49,7 @@ pub struct Options {
     eot_threshold: Option<f64>,
     eot_timeout_ms: Option<u32>,
     language_hint: Vec<String>,
+    mip_opt_out: Option<bool>,
 }
 
 impl Default for Options {
@@ -103,8 +100,12 @@ impl DetectLanguage {
 pub enum CallbackMethod {
     /// POST Callback Method
     POST,
+    /// GET Callback Method
+    GET,
     /// PUT Callback Method
     PUT,
+    /// DELETE Callback Method
+    DELETE,
 }
 
 /// Encoding Impl
@@ -112,7 +113,9 @@ impl CallbackMethod {
     pub(crate) fn as_str(&self) -> &str {
         match self {
             CallbackMethod::POST => "post",
+            CallbackMethod::GET => "get",
             CallbackMethod::PUT => "put",
+            CallbackMethod::DELETE => "delete",
         }
     }
 }
@@ -132,14 +135,18 @@ pub enum Encoding {
     Linear16,
     /// Free Lossless Audio Codec (FLAC) encoded data
     Flac,
+    /// A-law encoded WAV data
+    Alaw,
     /// Mu-law encoded WAV data
     Mulaw,
     /// Adaptive Multi-Rate (AMR) narrowband codec
     AmrNb,
     /// Adaptive Multi-Rate (AMR) wideband codec
     AmrWb,
-    /// Ogg Opus
+    /// Opus
     Opus,
+    /// Ogg-wrapped Opus
+    OggOpus,
     /// Speex
     Speex,
     /// G729 low-bandwidth (required for both raw and containerized audio)
@@ -156,10 +163,12 @@ impl Encoding {
             Encoding::Linear32 => "linear32",
             Encoding::Linear16 => "linear16",
             Encoding::Flac => "flac",
+            Encoding::Alaw => "alaw",
             Encoding::Mulaw => "mulaw",
             Encoding::AmrNb => "amr-nb",
             Encoding::AmrWb => "amr-wb",
             Encoding::Opus => "opus",
+            Encoding::OggOpus => "ogg-opus",
             Encoding::Speex => "speex",
             Encoding::G729 => "g729",
             Encoding::CustomEncoding(encoding) => encoding,
@@ -630,6 +639,10 @@ pub enum Redact {
     #[allow(missing_docs)]
     Numbers,
 
+    /// Aggressive numeric redaction — broader than `Numbers`, redacts
+    /// any number-like token (account numbers, IDs, etc).
+    AggressiveNumbers,
+
     #[allow(missing_docs)]
     Ssn,
 
@@ -793,16 +806,12 @@ impl OptionsBuilder {
             profanity_filter: None,
             redact: Vec::new(),
             diarize: None,
-            diarize_version: None,
-            ner: None,
             multichannel: None,
-            alternatives: None,
             numerals: None,
             search: Vec::new(),
             replace: Vec::new(),
             keywords: Vec::new(),
             keyterms: Vec::new(),
-            keyword_boost_legacy: None,
             utterances: None,
             tags: Vec::new(),
             detect_language: None,
@@ -828,6 +837,7 @@ impl OptionsBuilder {
             eot_threshold: None,
             eot_timeout_ms: None,
             language_hint: Vec::new(),
+            mip_opt_out: None,
         })
     }
 
@@ -1005,48 +1015,6 @@ impl OptionsBuilder {
         self
     }
 
-    /// Set the Diarization Version feature.
-    ///
-    /// See the [Deepgram Diarization Version feature docs][docs] for more info.
-    ///
-    /// [docs]: https://deepgram.com/changelog/improved-speaker-diarization
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use deepgram::common::options::Options;
-    /// #
-    /// let options = Options::builder()
-    ///     .diarize_version("2021-07-14.0")
-    ///     .build();
-    /// ```
-    pub fn diarize_version(mut self, diarize_version: &str) -> Self {
-        self.0.diarize_version = Some(diarize_version.into());
-        self
-    }
-
-    /// Set the Named-Entity Recognition feature.
-    ///
-    /// Not necessarily available for all languages.
-    ///
-    /// See the [Deepgram Named-Entity Recognition feature docs][docs] for more info.
-    ///
-    /// [docs]: https://developers.deepgram.com/documentation/features/named-entity-recognition/
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use deepgram::common::options::Options;
-    /// #
-    /// let options = Options::builder()
-    ///     .ner(true)
-    ///     .build();
-    /// ```
-    pub fn ner(mut self, ner: bool) -> Self {
-        self.0.ner = Some(ner);
-        self
-    }
-
     /// Set the Multichannel feature.
     ///
     /// To specify which model should process each channel, use [`OptionsBuilder::multichannel_with_models`] instead.
@@ -1209,26 +1177,6 @@ impl OptionsBuilder {
             });
         }
 
-        self
-    }
-
-    /// Set the Alternatives feature.
-    ///
-    /// See the [Deepgram API Reference][api] for more info.
-    ///
-    /// [api]: https://developers.deepgram.com/api-reference/#alternatives-pr
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use deepgram::common::options::Options;
-    /// #
-    /// let options = Options::builder()
-    ///     .alternatives(3)
-    ///     .build();
-    /// ```
-    pub fn alternatives(mut self, alternatives: usize) -> Self {
-        self.0.alternatives = Some(alternatives);
         self
     }
 
@@ -1464,27 +1412,6 @@ impl OptionsBuilder {
         keywords: impl IntoIterator<Item = Keyword>,
     ) -> Self {
         self.0.keywords.extend(keywords);
-        self
-    }
-
-    /// Use legacy keyword boosting.
-    ///
-    /// See the [Deepgram Keywords feature docs][docs] for more info.
-    ///
-    /// [docs]: https://developers.deepgram.com/documentation/features/keywords/
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use deepgram::common::options::Options;
-    /// #
-    /// let options = Options::builder()
-    ///     .keywords(["hello", "world"])
-    ///     .keyword_boost_legacy()
-    ///     .build();
-    /// ```
-    pub fn keyword_boost_legacy(mut self) -> Self {
-        self.0.keyword_boost_legacy = Some(true);
         self
     }
 
@@ -2149,6 +2076,15 @@ impl OptionsBuilder {
         self
     }
 
+    /// Opt this request out of the Deepgram Model Improvement Program.
+    /// Refer to the [Deepgram MIP docs][docs] for pricing implications.
+    ///
+    /// [docs]: https://dpgr.am/deepgram-mip
+    pub fn mip_opt_out(mut self, mip_opt_out: bool) -> Self {
+        self.0.mip_opt_out = Some(mip_opt_out);
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -2188,16 +2124,12 @@ impl Serialize for SerializableOptions<'_> {
             profanity_filter,
             redact,
             diarize,
-            diarize_version,
-            ner,
             multichannel,
-            alternatives,
             numerals,
             search,
             replace,
             keywords,
             keyterms,
-            keyword_boost_legacy,
             utterances,
             tags,
             detect_language,
@@ -2223,6 +2155,7 @@ impl Serialize for SerializableOptions<'_> {
             eot_threshold,
             eot_timeout_ms,
             language_hint,
+            mip_opt_out,
         } = self.0;
 
         match multichannel {
@@ -2278,14 +2211,6 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("diarize", diarize))?;
         }
 
-        if let Some(diarize_version) = diarize_version {
-            seq.serialize_element(&("diarize_version", diarize_version))?;
-        }
-
-        if let Some(ner) = ner {
-            seq.serialize_element(&("ner", ner))?;
-        }
-
         match multichannel {
             Some(Multichannel::Disabled) => seq.serialize_element(&("multichannel", false))?,
             Some(Multichannel::Enabled) => seq.serialize_element(&("multichannel", true))?,
@@ -2296,10 +2221,6 @@ impl Serialize for SerializableOptions<'_> {
             }
             None => (),
         };
-
-        if let Some(alternatives) = alternatives {
-            seq.serialize_element(&("alternatives", alternatives))?;
-        }
 
         if let Some(numerals) = numerals {
             seq.serialize_element(&("numerals", numerals))?;
@@ -2326,10 +2247,6 @@ impl Serialize for SerializableOptions<'_> {
             } else {
                 seq.serialize_element(&("keywords", &element.keyword))?;
             }
-        }
-
-        if keyword_boost_legacy.unwrap_or(false) {
-            seq.serialize_element(&("keyword_boost", "legacy"))?;
         }
 
         match utterances {
@@ -2443,6 +2360,10 @@ impl Serialize for SerializableOptions<'_> {
 
         for hint in language_hint {
             seq.serialize_element(&("language_hint", hint))?;
+        }
+
+        if let Some(mip_opt_out) = mip_opt_out {
+            seq.serialize_element(&("mip_opt_out", mip_opt_out))?;
         }
 
         seq.end()
@@ -2707,6 +2628,7 @@ impl AsRef<str> for Redact {
         match self {
             Redact::Pci => "pci",
             Redact::Numbers => "numbers",
+            Redact::AggressiveNumbers => "aggressive_numbers",
             Redact::Ssn => "ssn",
             Redact::Other(id) => id,
         }
@@ -2718,6 +2640,7 @@ impl From<String> for Redact {
         match &*value {
             "pci" => Redact::Pci,
             "numbers" => Redact::Numbers,
+            "aggressive_numbers" => Redact::AggressiveNumbers,
             "ssn" => Redact::Ssn,
             _ => Redact::Other(value),
         }
@@ -2734,7 +2657,7 @@ fn models_to_string(models: &[Model]) -> String {
 
 #[cfg(test)]
 mod from_string_tests {
-    use super::{Language, Model, Redact};
+    use super::{CallbackMethod, Encoding, Language, Model, Options, Redact};
 
     #[test]
     fn model_from_string() {
@@ -2767,10 +2690,52 @@ mod from_string_tests {
     fn redact_from_string() {
         assert_eq!(Redact::from("pci".to_string()), Redact::Pci);
         assert_eq!(
+            Redact::from("aggressive_numbers".to_string()),
+            Redact::AggressiveNumbers
+        );
+        assert_eq!(
             Redact::from("custom".to_string()),
             Redact::Other("custom".to_string())
         );
         assert_eq!(Redact::from("".to_string()), Redact::Other("".to_string()));
+    }
+
+    #[test]
+    fn streaming_enum_extensions_serialize() {
+        let q = Options::builder()
+            .encoding(Encoding::Alaw)
+            .build()
+            .urlencoded()
+            .unwrap();
+        assert!(q.contains("encoding=alaw"));
+
+        let q = Options::builder()
+            .encoding(Encoding::OggOpus)
+            .build()
+            .urlencoded()
+            .unwrap();
+        assert!(q.contains("encoding=ogg-opus"));
+
+        let q = Options::builder()
+            .redact([Redact::AggressiveNumbers])
+            .build()
+            .urlencoded()
+            .unwrap();
+        assert!(q.contains("redact=aggressive_numbers"));
+
+        let q = Options::builder()
+            .callback_method(CallbackMethod::GET)
+            .build()
+            .urlencoded()
+            .unwrap();
+        assert!(q.contains("callback_method=get"));
+
+        let q = Options::builder()
+            .callback_method(CallbackMethod::DELETE)
+            .build()
+            .urlencoded()
+            .unwrap();
+        assert!(q.contains("callback_method=delete"));
     }
 }
 #[cfg(test)]
@@ -2877,14 +2842,11 @@ mod serialize_options_tests {
             .profanity_filter(true)
             .redact([Redact::Pci, Redact::Ssn])
             .diarize(true)
-            .diarize_version("2021-07-14.0")
-            .ner(true)
             .multichannel_with_models([
                 Model::Nova2Finance,
                 Model::CustomId(String::from("extra_crispy")),
                 Model::Nova2Conversationalai,
             ])
-            .alternatives(4)
             .numerals(true)
             .search(["Rust", "Deepgram"])
             .replace([Replace {
@@ -2917,7 +2879,7 @@ mod serialize_options_tests {
             .callback_method(CallbackMethod::PUT)
             .build();
 
-        check_serialization(&options, "model=nova-2-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en&detect_language=en&detect_language=es&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&diarize_version=2021-07-14.0&ner=true&multichannel=true&alternatives=4&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
+        check_serialization(&options, "model=nova-2-finance%3Aextra_crispy%3Anova-2-conversationalai&version=1.2.3&language=en&detect_language=en&detect_language=es&punctuate=true&profanity_filter=true&redact=pci&redact=ssn&diarize=true&multichannel=true&numerals=true&search=Rust&search=Deepgram&replace=Aaron%3AErin&keywords=Ferris&keywords=Cargo%3A-1.5&utterances=true&utt_split=0.9&tag=Tag+1&encoding=linear16&smart_format=true&filler_words=true&paragraphs=true&detect_entities=true&intents=true&custom_intent_mode=extended&custom_intent=Phone+repair&custom_intent=Phone+cancellation&sentiment=true&topics=true&custom_topic_mode=strict&custom_topic=Get+support&custom_topic=Complain&summarize=v2&dictation=true&measurements=true&extra=key%3Avalue&callback_method=put");
     }
 
     #[test]
@@ -3021,13 +2983,6 @@ mod serialize_options_tests {
     }
 
     #[test]
-    fn ner() {
-        check_serialization(&Options::builder().ner(true).build(), "ner=true");
-
-        check_serialization(&Options::builder().ner(false).build(), "ner=false");
-    }
-
-    #[test]
     fn multichannel() {
         check_serialization(
             &Options::builder().multichannel(true).build(),
@@ -3048,14 +3003,6 @@ mod serialize_options_tests {
                 ])
                 .build(),
             "model=nova-2-finance%3Aextra_crispy%3Anova-2-conversationalai&multichannel=true",
-        );
-    }
-
-    #[test]
-    fn alternatives() {
-        check_serialization(
-            &Options::builder().alternatives(4).build(),
-            "alternatives=4",
         );
     }
 
@@ -3190,14 +3137,6 @@ mod serialize_options_tests {
                 "keywords=Ferris%3A0.5&keywords=Cargo%3A-1.5",
             );
         }
-
-        check_serialization(
-            &Options::builder()
-                .keywords(["Ferris"])
-                .keyword_boost_legacy()
-                .build(),
-            "keywords=Ferris&keyword_boost=legacy",
-        );
     }
 
     #[test]

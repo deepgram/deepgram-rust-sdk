@@ -138,7 +138,7 @@ async fn speak_streaming_round_trip_through_mock_server() {
         .text_to_speech()
         .websocket()
         .url(format!("ws://{addr}/v1/speak"))
-        .model(Model::AuraAsteriaEn)
+        .model(Model::aura_asteria_en())
         .encoding(Encoding::Linear16)
         .sample_rate(24_000)
         .start()

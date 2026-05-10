@@ -62,12 +62,6 @@ pub struct ListenMetadata {
     #[allow(missing_docs)]
     pub channels: usize,
 
-    /// Top-level language. Not in the current
-    /// `ListenV1ResponseMetadata` schema (the language is on each
-    /// channel via `ChannelResult.detected_language`); kept for
-    /// backward compatibility, will be removed in 0.10.0 (Phase 8e).
-    pub language: Option<String>,
-
     /// Model UUIDs that served the request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub models: Option<Vec<String>>,

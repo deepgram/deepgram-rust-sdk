@@ -98,7 +98,7 @@ async fn main() -> Result<(), DeepgramError> {
     let channels = 1;
 
     let options = Options::builder()
-        .model(Model::AuraAsteriaEn)
+        .model(Model::aura_asteria_en())
         .encoding(Encoding::Linear16)
         .sample_rate(sample_rate)
         .container(Container::Wav)

@@ -42,7 +42,7 @@ async fn main() -> Result<(), DeepgramError> {
     let (mut handle, mut stream) = dg
         .text_to_speech()
         .websocket()
-        .model(Model::AuraAsteriaEn)
+        .model(Model::aura_asteria_en())
         .encoding(Encoding::Linear16)
         .sample_rate(24_000)
         .start()

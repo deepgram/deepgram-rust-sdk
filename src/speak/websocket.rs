@@ -19,7 +19,7 @@
 //! let (mut handle, mut stream) = dg
 //!     .text_to_speech()
 //!     .websocket()
-//!     .model(Model::AuraAsteriaEn)
+//!     .model(Model::aura_asteria_en())
 //!     .sample_rate(24_000)
 //!     .start()
 //!     .await?;
@@ -432,7 +432,7 @@ mod tests {
         let speak = dg.text_to_speech();
         let builder = speak
             .websocket()
-            .model(Model::AuraAsteriaEn)
+            .model(Model::aura_asteria_en())
             .encoding(Encoding::Linear16)
             .sample_rate(24_000)
             .speed(1.0)
@@ -456,7 +456,7 @@ mod tests {
         let builder = speak
             .websocket()
             .url("ws://127.0.0.1:9999/v1/speak")
-            .model(Model::AuraAsteriaEn);
+            .model(Model::aura_asteria_en());
         let url = builder.connect_url().unwrap();
         assert_eq!(url.scheme(), "ws");
         assert_eq!(url.host_str(), Some("127.0.0.1"));
