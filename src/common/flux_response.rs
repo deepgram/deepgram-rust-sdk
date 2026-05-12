@@ -22,6 +22,7 @@ pub enum FluxResponse {
     },
 
     /// Turn information with transcript
+    #[non_exhaustive]
     TurnInfo {
         #[allow(missing_docs)]
         request_id: Uuid,
@@ -49,6 +50,47 @@ pub enum FluxResponse {
 
         /// Confidence that this is end of turn
         end_of_turn_confidence: f64,
+
+        /// Languages detected in the user's speech (descending by word
+        /// count). Only populated when the listen model is
+        /// `flux-general-multi`; empty otherwise.
+        languages: Vec<String>,
+
+        /// The currently active language hints. Only populated when
+        /// language hints are configured (e.g. via
+        /// [`crate::common::options::OptionsBuilder::language_hint`]
+        /// or via a [`FluxResponse::ConfigureSuccess`] update).
+        languages_hinted: Vec<String>,
+    },
+
+    /// Acknowledges that a `Configure` message was successfully applied.
+    /// Reflects the post-update settings.
+    ConfigureSuccess {
+        #[allow(missing_docs)]
+        request_id: Uuid,
+
+        #[allow(missing_docs)]
+        sequence_id: u32,
+
+        /// Current threshold values after the update.
+        thresholds: ConfigureThresholds,
+
+        /// Currently active keyterms.
+        keyterms: Vec<String>,
+
+        /// Currently active language hints. Only meaningful with
+        /// `flux-general-multi`.
+        language_hints: Vec<String>,
+    },
+
+    /// The server rejected a `Configure` message. The session continues
+    /// with its prior settings.
+    ConfigureFailure {
+        #[allow(missing_docs)]
+        request_id: Uuid,
+
+        #[allow(missing_docs)]
+        sequence_id: u32,
     },
 
     /// Fatal error from server
@@ -71,6 +113,53 @@ pub enum FluxResponse {
     Unknown(serde_json::Value),
 }
 
+/// End-of-turn threshold settings reported on
+/// [`FluxResponse::ConfigureSuccess`] (and accepted by
+/// [`crate::listen::flux::FluxHandle::configure`]).
+///
+/// All fields are optional — the server only echoes back the values
+/// that are currently set.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ConfigureThresholds {
+    /// Confidence required to fire an eager end-of-turn event (0.3-0.9).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eager_eot_threshold: Option<f64>,
+
+    /// Confidence required to finish a turn (0.5-0.9).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eot_threshold: Option<f64>,
+
+    /// Force-end-of-turn timeout, in milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eot_timeout_ms: Option<u32>,
+}
+
+impl ConfigureThresholds {
+    /// Construct an empty threshold set; populate via the `with_*` builders.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the eager-EOT confidence threshold (0.3-0.9).
+    pub fn with_eager_eot_threshold(mut self, value: f64) -> Self {
+        self.eager_eot_threshold = Some(value);
+        self
+    }
+
+    /// Set the EOT confidence threshold (0.5-0.9).
+    pub fn with_eot_threshold(mut self, value: f64) -> Self {
+        self.eot_threshold = Some(value);
+        self
+    }
+
+    /// Set the force-EOT timeout, in milliseconds.
+    pub fn with_eot_timeout_ms(mut self, value: u32) -> Self {
+        self.eot_timeout_ms = Some(value);
+        self
+    }
+}
+
 /// Private helper enum for deserializing/serializing known FluxResponse variants
 /// using serde's internally-tagged representation.
 #[derive(Deserialize, Serialize)]
@@ -90,6 +179,23 @@ enum TaggedFluxResponse {
         transcript: String,
         words: Vec<FluxWord>,
         end_of_turn_confidence: f64,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        languages: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        languages_hinted: Vec<String>,
+    },
+    ConfigureSuccess {
+        request_id: Uuid,
+        sequence_id: u32,
+        thresholds: ConfigureThresholds,
+        #[serde(default)]
+        keyterms: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        language_hints: Vec<String>,
+    },
+    ConfigureFailure {
+        request_id: Uuid,
+        sequence_id: u32,
     },
     #[serde(rename = "Error")]
     FatalError {
@@ -119,6 +225,8 @@ impl From<TaggedFluxResponse> for FluxResponse {
                 transcript,
                 words,
                 end_of_turn_confidence,
+                languages,
+                languages_hinted,
             } => FluxResponse::TurnInfo {
                 request_id,
                 sequence_id,
@@ -129,6 +237,28 @@ impl From<TaggedFluxResponse> for FluxResponse {
                 transcript,
                 words,
                 end_of_turn_confidence,
+                languages,
+                languages_hinted,
+            },
+            TaggedFluxResponse::ConfigureSuccess {
+                request_id,
+                sequence_id,
+                thresholds,
+                keyterms,
+                language_hints,
+            } => FluxResponse::ConfigureSuccess {
+                request_id,
+                sequence_id,
+                thresholds,
+                keyterms,
+                language_hints,
+            },
+            TaggedFluxResponse::ConfigureFailure {
+                request_id,
+                sequence_id,
+            } => FluxResponse::ConfigureFailure {
+                request_id,
+                sequence_id,
             },
             TaggedFluxResponse::FatalError {
                 sequence_id,
@@ -153,7 +283,7 @@ impl<'de> Deserialize<'de> for FluxResponse {
         let type_str = value.get("type").and_then(|t| t.as_str());
 
         match type_str {
-            Some("Connected" | "TurnInfo" | "Error") => {
+            Some("Connected" | "TurnInfo" | "ConfigureSuccess" | "ConfigureFailure" | "Error") => {
                 serde_json::from_value::<TaggedFluxResponse>(value)
                     .map(FluxResponse::from)
                     .map_err(de::Error::custom)
@@ -189,6 +319,8 @@ impl Serialize for FluxResponse {
                 transcript,
                 words,
                 end_of_turn_confidence,
+                languages,
+                languages_hinted,
             } => {
                 let tagged = TaggedFluxResponse::TurnInfo {
                     request_id: *request_id,
@@ -200,6 +332,34 @@ impl Serialize for FluxResponse {
                     transcript: transcript.clone(),
                     words: words.clone(),
                     end_of_turn_confidence: *end_of_turn_confidence,
+                    languages: languages.clone(),
+                    languages_hinted: languages_hinted.clone(),
+                };
+                tagged.serialize(serializer)
+            }
+            FluxResponse::ConfigureSuccess {
+                request_id,
+                sequence_id,
+                thresholds,
+                keyterms,
+                language_hints,
+            } => {
+                let tagged = TaggedFluxResponse::ConfigureSuccess {
+                    request_id: *request_id,
+                    sequence_id: *sequence_id,
+                    thresholds: thresholds.clone(),
+                    keyterms: keyterms.clone(),
+                    language_hints: language_hints.clone(),
+                };
+                tagged.serialize(serializer)
+            }
+            FluxResponse::ConfigureFailure {
+                request_id,
+                sequence_id,
+            } => {
+                let tagged = TaggedFluxResponse::ConfigureFailure {
+                    request_id: *request_id,
+                    sequence_id: *sequence_id,
                 };
                 tagged.serialize(serializer)
             }
@@ -321,5 +481,76 @@ mod tests {
         let roundtrip: serde_json::Value = serde_json::from_str(&serialized).unwrap();
         let original: serde_json::Value = serde_json::from_str(json).unwrap();
         assert_eq!(roundtrip, original);
+    }
+
+    #[test]
+    fn turninfo_languages_default_empty_when_absent() {
+        let json = r#"{"type":"TurnInfo","request_id":"550e8400-e29b-41d4-a716-446655440000","sequence_id":1,"event":"EndOfTurn","turn_index":0,"audio_window_start":0.0,"audio_window_end":1.0,"transcript":"hello","words":[],"end_of_turn_confidence":0.9}"#;
+        let response: FluxResponse = serde_json::from_str(json).unwrap();
+        match response {
+            FluxResponse::TurnInfo {
+                languages,
+                languages_hinted,
+                ..
+            } => {
+                assert!(languages.is_empty());
+                assert!(languages_hinted.is_empty());
+            }
+            _ => panic!("expected TurnInfo"),
+        }
+    }
+
+    #[test]
+    fn turninfo_languages_round_trip_when_present() {
+        let json = r#"{"type":"TurnInfo","request_id":"550e8400-e29b-41d4-a716-446655440000","sequence_id":1,"event":"EndOfTurn","turn_index":0,"audio_window_start":0.0,"audio_window_end":1.0,"transcript":"Hola","words":[],"end_of_turn_confidence":0.9,"languages":["es"],"languages_hinted":["en","es"]}"#;
+        let response: FluxResponse = serde_json::from_str(json).unwrap();
+        match &response {
+            FluxResponse::TurnInfo {
+                languages,
+                languages_hinted,
+                ..
+            } => {
+                assert_eq!(languages, &vec!["es".to_string()]);
+                assert_eq!(languages_hinted, &vec!["en".to_string(), "es".to_string()]);
+            }
+            _ => panic!("expected TurnInfo"),
+        }
+        let back = serde_json::to_string(&response).unwrap();
+        assert_eq!(back, json);
+    }
+
+    #[test]
+    fn configure_success_round_trip() {
+        let json = r#"{"type":"ConfigureSuccess","request_id":"550e8400-e29b-41d4-a716-446655440000","sequence_id":5,"thresholds":{"eager_eot_threshold":0.6,"eot_threshold":0.8,"eot_timeout_ms":4000},"keyterms":["activate","cancel"],"language_hints":["en"]}"#;
+        let response: FluxResponse = serde_json::from_str(json).unwrap();
+        match &response {
+            FluxResponse::ConfigureSuccess {
+                thresholds,
+                keyterms,
+                language_hints,
+                sequence_id,
+                ..
+            } => {
+                assert_eq!(*sequence_id, 5);
+                assert_eq!(thresholds.eot_threshold, Some(0.8));
+                assert_eq!(
+                    keyterms,
+                    &vec!["activate".to_string(), "cancel".to_string()]
+                );
+                assert_eq!(language_hints, &vec!["en".to_string()]);
+            }
+            _ => panic!("expected ConfigureSuccess"),
+        }
+        let back = serde_json::to_string(&response).unwrap();
+        assert_eq!(back, json);
+    }
+
+    #[test]
+    fn configure_failure_round_trip() {
+        let json = r#"{"type":"ConfigureFailure","request_id":"550e8400-e29b-41d4-a716-446655440000","sequence_id":6}"#;
+        let response: FluxResponse = serde_json::from_str(json).unwrap();
+        assert!(matches!(response, FluxResponse::ConfigureFailure { .. }));
+        let back = serde_json::to_string(&response).unwrap();
+        assert_eq!(back, json);
     }
 }

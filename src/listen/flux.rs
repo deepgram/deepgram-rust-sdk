@@ -40,11 +40,13 @@ use uuid::Uuid;
 use self::file_chunker::FileChunker;
 use crate::{
     common::{
-        flux_response::FluxResponse,
+        flux_response::{ConfigureThresholds, FluxResponse},
         options::{Encoding, Options},
     },
     Deepgram, DeepgramError, Result, Transcription,
 };
+
+use serde::Serialize;
 
 static FLUX_URL_PATH: &str = "v2/listen";
 
@@ -289,10 +291,83 @@ enum ControlMessage {
     CloseStream,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 enum WsMessage {
     Audio(Vec<u8>),
+    /// Pre-serialized JSON for a `Configure` message.
+    Configure(String),
     CloseStream,
+}
+
+/// Settings to update mid-session via [`FluxHandle::configure`].
+///
+/// Mirrors the wire-level `Configure` message defined in
+/// `asyncapi/schemas/schemas.listen.v2.yml`. All fields are optional —
+/// any field set to `None` is left unchanged on the server.
+///
+/// Construct via [`ConfigureRequest::new`] + the `with_*` builder
+/// methods rather than struct-literal syntax — `#[non_exhaustive]`
+/// keeps future field additions backwards-compatible.
+#[derive(Debug, Clone, Default, PartialEq)]
+#[non_exhaustive]
+pub struct ConfigureRequest {
+    /// New end-of-turn threshold values. Omit to leave thresholds untouched.
+    pub thresholds: Option<ConfigureThresholds>,
+
+    /// New keyterm list. Omit (`None`) to leave keyterms untouched;
+    /// pass `Some(vec![])` to clear them.
+    pub keyterms: Option<Vec<String>>,
+
+    /// New language hints. Only meaningful with `flux-general-multi`.
+    /// Omit (`None`) to leave hints untouched; pass `Some(vec![])` to clear them.
+    pub language_hints: Option<Vec<String>>,
+}
+
+impl ConfigureRequest {
+    /// Construct an empty request — no fields will be sent unless
+    /// populated via the `with_*` builders.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the threshold update.
+    pub fn with_thresholds(mut self, thresholds: ConfigureThresholds) -> Self {
+        self.thresholds = Some(thresholds);
+        self
+    }
+
+    /// Replace the keyterms list.
+    pub fn with_keyterms<I, S>(mut self, keyterms: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.keyterms = Some(keyterms.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// Replace the language-hint list.
+    pub fn with_language_hints<I, S>(mut self, hints: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.language_hints = Some(hints.into_iter().map(Into::into).collect());
+        self
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+enum ConfigureWireMessage<'a> {
+    Configure {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        thresholds: Option<&'a ConfigureThresholds>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        keyterms: Option<&'a [String]>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        language_hints: Option<&'a [String]>,
+    },
 }
 
 #[derive(Debug)]
@@ -356,6 +431,28 @@ impl FluxHandle {
     pub async fn send_data(&mut self, data: Vec<u8>) -> Result<()> {
         self.message_tx
             .send(WsMessage::Audio(data))
+            .await
+            .map_err(|err| DeepgramError::InternalClientError(err.into()))?;
+        Ok(())
+    }
+
+    /// Send a `Configure` message to update thresholds, keyterms, or
+    /// language hints mid-session.
+    ///
+    /// The server will respond with either a
+    /// [`crate::common::flux_response::FluxResponse::ConfigureSuccess`]
+    /// echoing the post-update settings, or a
+    /// [`crate::common::flux_response::FluxResponse::ConfigureFailure`]
+    /// indicating the request was rejected.
+    pub async fn configure(&mut self, request: ConfigureRequest) -> Result<()> {
+        let wire = ConfigureWireMessage::Configure {
+            thresholds: request.thresholds.as_ref(),
+            keyterms: request.keyterms.as_deref(),
+            language_hints: request.language_hints.as_deref(),
+        };
+        let json = serde_json::to_string(&wire)?;
+        self.message_tx
+            .send(WsMessage::Configure(json))
             .await
             .map_err(|err| DeepgramError::InternalClientError(err.into()))?;
         Ok(())
@@ -432,12 +529,10 @@ async fn run_flux_worker(
                             OpCode::Data(Data::Text) => {
                                 partial_frame.extend(frame.payload());
                             }
-                            OpCode::Data(Data::Continue) => {
-                                // We know we're continuing a text frame because otherwise
-                                // partial_frame would be empty.
-                                if !partial_frame.is_empty() {
-                                    partial_frame.extend(frame.payload())
-                                }
+                            // We know we're continuing a text frame because otherwise
+                            // partial_frame would be empty.
+                            OpCode::Data(Data::Continue) if !partial_frame.is_empty() => {
+                                partial_frame.extend(frame.payload())
                             }
                             _ => {
                                 // Ignore other partial frames.
@@ -473,6 +568,16 @@ async fn run_flux_worker(
                     match message {
                         Some(WsMessage::Audio(audio)) => {
                             if let Err(err) = ws_stream_send.send(Message::Binary(Bytes::from(audio))).await {
+                                if response_tx.send(Err(err.into())).await.is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                        Some(WsMessage::Configure(json)) => {
+                            if let Err(err) = ws_stream_send
+                                .send(Message::Text(Utf8Bytes::from(json)))
+                                .await
+                            {
                                 if response_tx.send(Err(err.into())).await.is_err() {
                                     break;
                                 }
@@ -604,7 +709,61 @@ mod file_chunker {
 
 #[cfg(test)]
 mod tests {
+    use super::{ConfigureRequest, ConfigureWireMessage};
+    use crate::common::flux_response::ConfigureThresholds;
     use crate::common::options::Options;
+
+    /// Build the wire message exactly the way `FluxHandle::configure`
+    /// builds it, then serialize. Centralized so the tests stay in
+    /// sync with the production path.
+    fn wire_json(req: &ConfigureRequest) -> String {
+        let wire = ConfigureWireMessage::Configure {
+            thresholds: req.thresholds.as_ref(),
+            keyterms: req.keyterms.as_deref(),
+            language_hints: req.language_hints.as_deref(),
+        };
+        serde_json::to_string(&wire).unwrap()
+    }
+
+    #[test]
+    fn configure_wire_empty_skips_all_fields() {
+        let req = ConfigureRequest::new();
+        assert_eq!(wire_json(&req), r#"{"type":"Configure"}"#);
+    }
+
+    #[test]
+    fn configure_wire_omit_vs_clear_distinguishable() {
+        // `None` → field omitted entirely (leaves server-side value untouched).
+        let omit = ConfigureRequest::new();
+        assert_eq!(wire_json(&omit), r#"{"type":"Configure"}"#);
+
+        // `Some(vec![])` → field serialized as `[]` (clears the
+        // server-side list). The two cases MUST produce different JSON.
+        let clear = ConfigureRequest::new().with_keyterms(Vec::<String>::new());
+        assert_eq!(wire_json(&clear), r#"{"type":"Configure","keyterms":[]}"#);
+
+        let clear_hints = ConfigureRequest::new().with_language_hints(Vec::<String>::new());
+        assert_eq!(
+            wire_json(&clear_hints),
+            r#"{"type":"Configure","language_hints":[]}"#
+        );
+    }
+
+    #[test]
+    fn configure_wire_all_fields_populated() {
+        let req = ConfigureRequest::new()
+            .with_thresholds(
+                ConfigureThresholds::new()
+                    .with_eot_threshold(0.85)
+                    .with_eot_timeout_ms(5_000),
+            )
+            .with_keyterms(["weather", "forecast"])
+            .with_language_hints(["en", "es"]);
+        assert_eq!(
+            wire_json(&req),
+            r#"{"type":"Configure","thresholds":{"eot_threshold":0.85,"eot_timeout_ms":5000},"keyterms":["weather","forecast"],"language_hints":["en","es"]}"#
+        );
+    }
 
     #[test]
     fn test_flux_url() {

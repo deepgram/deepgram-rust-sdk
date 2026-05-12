@@ -19,7 +19,7 @@ For a TTS-only install:
 
 ```toml
 [dependencies]
-deepgram = { version = "0.9.2", default-features = false, features = ["speak"] }
+deepgram = { version = "0.10.0", default-features = false, features = ["speak"] }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 # Only add `bytes = "1"` if you need to name `bytes::Bytes` in your own signatures.
