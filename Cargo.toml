@@ -25,7 +25,6 @@ http = "1.4"
 pin-project = "1"
 reqwest = { version = "^0.13", default-features = false, features = [
   "json",
-  "rustls",
   "stream",
   "query",
 ] }
@@ -55,10 +54,12 @@ rodio = { version = "0.20.1" }
 pkg-config = { version = "0.3.30" }
 
 [features]
-default = ["manage", "listen", "speak"]
+default = ["manage", "listen", "speak", "reqwest-rustls"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
 speak = []
+reqwest-no-provider = ["reqwest/rustls-no-provider"]
+reqwest-rustls = ["reqwest/rustls"]
 
 [[example]]
 name = "grant_token"
