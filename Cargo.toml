@@ -25,7 +25,6 @@ http = "1.4"
 pin-project = "1"
 reqwest = { version = "^0.13", default-features = false, features = [
   "json",
-  "rustls",
   "stream",
   "query",
 ] }
@@ -78,7 +77,7 @@ tokio-rustls = "0.26"
 all-features = true
 
 [features]
-default = ["manage", "listen", "speak", "read", "agent"]
+default = ["manage", "listen", "speak", "read", "agent", "reqwest-rustls"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
 speak = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
@@ -102,6 +101,8 @@ __tls = [
   "dep:webpki-roots",
   "dep:tracing",
 ]
+reqwest-no-provider = ["reqwest/rustls-no-provider"]
+reqwest-rustls = ["reqwest/rustls"]
 
 [[example]]
 name = "grant_token"
