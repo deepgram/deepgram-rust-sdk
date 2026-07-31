@@ -46,6 +46,8 @@ pub mod diagnostics;
 pub mod listen;
 #[cfg(feature = "manage")]
 pub mod manage;
+#[cfg(feature = "listen")]
+pub mod read;
 #[cfg(feature = "speak")]
 pub mod speak;
 #[cfg(any(feature = "listen", feature = "speak"))]
@@ -59,6 +61,9 @@ pub mod tls;
 /// bump will be a breaking change for this crate as well.
 #[cfg(any(feature = "listen", feature = "speak"))]
 pub use rustls;
+
+#[cfg(feature = "listen")]
+pub use read::Read;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 
