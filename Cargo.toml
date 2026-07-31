@@ -85,6 +85,11 @@ path = "examples/transcription/rest/prerecorded_from_url.rs"
 required-features = ["listen"]
 
 [[example]]
+name = "captions"
+path = "examples/transcription/rest/captions.rs"
+required-features = ["listen"]
+
+[[example]]
 name = "simple_stream"
 path = "examples/transcription/websocket/simple_stream.rs"
 required-features = ["listen"]
@@ -137,4 +142,9 @@ required-features = ["speak"]
 [[example]]
 name = "text_to_speech_to_stream"
 path = "examples/speak/rest/text_to_speech_to_stream.rs"
+required-features = ["speak"]
+
+[[example]]
+name = "text_to_speech_request_id"
+path = "examples/speak/rest/text_to_speech_request_id.rs"
 required-features = ["speak"]

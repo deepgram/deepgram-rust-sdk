@@ -430,6 +430,31 @@ pub enum Model {
     #[allow(missing_docs)]
     Video,
 
+    /// Deepgram-hosted Whisper Cloud, defaulting to the `medium` size.
+    ///
+    /// Whisper models only support pre-recorded audio and are less scalable
+    /// than Deepgram's own models. See the [Deepgram Whisper Cloud docs][docs].
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/deepgram-whisper-cloud
+    Whisper,
+
+    /// Deepgram-hosted Whisper Cloud `tiny` size (39M parameters).
+    WhisperTiny,
+
+    /// Deepgram-hosted Whisper Cloud `base` size (74M parameters).
+    WhisperBase,
+
+    /// Deepgram-hosted Whisper Cloud `small` size (244M parameters).
+    WhisperSmall,
+
+    /// Deepgram-hosted Whisper Cloud `medium` size (769M parameters). This is
+    /// the default size when selecting [`Model::Whisper`].
+    WhisperMedium,
+
+    /// Deepgram-hosted Whisper Cloud `large` size (1550M parameters, OpenAI's
+    /// `large-v2`).
+    WhisperLarge,
+
     #[allow(missing_docs)]
     CustomId(String),
 }
@@ -624,11 +649,27 @@ pub enum Language {
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum Redact {
-    #[allow(missing_docs)]
+    /// Redacts credit card information, including credit card number,
+    /// expiration date, and CVV.
     Pci,
 
-    #[allow(missing_docs)]
+    /// Redacts a broad range of personally identifiable information, including
+    /// names, locations, and identifying numbers. English only.
+    Pii,
+
+    /// Redacts protected health information, including medical conditions,
+    /// drugs, injuries, blood types, medical processes, and statistics.
+    /// English only.
+    Phi,
+
+    /// Redacts any sequence of three or more consecutive numerals, plus the
+    /// entity types in the `numbers` redaction group (dates, account numbers,
+    /// credit cards, SSNs, and more). Equivalent to `redact=true`.
     Numbers,
+
+    /// Redacts every numeral (including single- and two-digit numbers), plus
+    /// the entity types in the `numbers` redaction group.
+    AggressiveNumbers,
 
     #[allow(missing_docs)]
     Ssn,
@@ -2508,6 +2549,12 @@ impl AsRef<str> for Model {
             Self::Conversationalai => "conversationalai",
             #[allow(deprecated)]
             Self::Video => "video",
+            Self::Whisper => "whisper",
+            Self::WhisperTiny => "whisper-tiny",
+            Self::WhisperBase => "whisper-base",
+            Self::WhisperSmall => "whisper-small",
+            Self::WhisperMedium => "whisper-medium",
+            Self::WhisperLarge => "whisper-large",
             Self::CustomId(id) => id,
         }
     }
@@ -2572,6 +2619,12 @@ impl From<String> for Model {
             "conversationalai" => Self::Conversationalai,
             #[allow(deprecated)]
             "video" => Self::Video,
+            "whisper" => Self::Whisper,
+            "whisper-tiny" => Self::WhisperTiny,
+            "whisper-base" => Self::WhisperBase,
+            "whisper-small" => Self::WhisperSmall,
+            "whisper-medium" => Self::WhisperMedium,
+            "whisper-large" => Self::WhisperLarge,
             _ => Self::CustomId(value),
         }
     }
@@ -2706,7 +2759,10 @@ impl AsRef<str> for Redact {
     fn as_ref(&self) -> &str {
         match self {
             Redact::Pci => "pci",
+            Redact::Pii => "pii",
+            Redact::Phi => "phi",
             Redact::Numbers => "numbers",
+            Redact::AggressiveNumbers => "aggressive_numbers",
             Redact::Ssn => "ssn",
             Redact::Other(id) => id,
         }
@@ -2717,7 +2773,10 @@ impl From<String> for Redact {
     fn from(value: String) -> Redact {
         match &*value {
             "pci" => Redact::Pci,
+            "pii" => Redact::Pii,
+            "phi" => Redact::Phi,
             "numbers" => Redact::Numbers,
+            "aggressive_numbers" => Redact::AggressiveNumbers,
             "ssn" => Redact::Ssn,
             _ => Redact::Other(value),
         }
