@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Text Intelligence (`/v1/read`) support: `Deepgram::text_intelligence()` returns a `Read` client with `analyze_text` and `analyze_url` for running sentiment, summarization, topic, and intent analysis over text. Reuses the existing sentiment/topic/intent response types and adds a Read-specific `Summary` (`text`) ([#94](https://github.com/deepgram/deepgram-rust-sdk/issues/94)). New example `analyze_text`.
+- Model-listing endpoints on the management API: `Deepgram::models()` returns a `Models` client with `get_models`, `get_model`, `get_project_models`, and `get_project_model`. New example `models`.
+- `futures::Stream` for live transcription is confirmed and documented: `listen::websocket::TranscriptionStream` already implements `Stream<Item = Result<StreamResponse>>`, so results compose with `StreamExt` combinators. New example `stream_futures` demonstrates idiomatic combinator usage ([#163](https://github.com/deepgram/deepgram-rust-sdk/issues/163)).
 - Text-to-Speech REST responses now expose their metadata headers, including the `dg-request-id`. New `Speak::speak_to_file_with_metadata` and `Speak::speak_to_stream_with_metadata` return a `SpeakMetadata` (request id, model name/uuid, character count, content type) alongside the audio ([#89](https://github.com/deepgram/deepgram-rust-sdk/issues/89)). New example `text_to_speech_request_id`.
 - Named Deepgram Whisper Cloud model variants: `Model::Whisper`, `Model::WhisperTiny`, `Model::WhisperBase`, `Model::WhisperSmall`, `Model::WhisperMedium`, and `Model::WhisperLarge` (previously only reachable via `Model::CustomId`) ([#128](https://github.com/deepgram/deepgram-rust-sdk/issues/128)).
 - Additional redaction options: `Redact::Pii`, `Redact::Phi`, and `Redact::AggressiveNumbers` ([#87](https://github.com/deepgram/deepgram-rust-sdk/issues/87)).

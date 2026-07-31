@@ -100,6 +100,21 @@ path = "examples/transcription/websocket/callback_stream.rs"
 required-features = ["listen"]
 
 [[example]]
+name = "stream_futures"
+path = "examples/transcription/websocket/stream_futures.rs"
+required-features = ["listen"]
+
+[[example]]
+name = "analyze_text"
+path = "examples/read/analyze_text.rs"
+required-features = ["listen"]
+
+[[example]]
+name = "models"
+path = "examples/manage/models.rs"
+required-features = ["manage"]
+
+[[example]]
 name = "microphone_stream"
 path = "examples/transcription/websocket/microphone_stream.rs"
 required-features = ["listen"]

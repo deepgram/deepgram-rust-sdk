@@ -31,8 +31,13 @@ pub mod common;
 pub mod listen;
 #[cfg(feature = "manage")]
 pub mod manage;
+#[cfg(feature = "listen")]
+pub mod read;
 #[cfg(feature = "speak")]
 pub mod speak;
+
+#[cfg(feature = "listen")]
+pub use read::Read;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 
