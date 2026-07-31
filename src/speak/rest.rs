@@ -8,20 +8,40 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use url::Url;
 
-use crate::{DeepgramError, Speak};
+use crate::{speak::response::SpeakMetadata, DeepgramError, Speak};
 
 use super::options::{Options, SerializableOptions};
 
 static DEEPGRAM_API_URL_SPEAK: &str = "v1/speak";
 
 impl Speak<'_> {
-    /// Sends a request to Deepgram to transcribe pre-recorded audio.
+    /// Sends a request to Deepgram to generate speech and save it to a file.
     pub async fn speak_to_file(
         &self,
         text: &str,
         options: &Options,
         output_file: &std::path::Path,
     ) -> Result<(), DeepgramError> {
+        self.speak_to_file_with_metadata(text, options, output_file)
+            .await
+            .map(|_metadata| ())
+    }
+
+    /// Sends a request to Deepgram to generate speech, save it to a file, and
+    /// return the response [`SpeakMetadata`] (including the `dg-request-id`).
+    ///
+    /// This behaves exactly like [`Speak::speak_to_file`] but additionally
+    /// surfaces the response headers.
+    ///
+    /// See the [Deepgram Text-to-Speech docs][docs] for the returned metadata.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/text-to-speech#results
+    pub async fn speak_to_file_with_metadata(
+        &self,
+        text: &str,
+        options: &Options,
+        output_file: &std::path::Path,
+    ) -> Result<SpeakMetadata, DeepgramError> {
         let payload = Value::Object(
             [("text".to_string(), Value::String(text.to_string()))]
                 .iter()
@@ -44,7 +64,7 @@ impl Speak<'_> {
         &self,
         request_builder: RequestBuilder,
         output_file: &std::path::Path,
-    ) -> Result<(), DeepgramError> {
+    ) -> Result<SpeakMetadata, DeepgramError> {
         let mut response = request_builder.send().await?;
 
         if let Err(err) = response.error_for_status_ref() {
@@ -58,6 +78,8 @@ impl Speak<'_> {
             });
         }
 
+        let metadata = SpeakMetadata::from_headers(response.headers());
+
         // Create the output file
         let mut file = std::fs::File::create(output_file)?;
 
@@ -66,17 +88,35 @@ impl Speak<'_> {
             std::io::copy(&mut chunk.as_ref(), &mut file)?;
         }
 
-        println!("Audio saved to {output_file:?}");
-
-        Ok(())
+        Ok(metadata)
     }
 
-    /// Sends a request to Deepgram to transcribe pre-recorded audio.
+    /// Sends a request to Deepgram to generate speech and stream back the audio.
     pub async fn speak_to_stream(
         &self,
         text: &str,
         options: &Options,
     ) -> Result<impl Stream<Item = Bytes>, DeepgramError> {
+        self.speak_to_stream_with_metadata(text, options)
+            .await
+            .map(|(_metadata, stream)| stream)
+    }
+
+    /// Sends a request to Deepgram to generate speech, returning the response
+    /// [`SpeakMetadata`] (including the `dg-request-id`) alongside the audio
+    /// stream.
+    ///
+    /// The metadata is read from the response headers, which are available
+    /// before the audio body is consumed, so it is returned immediately.
+    ///
+    /// See the [Deepgram Text-to-Speech docs][docs] for the returned metadata.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/text-to-speech#results
+    pub async fn speak_to_stream_with_metadata(
+        &self,
+        text: &str,
+        options: &Options,
+    ) -> Result<(SpeakMetadata, impl Stream<Item = Bytes>), DeepgramError> {
         let payload = Value::Object(
             [("text".to_string(), Value::String(text.to_string()))]
                 .iter()
@@ -97,7 +137,7 @@ impl Speak<'_> {
     async fn send_and_stream_response(
         &self,
         request_builder: RequestBuilder,
-    ) -> Result<impl Stream<Item = Bytes>, DeepgramError> {
+    ) -> Result<(SpeakMetadata, impl Stream<Item = Bytes>), DeepgramError> {
         let response = request_builder.send().await?;
 
         if let Err(err) = response.error_for_status_ref() {
@@ -110,6 +150,8 @@ impl Speak<'_> {
                 err,
             });
         }
+
+        let metadata = SpeakMetadata::from_headers(response.headers());
 
         let (tx, rx) = mpsc::channel(1024);
         let rx_stream = ReceiverStream::new(rx);
@@ -132,7 +174,7 @@ impl Speak<'_> {
             }
         });
 
-        Ok(rx_stream)
+        Ok((metadata, rx_stream))
     }
 
     fn speak_url(&self) -> Url {
