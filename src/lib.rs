@@ -13,7 +13,7 @@ pub use serde_json::Error as SerdeJsonError;
 pub use serde_urlencoded::ser::Error as SerdeUrlencodedError;
 use std::io;
 use std::ops::Deref;
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub use tungstenite::Error as TungsteniteError;
 
 use reqwest::{
@@ -24,6 +24,8 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 use url::Url;
 
+#[cfg(feature = "agent")]
+pub mod agent;
 pub mod auth;
 #[cfg(feature = "listen")]
 pub mod common;
@@ -181,7 +183,7 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
-    #[cfg(any(feature = "listen", feature = "speak"))]
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] Box<TungsteniteError>),
@@ -220,7 +222,7 @@ pub enum DeepgramError {
     UnexpectedServerResponse(anyhow::Error),
 }
 
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 impl From<TungsteniteError> for DeepgramError {
     fn from(err: TungsteniteError) -> Self {
         Self::from(Box::new(err))
