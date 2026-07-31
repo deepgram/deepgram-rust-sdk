@@ -58,7 +58,7 @@ pkg-config = { version = "0.3.30" }
 default = ["manage", "listen", "speak"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
-speak = []
+speak = ["dep:tungstenite", "dep:tokio-tungstenite"]
 
 [[example]]
 name = "grant_token"
@@ -163,3 +163,13 @@ required-features = ["speak"]
 name = "text_to_speech_request_id"
 path = "examples/speak/rest/text_to_speech_request_id.rs"
 required-features = ["speak"]
+
+[[example]]
+name = "text_to_speech_websocket"
+path = "examples/speak/websocket/text_to_speech_websocket.rs"
+required-features = ["speak"]
+
+[[example]]
+name = "self_hosted_credentials"
+path = "examples/manage/self_hosted_credentials.rs"
+required-features = ["manage"]
