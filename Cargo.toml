@@ -78,11 +78,12 @@ tokio-rustls = "0.26"
 all-features = true
 
 [features]
-default = ["manage", "listen", "speak", "read"]
+default = ["manage", "listen", "speak", "read", "agent"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
 speak = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
 read = []
+agent = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
 # Also trust the operating system's certificate store, on top of the bundled
 # webpki roots, for every wss:// websocket connection. For TLS-inspecting proxies
 # (Zscaler, Netskope, ...), internal CAs, and self-hosted deployments. Named
@@ -93,7 +94,7 @@ rustls-tls-native-roots = [
 ]
 connect-diagnostics = ["listen", "uuid/v4"]
 # Internal: the rustls stack shared by every websocket surface. Not a public
-# feature; enabled through `listen` and `speak`.
+# feature; enabled through `listen`, `speak`, and `agent`.
 __tls = [
   "dep:rustls",
   "dep:rustls-pki-types",
@@ -235,3 +236,13 @@ required-features = ["speak"]
 name = "self_hosted_credentials"
 path = "examples/manage/self_hosted_credentials.rs"
 required-features = ["manage"]
+
+[[example]]
+name = "simple_agent"
+path = "examples/agent/websocket/simple_agent.rs"
+required-features = ["agent"]
+
+[[example]]
+name = "function_calling"
+path = "examples/agent/websocket/function_calling.rs"
+required-features = ["agent"]
