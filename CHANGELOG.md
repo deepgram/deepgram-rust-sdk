@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Text-to-Speech REST responses now expose their metadata headers, including the `dg-request-id`. New `Speak::speak_to_file_with_metadata` and `Speak::speak_to_stream_with_metadata` return a `SpeakMetadata` (request id, model name/uuid, character count, content type) alongside the audio ([#89](https://github.com/deepgram/deepgram-rust-sdk/issues/89)). New example `text_to_speech_request_id`.
+- Named Deepgram Whisper Cloud model variants: `Model::Whisper`, `Model::WhisperTiny`, `Model::WhisperBase`, `Model::WhisperSmall`, `Model::WhisperMedium`, and `Model::WhisperLarge` (previously only reachable via `Model::CustomId`) ([#128](https://github.com/deepgram/deepgram-rust-sdk/issues/128)).
+- Additional redaction options: `Redact::Pii`, `Redact::Phi`, and `Redact::AggressiveNumbers` ([#87](https://github.com/deepgram/deepgram-rust-sdk/issues/87)).
+- Public fields on the Audio Intelligence and paragraph response types (`Paragraph`, `Sentence`, `Paragraphs`, `Entity`, `Intent`, `Segment`, `Intents`, `SentimentSegment`, `SentimentAverage`, `Sentiments`, `TopicDetail`, `TopicSegment`, `Topics`, `Summary`), which were previously inaccessible. All are now `#[non_exhaustive]` ([#129](https://github.com/deepgram/deepgram-rust-sdk/issues/129)).
+- Caption generation: `common::captions::srt` / `webvtt` (and `Response::to_srt` / `to_webvtt`) render SRT and WebVTT subtitle files from a pre-recorded transcription, with configurable words-per-cue via `CaptionOptions`. New example `captions`.
+- `extra` metadata is now surfaced on the streaming response: `common::stream_response::Metadata` and the `StreamResponse::TerminalResponse` (Metadata) message carry the `extra` key-value pairs echoed back from the request ([#130](https://github.com/deepgram/deepgram-rust-sdk/issues/130)).
+
+### Changed
+
+- **BREAKING**: `common::stream_response::Metadata` is now `#[non_exhaustive]` and gained an `extra` field, and `StreamResponse::TerminalResponse` gained an `extra` field (the variant is now `#[non_exhaustive]`). Callers constructing or exhaustively destructuring either with a struct literal must add `..`. (These types are produced by deserialization, so most callers are unaffected.)
+- `Speak::speak_to_file` no longer prints `Audio saved to …` to stdout on success; libraries should not write to stdout. Error diagnostics are unchanged.
+
 ### Fixed
 
 - WebSocket handshakes (live transcription, Flux speech-to-text, Flux text-to-speech) now send the URL's full authority in the `Host` header, so a base URL on a non-default port (`https://dg.internal.example:8443`, `http://127.0.0.1:54321`) produces `Host: dg.internal.example:8443` rather than `Host: dg.internal.example`. Strict reverse proxies and virtual-host routing on self-hosted deployments could reject or misroute the old value. Default ports are still omitted, so requests to `api.deepgram.com` are unchanged.
