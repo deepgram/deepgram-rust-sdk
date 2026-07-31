@@ -16,6 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: a `/v1/listen` provider `Error` frame now arrives as `Ok(StreamResponse::Unknown)` where 0.11.0 surfaced it as `Err`. Code that watched `receive()` for `Err` to notice provider errors stops seeing them; match `StreamResponse::Unknown` and read its `type`, `variant`, `description`, and `message` fields instead.
 - **BREAKING**: `send_data`, `finalize`, `keep_alive`, and `close_stream` on a `/v1/listen` streaming handle now return `Err` once the session has ended, where 0.11.0 returned `Ok(())` indefinitely. Code that called one of them on a handle whose session had already failed, and propagated the result with `?`, now surfaces an error where it previously carried on. Handle the error, or stop sending once `receive()` has yielded an `Err` or `None`. Cause: the worker used to drain its command channel after the loop ended, accepting audio that had nowhere to go; the first failed write now ends the session, so every later send reports the failure instead of appearing to succeed. The same write failure is also reported exactly once now — a failed write used to leave the worker running, so each later send to the same dead socket produced another `Err` on the stream and the shutdown path could add one more.
 
+### Added
+
+- Text-to-Speech REST responses now expose their metadata headers, including the `dg-request-id`. New `Speak::speak_to_file_with_metadata` and `Speak::speak_to_stream_with_metadata` return a `SpeakMetadata` (request id, model name/uuid, character count, content type) alongside the audio ([#89](https://github.com/deepgram/deepgram-rust-sdk/issues/89)). New example `text_to_speech_request_id`.
+- Named Deepgram Whisper Cloud model variants: `Model::Whisper`, `Model::WhisperTiny`, `Model::WhisperBase`, `Model::WhisperSmall`, `Model::WhisperMedium`, and `Model::WhisperLarge` (previously only reachable via `Model::CustomId`) ([#128](https://github.com/deepgram/deepgram-rust-sdk/issues/128)).
+- Additional redaction options: `Redact::Pii`, `Redact::Phi`, and `Redact::AggressiveNumbers` ([#87](https://github.com/deepgram/deepgram-rust-sdk/issues/87)).
+- Public fields on the Audio Intelligence and paragraph response types (`Paragraph`, `Sentence`, `Paragraphs`, `Entity`, `Intent`, `Segment`, `Intents`, `SentimentSegment`, `SentimentAverage`, `Sentiments`, `TopicDetail`, `TopicSegment`, `Topics`, `Summary`), which were previously inaccessible. All are now `#[non_exhaustive]` ([#129](https://github.com/deepgram/deepgram-rust-sdk/issues/129)).
+- Caption generation: `common::captions::srt` / `webvtt` (and `Response::to_srt` / `to_webvtt`) render SRT and WebVTT subtitle files from a pre-recorded transcription, with configurable words-per-cue via `CaptionOptions`. New example `captions`.
+- `extra` metadata is now surfaced on the streaming response: `common::stream_response::Metadata` and the `StreamResponse::TerminalResponse` (Metadata) message carry the `extra` key-value pairs echoed back from the request ([#130](https://github.com/deepgram/deepgram-rust-sdk/issues/130)).
+
+### Changed
+
+- **BREAKING**: `common::stream_response::Metadata` is now `#[non_exhaustive]` and gained an `extra` field, and `StreamResponse::TerminalResponse` gained an `extra` field (the variant is now `#[non_exhaustive]`). Callers constructing or exhaustively destructuring either with a struct literal must add `..`. (These types are produced by deserialization, so most callers are unaffected.)
+- `Speak::speak_to_file` no longer prints `Audio saved to …` to stdout on success; libraries should not write to stdout. Error diagnostics are unchanged.
+
 ### Fixed
 
 - Streaming speech-to-text (`/v1/listen`): `Results` frames that omit `speech_final`, which the API sends when endpointing is disabled and `interim_results` is off, now parse as `TranscriptResponse` with `speech_final` set to `false`. On 0.11.0 each of those frames surfaced as `Err`, so those streams delivered no transcripts at all.

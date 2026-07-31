@@ -172,21 +172,35 @@ pub struct SearchResults {
     pub hits: Vec<Hit>,
 }
 
-/// Sentence
+/// A single sentence within a [`Paragraph`].
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Sentence {
-    text: String,
-    start: f64,
-    end: f64,
+    #[allow(missing_docs)]
+    pub text: String,
+
+    #[allow(missing_docs)]
+    pub start: f64,
+
+    #[allow(missing_docs)]
+    pub end: f64,
 }
 
-/// Paragraph
+/// A single paragraph of the transcript.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Paragraph {
-    sentences: Vec<Sentence>,
-    num_words: usize,
-    start: f64,
-    end: f64,
+    #[allow(missing_docs)]
+    pub sentences: Vec<Sentence>,
+
+    #[allow(missing_docs)]
+    pub num_words: usize,
+
+    #[allow(missing_docs)]
+    pub start: f64,
+
+    #[allow(missing_docs)]
+    pub end: f64,
 }
 
 /// Paragraph results.
@@ -197,9 +211,13 @@ pub struct Paragraph {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 /// [docs]: https://developers.deepgram.com/docs/paragraphs
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Paragraphs {
-    transcript: String,
-    paragraphs: Vec<Paragraph>,
+    #[allow(missing_docs)]
+    pub transcript: String,
+
+    #[allow(missing_docs)]
+    pub paragraphs: Vec<Paragraph>,
 }
 
 /// Entity Detection results.
@@ -210,28 +228,50 @@ pub struct Paragraphs {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 /// [docs]: https://developers.deepgram.com/docs/detect-entities
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Entity {
-    label: String,
-    value: String,
-    confidence: f64,
-    start_word: usize,
-    end_word: usize,
+    #[allow(missing_docs)]
+    pub label: String,
+
+    #[allow(missing_docs)]
+    pub value: String,
+
+    #[allow(missing_docs)]
+    pub confidence: f64,
+
+    #[allow(missing_docs)]
+    pub start_word: usize,
+
+    #[allow(missing_docs)]
+    pub end_word: usize,
 }
 
-/// Intent
+/// A single detected intent.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Intent {
-    intent: String,
-    confidence_score: f64,
+    #[allow(missing_docs)]
+    pub intent: String,
+
+    #[allow(missing_docs)]
+    pub confidence_score: f64,
 }
 
-/// Segment
+/// A segment of the transcript with detected intents.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Segment {
-    text: String,
-    start_word: usize,
-    end_word: usize,
-    intents: Vec<Intent>,
+    #[allow(missing_docs)]
+    pub text: String,
+
+    #[allow(missing_docs)]
+    pub start_word: usize,
+
+    #[allow(missing_docs)]
+    pub end_word: usize,
+
+    #[allow(missing_docs)]
+    pub intents: Vec<Intent>,
 }
 
 /// Intent Recognition results.
@@ -242,25 +282,41 @@ pub struct Segment {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 /// [docs]: https://developers.deepgram.com/docs/intent-recognition
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Intents {
-    segments: Vec<Segment>,
+    #[allow(missing_docs)]
+    pub segments: Vec<Segment>,
 }
 
-/// SentimentSegment
+/// A segment of the transcript with a sentiment score.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct SentimentSegment {
-    text: String,
-    start_word: usize,
-    end_word: usize,
-    sentiment: String,
-    sentiment_score: f64,
+    #[allow(missing_docs)]
+    pub text: String,
+
+    #[allow(missing_docs)]
+    pub start_word: usize,
+
+    #[allow(missing_docs)]
+    pub end_word: usize,
+
+    #[allow(missing_docs)]
+    pub sentiment: String,
+
+    #[allow(missing_docs)]
+    pub sentiment_score: f64,
 }
 
-/// SentimentAverage
+/// The average sentiment across the transcript.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct SentimentAverage {
-    sentiment: String,
-    sentiment_score: f64,
+    #[allow(missing_docs)]
+    pub sentiment: String,
+
+    #[allow(missing_docs)]
+    pub sentiment_score: f64,
 }
 
 /// Sentiment Analysis results.
@@ -271,25 +327,41 @@ pub struct SentimentAverage {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 /// [docs]: https://developers.deepgram.com/docs/sentiment-analysis
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Sentiments {
-    segments: Vec<SentimentSegment>,
-    average: SentimentAverage,
+    #[allow(missing_docs)]
+    pub segments: Vec<SentimentSegment>,
+
+    #[allow(missing_docs)]
+    pub average: SentimentAverage,
 }
 
-/// TopicDetail
+/// A single detected topic.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct TopicDetail {
-    topic: String,
-    confidence_score: f64,
+    #[allow(missing_docs)]
+    pub topic: String,
+
+    #[allow(missing_docs)]
+    pub confidence_score: f64,
 }
 
-/// TopicSegment
+/// A segment of the transcript with detected topics.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct TopicSegment {
-    text: String,
-    start_word: usize,
-    end_word: usize,
-    topics: Vec<TopicDetail>,
+    #[allow(missing_docs)]
+    pub text: String,
+
+    #[allow(missing_docs)]
+    pub start_word: usize,
+
+    #[allow(missing_docs)]
+    pub end_word: usize,
+
+    #[allow(missing_docs)]
+    pub topics: Vec<TopicDetail>,
 }
 
 /// Topics Detection results.
@@ -300,8 +372,10 @@ pub struct TopicSegment {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 /// [docs]: https://developers.deepgram.com/docs/topic-detection
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Topics {
-    segments: Vec<TopicSegment>,
+    #[allow(missing_docs)]
+    pub segments: Vec<TopicSegment>,
 }
 
 /// Summary results.
@@ -312,9 +386,13 @@ pub struct Topics {
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 /// [docs]: https://developers.deepgram.com/docs/summarization
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[non_exhaustive]
 pub struct Summary {
-    result: String,
-    short: String,
+    #[allow(missing_docs)]
+    pub result: String,
+
+    #[allow(missing_docs)]
+    pub short: String,
 }
 
 /// Transcript alternatives.

@@ -1,5 +1,7 @@
 //! Stream Response module
 
+use std::collections::HashMap;
+
 use serde::de;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -85,6 +87,7 @@ pub struct ModelInfo {
 ///
 /// [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded
 #[derive(Debug, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Metadata {
     #[allow(missing_docs)]
     pub request_id: String,
@@ -94,6 +97,15 @@ pub struct Metadata {
 
     #[allow(missing_docs)]
     pub model_uuid: String,
+
+    /// Arbitrary key-value pairs echoed back from the `extra` request
+    /// parameter, for use in downstream processing.
+    ///
+    /// [`None`] unless the [Extra Metadata feature][docs] is set.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/extra-metadata
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra: Option<HashMap<String, String>>,
 }
 
 /// Possible websocket message types
@@ -130,6 +142,7 @@ pub enum StreamResponse {
         channel_index: Vec<i32>,
     },
     #[allow(missing_docs)]
+    #[non_exhaustive]
     TerminalResponse {
         #[allow(missing_docs)]
         request_id: String,
@@ -142,6 +155,13 @@ pub enum StreamResponse {
 
         #[allow(missing_docs)]
         channels: u32,
+
+        /// Arbitrary key-value pairs echoed back from the `extra` request
+        /// parameter. [`None`] unless the [Extra Metadata feature][docs] is set.
+        ///
+        /// [docs]: https://developers.deepgram.com/docs/extra-metadata
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        extra: Option<HashMap<String, String>>,
     },
     #[allow(missing_docs)]
     SpeechStartedResponse {
