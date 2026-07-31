@@ -55,10 +55,11 @@ rodio = { version = "0.20.1" }
 pkg-config = { version = "0.3.30" }
 
 [features]
-default = ["manage", "listen", "speak"]
+default = ["manage", "listen", "speak", "agent"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
 speak = ["dep:tungstenite", "dep:tokio-tungstenite"]
+agent = ["dep:tungstenite", "dep:tokio-tungstenite"]
 
 [[example]]
 name = "grant_token"
@@ -173,3 +174,13 @@ required-features = ["speak"]
 name = "self_hosted_credentials"
 path = "examples/manage/self_hosted_credentials.rs"
 required-features = ["manage"]
+
+[[example]]
+name = "simple_agent"
+path = "examples/agent/websocket/simple_agent.rs"
+required-features = ["agent"]
+
+[[example]]
+name = "function_calling"
+path = "examples/agent/websocket/function_calling.rs"
+required-features = ["agent"]
