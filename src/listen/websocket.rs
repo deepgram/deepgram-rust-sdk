@@ -15,7 +15,7 @@ use std::{
     path::Path,
     pin::Pin,
     task::{Context, Poll},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::anyhow;
@@ -46,6 +46,7 @@ use crate::{
         options::{Encoding, Endpointing, Options},
         stream_response::StreamResponse,
     },
+    listen::connection::{socket_addrs, WebSocketConnectionInfo},
     Deepgram, DeepgramError, Result, Transcription,
 };
 
@@ -366,6 +367,7 @@ impl WebsocketBuilder<'_> {
         let (tx, rx) = mpsc::channel(1);
         let mut is_done = false;
         let request_id = handle.request_id();
+        let connection_info = handle.connection_info().clone();
         tokio::task::spawn(async move {
             let mut handle = handle;
             let mut tx = tx;
@@ -441,6 +443,7 @@ impl WebsocketBuilder<'_> {
             rx,
             done: false,
             request_id,
+            connection_info,
         })
     }
 
@@ -653,6 +656,7 @@ pub struct WebsocketHandle {
     message_tx: Sender<WsMessage>,
     response_rx: Receiver<Result<StreamResponse>>,
     request_id: Uuid,
+    connection_info: WebSocketConnectionInfo,
 }
 
 impl WebsocketHandle {
@@ -679,7 +683,9 @@ impl WebsocketHandle {
             builder.body(())?
         };
 
+        let connect_start = Instant::now();
         let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
+        let connect_duration = connect_start.elapsed();
 
         let request_id = upgrade_response
             .headers()
@@ -693,6 +699,16 @@ impl WebsocketHandle {
             .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
                 "Received malformed request ID in websocket upgrade headers"
             )))?;
+
+        // Capture socket addresses before the stream is moved into the worker task.
+        let (local_addr, peer_addr) = socket_addrs(ws_stream.get_ref());
+        let connection_info = WebSocketConnectionInfo {
+            request_id,
+            url: url.to_string(),
+            local_addr,
+            peer_addr,
+            connect_duration,
+        };
 
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
@@ -712,6 +728,7 @@ impl WebsocketHandle {
             message_tx,
             response_rx,
             request_id,
+            connection_info,
         })
     }
 
@@ -771,6 +788,15 @@ impl WebsocketHandle {
     pub fn request_id(&self) -> Uuid {
         self.request_id
     }
+
+    /// Returns metadata describing the established WebSocket connection.
+    ///
+    /// This includes the Deepgram request ID, the final request URL, the local
+    /// and resolved peer socket addresses, and the total connect-plus-upgrade
+    /// duration. Useful for logging or troubleshooting production connectivity.
+    pub fn connection_info(&self) -> &WebSocketConnectionInfo {
+        &self.connection_info
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
@@ -788,6 +814,7 @@ pub struct TranscriptionStream {
     rx: Receiver<Result<StreamResponse>>,
     done: bool,
     request_id: Uuid,
+    connection_info: WebSocketConnectionInfo,
 }
 
 impl Stream for TranscriptionStream {
@@ -806,6 +833,15 @@ impl TranscriptionStream {
     /// or troubleshooting assistance related to a specific request.
     pub fn request_id(&self) -> Uuid {
         self.request_id
+    }
+
+    /// Returns metadata describing the established WebSocket connection.
+    ///
+    /// This includes the Deepgram request ID, the final request URL, the local
+    /// and resolved peer socket addresses, and the total connect-plus-upgrade
+    /// duration. Useful for logging or troubleshooting production connectivity.
+    pub fn connection_info(&self) -> &WebSocketConnectionInfo {
+        &self.connection_info
     }
 }
 

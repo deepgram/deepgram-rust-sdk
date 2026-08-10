@@ -13,7 +13,7 @@ use std::{
     path::Path,
     pin::Pin,
     task::{Context, Poll},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::anyhow;
@@ -43,6 +43,7 @@ use crate::{
         flux_response::{ConfigureThresholds, FluxResponse},
         options::{Encoding, Options},
     },
+    listen::connection::{socket_addrs, WebSocketConnectionInfo},
     Deepgram, DeepgramError, Result, Transcription,
 };
 
@@ -225,6 +226,7 @@ impl FluxBuilder<'_> {
 
         let (tx, rx) = mpsc::channel(1);
         let request_id = handle.request_id();
+        let connection_info = handle.connection_info().clone();
         tokio::task::spawn(async move {
             let mut handle = handle;
             let mut tx = tx;
@@ -276,7 +278,11 @@ impl FluxBuilder<'_> {
                 }
             }
         });
-        Ok(FluxStream { rx, request_id })
+        Ok(FluxStream {
+            rx,
+            request_id,
+            connection_info,
+        })
     }
 
     /// A low level interface to the Deepgram Flux websocket API.
@@ -375,6 +381,7 @@ pub struct FluxHandle {
     message_tx: Sender<WsMessage>,
     pub(crate) response_rx: Receiver<Result<FluxResponse>>,
     request_id: Uuid,
+    connection_info: WebSocketConnectionInfo,
 }
 
 impl FluxHandle {
@@ -401,7 +408,9 @@ impl FluxHandle {
             builder.body(())?
         };
 
+        let connect_start = Instant::now();
         let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
+        let connect_duration = connect_start.elapsed();
 
         let request_id = upgrade_response
             .headers()
@@ -416,6 +425,16 @@ impl FluxHandle {
                 "Received malformed request ID in websocket upgrade headers"
             )))?;
 
+        // Capture socket addresses before the stream is moved into the worker task.
+        let (local_addr, peer_addr) = socket_addrs(ws_stream.get_ref());
+        let connection_info = WebSocketConnectionInfo {
+            request_id,
+            url: url.to_string(),
+            local_addr,
+            peer_addr,
+            connect_duration,
+        };
+
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
 
@@ -425,6 +444,7 @@ impl FluxHandle {
             message_tx,
             response_rx,
             request_id,
+            connection_info,
         })
     }
 
@@ -478,6 +498,15 @@ impl FluxHandle {
 
     pub fn request_id(&self) -> Uuid {
         self.request_id
+    }
+
+    /// Returns metadata describing the established WebSocket connection.
+    ///
+    /// This includes the Deepgram request ID, the final request URL, the local
+    /// and resolved peer socket addresses, and the total connect-plus-upgrade
+    /// duration. Useful for logging or troubleshooting production connectivity.
+    pub fn connection_info(&self) -> &WebSocketConnectionInfo {
+        &self.connection_info
     }
 }
 
@@ -622,6 +651,7 @@ pub struct FluxStream {
     #[pin]
     rx: Receiver<Result<FluxResponse>>,
     request_id: Uuid,
+    connection_info: WebSocketConnectionInfo,
 }
 
 impl Stream for FluxStream {
@@ -640,6 +670,15 @@ impl FluxStream {
     /// or troubleshooting assistance related to a specific request.
     pub fn request_id(&self) -> Uuid {
         self.request_id
+    }
+
+    /// Returns metadata describing the established WebSocket connection.
+    ///
+    /// This includes the Deepgram request ID, the final request URL, the local
+    /// and resolved peer socket addresses, and the total connect-plus-upgrade
+    /// duration. Useful for logging or troubleshooting production connectivity.
+    pub fn connection_info(&self) -> &WebSocketConnectionInfo {
+        &self.connection_info
     }
 }
 
