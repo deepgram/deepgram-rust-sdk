@@ -135,6 +135,41 @@ pub struct ConnectRecord {
     pub error: Option<String>,
 }
 
+impl ConnectRecord {
+    /// A deterministic, fully populated sample record, for testing
+    /// [`DiagnosticsSink`] implementations. `ConnectRecord` is
+    /// `#[non_exhaustive]`, so this is the supported way to fabricate a
+    /// record outside this crate.
+    ///
+    /// ```
+    /// use deepgram::diagnostics::ConnectRecord;
+    ///
+    /// let record = ConnectRecord::sample();
+    /// let line = serde_json::to_string(&record).unwrap();
+    /// assert!(line.contains("\"outcome\":\"completed\""));
+    /// ```
+    pub fn sample() -> ConnectRecord {
+        ConnectRecord {
+            schema_version: SCHEMA_VERSION,
+            attempt_id: Uuid::nil(),
+            timestamp: "2026-01-01T00:00:00.000Z".to_string(),
+            outcome: ConnectOutcome::Completed,
+            last_phase: ConnectPhase::WsUpgrade,
+            url: "wss://api.deepgram.com/v1/listen?model=nova-3".to_string(),
+            connect_duration_ms: 312.4,
+            local_addr: Some("10.0.4.17:53210".to_string()),
+            peer_addr: Some("203.0.113.5:443".to_string()),
+            dns_ms: Some(11.2),
+            tcp_connect_ms: Some(68.9),
+            tls_handshake_ms: Some(141.7),
+            ws_upgrade_ms: Some(90.6),
+            request_id: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            dg_error: None,
+            error: None,
+        }
+    }
+}
+
 /// Destination for [`ConnectRecord`]s.
 ///
 /// [`emit`](Self::emit) must not block and must not panic: it is called

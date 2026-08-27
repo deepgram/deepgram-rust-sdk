@@ -72,7 +72,7 @@ pub struct WebsocketBuilder<'a> {
     diagnostics: Option<SharedSink>,
 }
 
-impl Transcription<'_> {
+impl<'a> Transcription<'a> {
     /// Begin to configure a websocket request with common options
     /// set to their default values.
     ///
@@ -99,7 +99,7 @@ impl Transcription<'_> {
     ///     .stream_request()
     ///     .no_delay(true);
     /// ```
-    pub fn stream_request(&self) -> WebsocketBuilder<'_> {
+    pub fn stream_request(&self) -> WebsocketBuilder<'a> {
         self.stream_request_with_options(Options::default())
     }
 
@@ -136,7 +136,10 @@ impl Transcription<'_> {
     ///
     /// assert_eq!(&builder.urlencoded().unwrap(), "model=nova-2&detect_language=true&no_delay=true")
     /// ```
-    pub fn stream_request_with_options(&self, options: Options) -> WebsocketBuilder<'_> {
+    // The builder borrows the underlying `Deepgram` client (`'a`), not this
+    // `Transcription` handle, so callers can chain from a temporary:
+    // `dg.transcription().stream_request_with_options(...)`.
+    pub fn stream_request_with_options(&self, options: Options) -> WebsocketBuilder<'a> {
         WebsocketBuilder {
             deepgram: self.0,
             options,
@@ -355,11 +358,12 @@ impl WebsocketBuilder<'_> {
     /// # use deepgram::{Deepgram, common::options::Options, diagnostics::ConnectRecord};
     /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
     /// let (diag_tx, mut diag_rx) = tokio::sync::mpsc::unbounded_channel::<ConnectRecord>();
-    /// let transcription = dg.transcription();
-    /// let builder = transcription
+    /// let builder = dg
+    ///     .transcription()
     ///     .stream_request_with_options(Options::default())
     ///     .keep_alive()
     ///     .diagnostics(diag_tx);
+    /// # drop(builder); // the builder outlives the temporary Transcription handle
     /// ```
     #[cfg(feature = "connect-diagnostics")]
     pub fn diagnostics(mut self, sink: impl DiagnosticsSink + 'static) -> Self {

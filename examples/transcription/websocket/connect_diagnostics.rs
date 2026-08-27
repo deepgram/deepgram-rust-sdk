@@ -49,8 +49,8 @@ async fn main() -> Result<(), DeepgramError> {
         .language(Language::en_US)
         .build();
 
-    let transcription = dg_client.transcription();
-    let request = transcription
+    let request = dg_client
+        .transcription()
         .stream_request_with_options(options)
         .keep_alive()
         .encoding(Encoding::Linear16)
