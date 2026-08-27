@@ -66,6 +66,32 @@ You will also probably need to install [`tokio`](https://crates.io/crates/tokio)
 cargo add tokio --features full
 ```
 
+## Connect Diagnostics
+
+For diagnosing connection latency on streaming requests, the optional
+`connect-diagnostics` feature emits one structured record per WebSocket
+connect attempt, with per-phase timings (DNS, TCP, TLS, WebSocket upgrade),
+socket addresses, and the Deepgram request ID. Records are delivered even
+when the connect is cancelled by a caller-side timeout.
+
+```sh
+cargo add deepgram --features connect-diagnostics
+```
+
+```rust,no_run
+# use deepgram::{Deepgram, common::options::Options, diagnostics::ConnectRecord};
+# let dg = Deepgram::new("api_key").unwrap();
+let (diag_tx, mut diag_rx) = tokio::sync::mpsc::unbounded_channel::<ConnectRecord>();
+// Drain diag_rx to your JSONL sink of choice, then:
+let builder = dg
+    .transcription()
+    .stream_request_with_options(Options::default())
+    .diagnostics(diag_tx);
+```
+
+See the `connect_diagnostics` example and the `deepgram::diagnostics` module
+docs for the record schema and integration details.
+
 ## Development and Contributing
 
 Interested in contributing? We ❤️ pull requests!
