@@ -1,4 +1,8 @@
-//! Opt-in connect-time diagnostics for streaming connections.
+//! Opt-in connect-time diagnostics for live transcription streaming
+//! connections (`/v1/listen`).
+//!
+//! Other WebSocket surfaces (Flux, text-to-speech streaming) do not expose
+//! diagnostics yet.
 //!
 //! When a diagnostics sink is configured on a websocket builder (see
 //! [`crate::listen::websocket::WebsocketBuilder::diagnostics`]), the SDK

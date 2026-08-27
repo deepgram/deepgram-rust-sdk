@@ -55,9 +55,6 @@ anyhow = "^1.0.98"
 tracing = ">=0.1.41"
 
 [dev-dependencies]
-# For the connect-diagnostics local mock-server tests; same version as the
-# main dependency, so it adds no weight to the dev graph.
-tokio-tungstenite = "^0.28.0"
 cpal = "^0.16"
 crossbeam = "0.8"
 audio = "0.2.0"

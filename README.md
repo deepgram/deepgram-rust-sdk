@@ -68,11 +68,13 @@ cargo add tokio --features full
 
 ## Connect Diagnostics
 
-For diagnosing connection latency on streaming requests, the optional
-`connect-diagnostics` feature emits one structured record per WebSocket
-connect attempt, with per-phase timings (DNS, TCP, TLS, WebSocket upgrade),
-socket addresses, and the Deepgram request ID. Records are delivered even
-when the connect is cancelled by a caller-side timeout.
+For diagnosing connection latency on live transcription (`/v1/listen`)
+streaming requests, the optional `connect-diagnostics` feature emits one
+structured record per WebSocket connect attempt, with per-phase timings
+(DNS, TCP, TLS, WebSocket upgrade), socket addresses, and the Deepgram
+request ID. Records are delivered even when the connect is cancelled by a
+caller-side timeout. Other WebSocket surfaces (Flux, streaming TTS) are not
+covered yet.
 
 ```sh
 cargo add deepgram --features connect-diagnostics
