@@ -263,6 +263,13 @@ impl DiagnosticsGuard {
         self.record.outcome = ConnectOutcome::Completed;
     }
 
+    /// Record a client-side failure that occurs after the wire exchange, e.g.
+    /// the SDK rejecting a malformed upgrade response.
+    pub(crate) fn fail_client(&mut self, error: &str) {
+        self.record.outcome = ConnectOutcome::Failed;
+        self.record.error = Some(error.to_string());
+    }
+
     /// Record a failure, capturing the `dg-request-id` and `dg-error`
     /// response headers when the server responded to the upgrade request.
     fn fail(&mut self, error: &TungsteniteError) {
@@ -453,9 +460,7 @@ fn rfc3339_utc(time: SystemTime) -> String {
     let month = if mp < 10 { mp + 3 } else { mp - 9 };
     let year = if month <= 2 { year + 1 } else { year };
 
-    format!(
-        "{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{millis:03}Z"
-    )
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}.{millis:03}Z")
 }
 
 #[cfg(test)]

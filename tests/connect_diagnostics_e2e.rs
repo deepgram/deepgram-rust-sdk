@@ -46,7 +46,8 @@ async fn stock_and_diagnostic_connects_are_equivalent() {
     let diagnostic_request_id = diagnostic.request_id();
 
     // Both produced server-issued request IDs.
-    assert_ne!(stock_request_id, diagnostic_request_id);
+    assert!(!stock_request_id.is_nil());
+    assert!(!diagnostic_request_id.is_nil());
 
     let record = diag_rx.try_recv().expect("one record per connect attempt");
     assert_eq!(record.outcome, ConnectOutcome::Completed);
@@ -89,7 +90,9 @@ async fn cancelled_connect_still_emits_record() {
     let result = tokio::time::timeout(std::time::Duration::from_millis(1), connect).await;
     assert!(result.is_err(), "timeout should fire");
 
-    let record = diag_rx.try_recv().expect("record must survive cancellation");
+    let record = diag_rx
+        .try_recv()
+        .expect("record must survive cancellation");
     assert_eq!(record.outcome, ConnectOutcome::Cancelled);
     assert!(record.request_id.is_none());
 }

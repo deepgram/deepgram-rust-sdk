@@ -83,8 +83,8 @@ cargo add deepgram --features connect-diagnostics
 # let dg = Deepgram::new("api_key").unwrap();
 let (diag_tx, mut diag_rx) = tokio::sync::mpsc::unbounded_channel::<ConnectRecord>();
 // Drain diag_rx to your JSONL sink of choice, then:
-let builder = dg
-    .transcription()
+let transcription = dg.transcription();
+let builder = transcription
     .stream_request_with_options(Options::default())
     .diagnostics(diag_tx);
 ```

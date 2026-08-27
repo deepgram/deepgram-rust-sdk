@@ -28,6 +28,8 @@ jobs:
       run: cargo check --all-targets --no-default-features --features=speak
     - name: Check manage feature
       run: cargo check --all-targets --no-default-features --features=manage
+    - name: Check connect-diagnostics feature
+      run: cargo check --all-targets --no-default-features --features=connect-diagnostics
   Build:
     runs-on: ubuntu-latest
     steps:

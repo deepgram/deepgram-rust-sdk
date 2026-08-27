@@ -355,8 +355,8 @@ impl WebsocketBuilder<'_> {
     /// # use deepgram::{Deepgram, common::options::Options, diagnostics::ConnectRecord};
     /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
     /// let (diag_tx, mut diag_rx) = tokio::sync::mpsc::unbounded_channel::<ConnectRecord>();
-    /// let builder = dg
-    ///     .transcription()
+    /// let transcription = dg.transcription();
+    /// let builder = transcription
     ///     .stream_request_with_options(Options::default())
     ///     .keep_alive()
     ///     .diagnostics(diag_tx);
@@ -735,30 +735,43 @@ impl WebsocketHandle {
         #[cfg(not(feature = "connect-diagnostics"))]
         let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
 
-        #[cfg(feature = "connect-diagnostics")]
-        if let Some(guard) = diagnostics_guard.as_mut() {
-            if let Some(request_id) = upgrade_response
-                .headers()
-                .get("dg-request-id")
-                .and_then(|value| value.to_str().ok())
-            {
-                guard.set_request_id(request_id);
-            }
-            guard.complete();
-        }
-
         let request_id = upgrade_response
             .headers()
             .get("dg-request-id")
             .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
                 "Websocket upgrade headers missing request ID"
-            )))?
-            .to_str()
-            .ok()
-            .and_then(|req_header_str| Uuid::parse_str(req_header_str).ok())
-            .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
-                "Received malformed request ID in websocket upgrade headers"
-            )))?;
+            )))
+            .and_then(|header| {
+                header
+                    .to_str()
+                    .ok()
+                    .and_then(|req_header_str| Uuid::parse_str(req_header_str).ok())
+                    .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
+                        "Received malformed request ID in websocket upgrade headers"
+                    )))
+            });
+
+        // The record's outcome must match what the caller experiences: the
+        // upgrade succeeded, but a missing or malformed request ID makes this
+        // constructor return an error, so only a validated request ID counts
+        // as a completed attempt. The raw header is recorded either way, for
+        // correlation.
+        #[cfg(feature = "connect-diagnostics")]
+        if let Some(guard) = diagnostics_guard.as_mut() {
+            if let Some(raw_request_id) = upgrade_response
+                .headers()
+                .get("dg-request-id")
+                .and_then(|value| value.to_str().ok())
+            {
+                guard.set_request_id(raw_request_id);
+            }
+            match &request_id {
+                Ok(_) => guard.complete(),
+                Err(err) => guard.fail_client(&err.to_string()),
+            }
+        }
+
+        let request_id = request_id?;
 
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
