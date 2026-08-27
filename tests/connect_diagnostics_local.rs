@@ -39,6 +39,9 @@ async fn spawn_mock_server(mode: Mode) -> u16 {
 
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.expect("accept");
+        // The callback signature (and its large `ErrorResponse` Err variant)
+        // is fixed by tungstenite's accept_hdr API.
+        #[allow(clippy::result_large_err)]
         let callback = move |_request: &Request, mut response: Response| match mode {
             Mode::Accept => {
                 response
