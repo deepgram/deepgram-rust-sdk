@@ -105,6 +105,11 @@ path = "examples/transcription/websocket/simple_stream.rs"
 required-features = ["listen"]
 
 [[example]]
+name = "connect_diagnostics"
+path = "examples/transcription/websocket/connect_diagnostics.rs"
+required-features = ["connect-diagnostics"]
+
+[[example]]
 name = "callback_stream"
 path = "examples/transcription/websocket/callback_stream.rs"
 required-features = ["listen"]
