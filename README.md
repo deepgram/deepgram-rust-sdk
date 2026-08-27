@@ -80,9 +80,10 @@ covered yet.
 cargo add deepgram --features connect-diagnostics
 ```
 
-```rust,no_run
-# use deepgram::{Deepgram, common::options::Options, diagnostics::ConnectRecord};
-# let dg = Deepgram::new("api_key").unwrap();
+```rust
+use deepgram::{Deepgram, common::options::Options, diagnostics::ConnectRecord};
+
+let dg = Deepgram::new("YOUR_DEEPGRAM_API_KEY")?;
 let (diag_tx, mut diag_rx) = tokio::sync::mpsc::unbounded_channel::<ConnectRecord>();
 // Drain diag_rx to your JSONL sink of choice, then:
 let builder = dg
