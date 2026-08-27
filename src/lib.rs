@@ -27,6 +27,8 @@ use url::Url;
 pub mod auth;
 #[cfg(feature = "listen")]
 pub mod common;
+#[cfg(feature = "connect-diagnostics")]
+pub mod diagnostics;
 #[cfg(feature = "listen")]
 pub mod listen;
 #[cfg(feature = "manage")]

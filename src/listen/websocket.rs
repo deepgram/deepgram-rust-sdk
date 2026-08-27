@@ -41,6 +41,8 @@ use url::Url;
 use uuid::Uuid;
 
 use self::file_chunker::FileChunker;
+#[cfg(feature = "connect-diagnostics")]
+use crate::diagnostics::{DiagnosticsGuard, DiagnosticsSink, SharedSink};
 use crate::{
     common::{
         options::{Encoding, Endpointing, Options},
@@ -66,6 +68,8 @@ pub struct WebsocketBuilder<'a> {
     stream_url: Url,
     keep_alive: Option<bool>,
     callback: Option<Url>,
+    #[cfg(feature = "connect-diagnostics")]
+    diagnostics: Option<SharedSink>,
 }
 
 impl Transcription<'_> {
@@ -147,6 +151,8 @@ impl Transcription<'_> {
             stream_url: self.listen_stream_url(),
             keep_alive: None,
             callback: None,
+            #[cfg(feature = "connect-diagnostics")]
+            diagnostics: None,
         }
     }
 
@@ -208,6 +214,8 @@ impl WebsocketBuilder<'_> {
         let Self {
             deepgram: _,
             keep_alive: _,
+            #[cfg(feature = "connect-diagnostics")]
+                diagnostics: _,
             options,
             encoding,
             sample_rate,
@@ -326,6 +334,36 @@ impl WebsocketBuilder<'_> {
 
     pub fn callback(mut self, callback: Url) -> Self {
         self.callback = Some(callback);
+
+        self
+    }
+
+    /// Emit one [`crate::diagnostics::ConnectRecord`] per connect attempt to
+    /// the given sink.
+    ///
+    /// With a sink configured, the SDK establishes the connection in four
+    /// individually timed phases (DNS, TCP, TLS, WebSocket upgrade) using the
+    /// same TLS configuration as the stock connect path. A record is emitted
+    /// on success, on failure, and — because delivery happens synchronously
+    /// from a drop guard — when the caller cancels the connect, e.g. via
+    /// `tokio::time::timeout`.
+    ///
+    /// Accepts a `tokio::sync::mpsc::UnboundedSender<ConnectRecord>` or a
+    /// closure wrapped with [`crate::diagnostics::sink_fn`].
+    ///
+    /// ```
+    /// # use deepgram::{Deepgram, common::options::Options, diagnostics::ConnectRecord};
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
+    /// let (diag_tx, mut diag_rx) = tokio::sync::mpsc::unbounded_channel::<ConnectRecord>();
+    /// let builder = dg
+    ///     .transcription()
+    ///     .stream_request_with_options(Options::default())
+    ///     .keep_alive()
+    ///     .diagnostics(diag_tx);
+    /// ```
+    #[cfg(feature = "connect-diagnostics")]
+    pub fn diagnostics(mut self, sink: impl DiagnosticsSink + 'static) -> Self {
+        self.diagnostics = Some(SharedSink(std::sync::Arc::new(sink)));
 
         self
     }
@@ -679,7 +717,35 @@ impl WebsocketHandle {
             builder.body(())?
         };
 
+        // With a diagnostics sink configured, connect via the phase-timed
+        // path; the guard emits one record per attempt from its destructor,
+        // which also covers caller-side cancellation (a dropped future).
+        #[cfg(feature = "connect-diagnostics")]
+        let mut diagnostics_guard = builder
+            .diagnostics
+            .as_ref()
+            .map(|sink| DiagnosticsGuard::new(sink.clone(), &url));
+
+        #[cfg(feature = "connect-diagnostics")]
+        let (ws_stream, upgrade_response) = match diagnostics_guard.as_mut() {
+            Some(guard) => crate::diagnostics::connect_with_diagnostics(request, guard).await?,
+            None => tokio_tungstenite::connect_async(request).await?,
+        };
+
+        #[cfg(not(feature = "connect-diagnostics"))]
         let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
+
+        #[cfg(feature = "connect-diagnostics")]
+        if let Some(guard) = diagnostics_guard.as_mut() {
+            if let Some(request_id) = upgrade_response
+                .headers()
+                .get("dg-request-id")
+                .and_then(|value| value.to_str().ok())
+            {
+                guard.set_request_id(request_id);
+            }
+            guard.complete();
+        }
 
         let request_id = upgrade_response
             .headers()
