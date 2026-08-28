@@ -55,12 +55,30 @@ jobs:
       run: cargo clippy --all-targets --all-features
   Test:
     runs-on: ubuntu-latest
+    steps:
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
+    - uses: actions/checkout@v5
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y alsa pkg-config libasound2-dev
+        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+    - name: Cargo Test
+      run: cargo test --all --all-features
+  Coverage:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
+    env:
+      # Branch coverage requires nightly (-Z coverage-options=branch); don't let
+      # nightly lint churn fail the coverage report. Stable jobs enforce warnings.
+      RUSTFLAGS: ''
+      RUSTDOCFLAGS: ''
     steps:
     - uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
+        toolchain: nightly
         components: llvm-tools-preview
     - uses: actions/checkout@v5
     - name: Install dependencies
@@ -70,14 +88,15 @@ jobs:
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Install cargo-llvm-cov
       uses: taiki-e/install-action@cargo-llvm-cov
-    - name: Cargo Test with coverage
-      run: cargo llvm-cov --all --all-features --cobertura --output-path cobertura.xml
+    - name: Cargo Test with line and branch coverage
+      run: cargo llvm-cov --all --all-features --branch --cobertura --output-path cobertura.xml
     - name: Generate code coverage summary
       uses: irongut/CodeCoverageSummary@v1.3.0
       with:
         filename: cobertura.xml
         badge: true
         format: markdown
+        hide_branch_rate: false
         hide_complexity: true
         indicators: true
         output: both
