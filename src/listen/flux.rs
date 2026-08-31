@@ -289,6 +289,7 @@ impl FluxBuilder<'_> {
 #[serde(tag = "type")]
 enum ControlMessage {
     CloseStream,
+    ForceEndTurn,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -296,6 +297,7 @@ enum WsMessage {
     Audio(Vec<u8>),
     /// Pre-serialized JSON for a `Configure` message.
     Configure(String),
+    ForceEndTurn,
     CloseStream,
 }
 
@@ -458,6 +460,25 @@ impl FluxHandle {
         Ok(())
     }
 
+    /// Send a `ForceEndTurn` message to end the current turn immediately.
+    ///
+    /// Flux ends the turn on the audio transcribed so far — the transcript
+    /// matches the most recent `Update` — and emits a standard `EndOfTurn`
+    /// [`crate::common::flux_response::FluxResponse::TurnInfo`] event with
+    /// [`trigger`](crate::common::flux_response::TurnTrigger) set to
+    /// [`Manual`](crate::common::flux_response::TurnTrigger::Manual).
+    ///
+    /// Note that `ForceEndTurn` is gated per deployment. On a deployment
+    /// where it is not enabled, the server responds with a fatal
+    /// `UNPARSABLE_CLIENT_MESSAGE` error and closes the connection.
+    pub async fn force_end_turn(&mut self) -> Result<()> {
+        self.message_tx
+            .send(WsMessage::ForceEndTurn)
+            .await
+            .map_err(|err| DeepgramError::InternalClientError(err.into()))?;
+        Ok(())
+    }
+
     /// Close the websocket stream. No more data should be sent after this is called.
     pub async fn close_stream(&mut self) -> Result<()> {
         if !self.message_tx.is_closed() {
@@ -578,6 +599,15 @@ async fn run_flux_worker(
                                 .send(Message::Text(Utf8Bytes::from(json)))
                                 .await
                             {
+                                if response_tx.send(Err(err.into())).await.is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                        Some(WsMessage::ForceEndTurn) => {
+                            if let Err(err) = ws_stream_send.send(Message::Text(
+                                Utf8Bytes::from(serde_json::to_string(&ControlMessage::ForceEndTurn).unwrap_or_default())
+                            )).await {
                                 if response_tx.send(Err(err.into())).await.is_err() {
                                     break;
                                 }
@@ -709,7 +739,7 @@ mod file_chunker {
 
 #[cfg(test)]
 mod tests {
-    use super::{ConfigureRequest, ConfigureWireMessage};
+    use super::{ConfigureRequest, ConfigureWireMessage, ControlMessage};
     use crate::common::flux_response::ConfigureThresholds;
     use crate::common::options::Options;
 
@@ -763,6 +793,18 @@ mod tests {
             wire_json(&req),
             r#"{"type":"Configure","thresholds":{"eot_threshold":0.85,"eot_timeout_ms":5000},"keyterms":["weather","forecast"],"language_hints":["en","es"]}"#
         );
+    }
+
+    #[test]
+    fn force_end_turn_wire_format() {
+        let json = serde_json::to_string(&ControlMessage::ForceEndTurn).unwrap();
+        assert_eq!(json, r#"{"type":"ForceEndTurn"}"#);
+    }
+
+    #[test]
+    fn close_stream_wire_format() {
+        let json = serde_json::to_string(&ControlMessage::CloseStream).unwrap();
+        assert_eq!(json, r#"{"type":"CloseStream"}"#);
     }
 
     #[test]
