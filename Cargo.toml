@@ -58,7 +58,7 @@ pkg-config = { version = "0.3.30" }
 default = ["manage", "listen", "speak"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
-speak = []
+speak = ["dep:tungstenite", "dep:tokio-tungstenite"]
 
 [[example]]
 name = "grant_token"
@@ -142,4 +142,14 @@ required-features = ["speak"]
 [[example]]
 name = "text_to_speech_to_stream"
 path = "examples/speak/rest/text_to_speech_to_stream.rs"
+required-features = ["speak"]
+
+[[example]]
+name = "flux_tts_batch"
+path = "examples/speak/flux/batch_synthesize.rs"
+required-features = ["speak"]
+
+[[example]]
+name = "flux_tts_websocket"
+path = "examples/speak/flux/websocket_synthesize.rs"
 required-features = ["speak"]

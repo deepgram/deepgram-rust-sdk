@@ -9,10 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Flux text-to-speech (`/v2/speak`) support in the new `speak::flux` module:
+  - Batch (REST): `Speak::flux_speak_to_file` and `Speak::flux_speak_to_stream` synthesize a complete block of text with `POST /v2/speak`. Query options cover `model` (required, e.g. `Model::FluxHaleyEn`), `encoding`, `sample_rate`, `speed`, `expressivity`, `mip_opt_out`, `tag`, and the REST-only `container`, `bit_rate`, `callback`, `callback_method`, and `priority`.
+  - Streaming (WebSocket): `Speak::flux_request(options).handle()` connects to the `/v2/speak` websocket and returns a `FluxSpeakHandle` with `speak`, `flush`, `interrupt`, `configure_speed`, `close`, and `receive`. Server events surface as `FluxSpeakResponse`: binary `Audio` frames plus `Connected`, `SpeechStarted`, `Flushed`, `SpeechMetadata`, `SpeechInterrupted`, `SessionMetadata`, `ConfigureSuccess`/`ConfigureFailure`, `Warning`, `FatalError`, and a forward-compatible `Unknown`.
+  - The websocket rejects REST-only options up front with the new `DeepgramError::InvalidOptions` variant.
+  - New examples: `flux_tts_batch` and `flux_tts_websocket` under `examples/speak/flux/`.
 - `FluxHandle::force_end_turn()` sends the `ForceEndTurn` control message to end the current turn immediately on an external signal (push-to-talk release, DTMF tone, UI event, or an external endpointing stack). Note that `ForceEndTurn` is gated per deployment: where it is not enabled, the server replies with a fatal `UNPARSABLE_CLIENT_MESSAGE` error and closes the connection.
 - `FluxResponse::TurnInfo` now exposes `trigger` (`Option<TurnTrigger>`), the cause of a turn ending, reported on `EndOfTurn` events: `Model` (native end-of-turn detection), `Manual` (a `ForceEndTurn` was sent), or `Timeout` (`eot_timeout_ms` elapsed). `TurnTrigger` is an open enum — unrecognized values deserialize as `TurnTrigger::Unknown(String)`, preserving the original wire value so it survives re-serialization.
 - `FluxWord` now exposes optional per-word `start` and `end` timings, in seconds.
 - New example: `flux_force_end_turn` under `examples/transcription/flux/`.
+
+### Changed
+
+- The `speak` feature now enables the websocket dependencies (`tungstenite`, `tokio-tungstenite`), and `DeepgramError::WsError` is available under `speak` as well as `listen`. No API change for default-feature users.
 
 ### Fixed
 
