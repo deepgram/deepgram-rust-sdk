@@ -8,7 +8,8 @@
 use anyhow::anyhow;
 use futures::{
     channel::mpsc::{self, Receiver, Sender},
-    select_biased, SinkExt, StreamExt,
+    future::poll_fn,
+    pin_mut, select, FutureExt, SinkExt, StreamExt,
 };
 use http::Request;
 use serde::Serialize;
@@ -325,19 +326,64 @@ async fn run_flux_speak_worker(
     let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
+
+    /// One scheduling decision per loop iteration.
+    enum Step {
+        /// An inbound frame arrived, with response-channel capacity already
+        /// reserved for forwarding it.
+        Inbound(Option<std::result::Result<Message, tungstenite::Error>>),
+        /// An outbound message is ready to be written to the socket.
+        Outbound(Option<ClientMessage>),
+        /// The response consumer went away.
+        ResponsesClosed,
+    }
+
     loop {
-        select_biased! {
-            response = ws_stream_recv.next() => {
+        // Reserve response-channel capacity *before* reading an inbound
+        // frame: when the consumer is backpressured, inbound reads pause
+        // (backpressure propagates to the socket) instead of blocking this
+        // loop mid-forward — so outbound control messages (Interrupt,
+        // Configure, Close) stay deliverable while audio is arriving. The
+        // inbound future borrows `response_tx` and `ws_stream_recv`, so it
+        // is scoped to the selection and dropped before the step is handled.
+        let step = {
+            let inbound = async {
+                match poll_fn(|cx| response_tx.poll_ready(cx)).await {
+                    Ok(()) => Step::Inbound(ws_stream_recv.next().await),
+                    Err(_) => Step::ResponsesClosed,
+                }
+            }
+            .fuse();
+            pin_mut!(inbound);
+            // A fair (rather than biased) select, so neither a flood of
+            // inbound audio nor a flood of outbound text can starve the
+            // other direction.
+            select! {
+                step = inbound => step,
+                message = message_rx.next() => Step::Outbound(message),
+            }
+        };
+
+        match step {
+            Step::ResponsesClosed => {
+                // Responses are no longer being received; close the stream.
+                break;
+            }
+            Step::Inbound(response) => {
                 match response {
                     Some(Ok(Message::Text(response))) => {
-                        let response = serde_json::from_str(&response).map_err(|err| err.into());
-                        if (response_tx.send(response).await).is_err() {
+                        let response = serde_json::from_str(&response).map_err(DeepgramError::from);
+                        // Capacity was reserved above, so this does not block.
+                        if response_tx.start_send(response).is_err() {
                             // Responses are no longer being received; close the stream.
                             break;
                         }
                     }
                     Some(Ok(Message::Binary(audio))) => {
-                        if (response_tx.send(Ok(FluxSpeakResponse::Audio(audio))).await).is_err() {
+                        if response_tx
+                            .start_send(Ok(FluxSpeakResponse::Audio(audio)))
+                            .is_err()
+                        {
                             break;
                         }
                     }
@@ -345,22 +391,23 @@ async fn run_flux_speak_worker(
                         // We don't really care if the server receives the pong.
                         let _ = ws_stream_send.send(Message::Pong(value)).await;
                     }
-                    Some(Ok(Message::Close(None))) => {
-                        return Ok(());
-                    }
-                    Some(Ok(Message::Close(Some(closeframe)))) => {
+                    Some(Ok(Message::Close(closeframe))) => {
                         // A normal closure carries no error information;
                         // anything else is surfaced to the consumer before
                         // the response channel closes.
-                        if closeframe.code != CloseCode::Normal {
-                            let _ = response_tx
-                                .send(Err(DeepgramError::WebsocketClose {
-                                    code: closeframe.code.into(),
-                                    reason: closeframe.reason.to_string(),
-                                }))
-                                .await;
+                        if let Some(closeframe) = closeframe {
+                            if closeframe.code != CloseCode::Normal {
+                                let _ =
+                                    response_tx.start_send(Err(DeepgramError::WebsocketClose {
+                                        code: closeframe.code.into(),
+                                        reason: closeframe.reason.to_string(),
+                                    }));
+                            }
                         }
-                        return Ok(());
+                        // The server is closing the connection; don't send
+                        // Close during cleanup.
+                        is_open = false;
+                        break;
                     }
                     Some(Ok(Message::Frame(frame))) => {
                         match frame.header().opcode {
@@ -388,9 +435,9 @@ async fn run_flux_speak_worker(
                             } else {
                                 Ok(FluxSpeakResponse::Audio(payload.into()))
                             };
-                            if (response_tx.send(response).await).is_err() {
+                            if response_tx.start_send(response).is_err() {
                                 // Responses are no longer being received; close the stream.
-                                break
+                                break;
                             }
                         }
                     }
@@ -399,18 +446,20 @@ async fn run_flux_speak_worker(
                         // safely ignored.
                     }
                     Some(Err(err)) => {
-                        if (response_tx.send(Err(err.into())).await).is_err() {
+                        if response_tx.start_send(Err(err.into())).is_err() {
                             // Responses are no longer being received; close the stream.
                             break;
                         }
                     }
                     None => {
-                        // Upstream is closed
-                        return Ok(())
+                        // Upstream is closed; there is no socket to send
+                        // Close to during cleanup.
+                        is_open = false;
+                        break;
                     }
                 }
             }
-            message = message_rx.next() => {
+            Step::Outbound(message) => {
                 if is_open {
                     let message = match message {
                         Some(ClientMessage::Close) | None => {
