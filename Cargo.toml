@@ -43,9 +43,13 @@ tungstenite = { version = "^0.28.0", optional = true }
 # TLS crates for the connect-diagnostics phase-timed connect path. Versions
 # must stay in lockstep with what tokio-tungstenite's rustls-tls-webpki-roots
 # feature resolves to, so both connect paths compile against the same crates.
-rustls = { version = "^0.23", optional = true }
+# default-features = false: these deps must not enable any rustls feature
+# (provider, logging, prefer-post-quantum, ...) beyond what tokio-tungstenite
+# already enables, or turning on `connect-diagnostics` would change the TLS
+# configuration of the stock connect path via feature unification.
+rustls = { version = "^0.23", optional = true, default-features = false }
 rustls-pki-types = { version = "^1", optional = true }
-tokio-rustls = { version = "^0.26", optional = true }
+tokio-rustls = { version = "^0.26", optional = true, default-features = false }
 webpki-roots = { version = "^0.26", optional = true }
 url = "2"
 uuid = { version = "1", features = ["serde"] }

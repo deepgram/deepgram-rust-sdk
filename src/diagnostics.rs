@@ -94,8 +94,12 @@ pub struct ConnectRecord {
     pub outcome: ConnectOutcome,
     /// The furthest phase entered.
     pub last_phase: ConnectPhase,
-    /// Final request URL, including model and feature query parameters.
-    /// Authorization is carried in a request header and never appears here.
+    /// Request URL reduced to scheme, host, port, and path. Userinfo, query
+    /// parameters, and fragment are stripped before recording: query values
+    /// carry customer-controlled and potentially sensitive content (signed
+    /// callback URLs, keyterms, arbitrary `query_params` values), which must
+    /// not be persisted in telemetry. Authorization is carried in a request
+    /// header and never appears here either.
     pub url: String,
     /// Total duration from the start of the attempt until completion,
     /// failure, or cancellation, in milliseconds.
@@ -155,7 +159,7 @@ impl ConnectRecord {
             timestamp: "2026-01-01T00:00:00.000Z".to_string(),
             outcome: ConnectOutcome::Completed,
             last_phase: ConnectPhase::WsUpgrade,
-            url: "wss://api.deepgram.com/v1/listen?model=nova-3".to_string(),
+            url: "wss://api.deepgram.com/v1/listen".to_string(),
             connect_duration_ms: 312.4,
             local_addr: Some("10.0.4.17:53210".to_string()),
             peer_addr: Some("203.0.113.5:443".to_string()),
@@ -251,7 +255,7 @@ impl DiagnosticsGuard {
                 timestamp: rfc3339_utc(SystemTime::now()),
                 outcome: ConnectOutcome::Cancelled,
                 last_phase: ConnectPhase::Dns,
-                url: url.to_string(),
+                url: redacted_url(url),
                 connect_duration_ms: 0.0,
                 local_addr: None,
                 peer_addr: None,
@@ -330,6 +334,20 @@ impl Drop for DiagnosticsGuard {
         self.record.connect_duration_ms = ms(self.start.elapsed());
         self.sink.0.emit(self.record.clone());
     }
+}
+
+/// The request URL reduced to scheme, host, port, and path, for recording.
+/// Userinfo, query, and fragment are stripped: query values carry
+/// customer-controlled and potentially sensitive content (signed callback
+/// URLs, keyterms, arbitrary `query_params` values), which must not be
+/// persisted in diagnostics telemetry.
+fn redacted_url(url: &url::Url) -> String {
+    let mut url = url.clone();
+    let _ = url.set_username("");
+    let _ = url.set_password(None);
+    url.set_query(None);
+    url.set_fragment(None);
+    url.to_string()
 }
 
 fn ms(duration: std::time::Duration) -> f64 {
@@ -545,7 +563,7 @@ mod tests {
         assert_eq!(json["schema_version"], 1);
         assert_eq!(json["outcome"], "cancelled");
         assert_eq!(json["last_phase"], "dns");
-        assert_eq!(json["url"], test_url().to_string());
+        assert_eq!(json["url"], "wss://api.deepgram.com/v1/listen");
         for absent in [
             "local_addr",
             "peer_addr",
@@ -562,6 +580,32 @@ mod tests {
                 "{absent} should be omitted when absent"
             );
         }
+    }
+
+    #[test]
+    fn recorded_url_omits_userinfo_and_query_values() {
+        // Query values can carry secrets: signed callback URLs, keyterms,
+        // arbitrary `query_params` values. None of it may reach the sink.
+        let secret = "synthetic-secret-0f9b2";
+        let url = url::Url::parse(&format!(
+            "wss://user:{secret}@api.deepgram.com/v1/listen\
+             ?model=nova-3&customer_token={secret}\
+             &callback=https%3A%2F%2Fexample.com%2Fcb%3Fsig%3D{secret}"
+        ))
+        .unwrap();
+
+        let (sink, mut rx) = channel_sink();
+        drop(DiagnosticsGuard::new(sink, &url));
+        let record = rx.try_recv().expect("record emitted on drop");
+
+        assert_eq!(record.url, "wss://api.deepgram.com/v1/listen");
+        let line = serde_json::to_string(&record).unwrap();
+        assert!(
+            !line.contains(secret),
+            "serialized record must not contain query or userinfo secrets: {line}"
+        );
+        assert!(!line.contains("customer_token"));
+        assert!(!line.contains("model=nova-3"));
     }
 
     #[test]

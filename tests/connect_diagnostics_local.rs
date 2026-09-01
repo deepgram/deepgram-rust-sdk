@@ -95,10 +95,17 @@ async fn completed_connect_over_plain_ws_emits_full_record() {
     let port = spawn_mock_server(Mode::Accept).await;
     let (diag_tx, mut diag_rx) = sink();
 
+    // A synthetic secret sent as an arbitrary query parameter: it must reach
+    // the wire (the mock accepts the request) but never the diagnostics sink.
+    let secret = "synthetic-secret-3c41a";
+    let options = Options::builder()
+        .query_params([("customer_token".to_string(), secret.to_string())])
+        .build();
+
     let dg = client(port);
     let transcription = dg.transcription();
     let handle = transcription
-        .stream_request_with_options(Options::default())
+        .stream_request_with_options(options)
         .diagnostics(diag_tx)
         .handle()
         .await
@@ -109,9 +116,16 @@ async fn completed_connect_over_plain_ws_emits_full_record() {
     assert_eq!(record.outcome, ConnectOutcome::Completed);
     assert_eq!(record.last_phase, ConnectPhase::WsUpgrade);
     assert_eq!(record.request_id.as_deref(), Some(REQUEST_ID));
-    assert!(record
-        .url
-        .starts_with(&format!("ws://127.0.0.1:{port}/v1/listen")));
+    assert_eq!(
+        record.url,
+        format!("ws://127.0.0.1:{port}/v1/listen"),
+        "recorded URL is scheme, host, port, and path only"
+    );
+    let line = serde_json::to_string(&record).expect("record serializes");
+    assert!(
+        !line.contains(secret),
+        "serialized record must not contain query secrets: {line}"
+    );
     assert!(record
         .local_addr
         .as_deref()

@@ -162,10 +162,12 @@ async fn main() -> Result<(), DeepgramError> {
                 extra_byte = Some(buffer.split_off(buffer.len() - 1)[0]);
             }
 
+            // Clippy 1.98 suggests `as_chunks`, which requires Rust 1.88;
+            // keep `chunks_exact` for compatibility with older toolchains.
+            // (`unknown_lints` covers clippy versions predating the lint.)
+            #[allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
             let samples: Vec<i16> = buffer
-                .as_chunks::<2>()
-                .0
-                .iter()
+                .chunks_exact(2)
                 .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
                 .collect();
             source.push_samples(&samples);
@@ -190,10 +192,10 @@ async fn main() -> Result<(), DeepgramError> {
             buffer = new_buffer;
         }
 
+        // See above: `as_chunks` requires Rust 1.88.
+        #[allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
         let samples: Vec<i16> = buffer
-            .as_chunks::<2>()
-            .0
-            .iter()
+            .chunks_exact(2)
             .map(|chunk| i16::from_le_bytes([chunk[0], chunk[1]]))
             .collect();
         source.push_samples(&samples);
