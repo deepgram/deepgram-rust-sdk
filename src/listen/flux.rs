@@ -20,9 +20,10 @@ use anyhow::anyhow;
 use bytes::Bytes;
 use futures::{
     channel::mpsc::{self, Receiver, Sender},
-    select_biased,
+    future::poll_fn,
+    pin_mut, select, select_biased,
     stream::StreamExt,
-    SinkExt, Stream,
+    FutureExt, SinkExt, Stream,
 };
 use http::Request;
 use pin_project::pin_project;
@@ -31,7 +32,7 @@ use tokio::fs::File;
 use tokio_tungstenite::{tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream};
 use tungstenite::{
     handshake::client,
-    protocol::frame::coding::{Data, OpCode},
+    protocol::frame::coding::{CloseCode, Data, OpCode},
     Utf8Bytes,
 };
 use url::Url;
@@ -512,38 +513,80 @@ async fn run_flux_worker(
     let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
+
+    /// One scheduling decision per loop iteration.
+    enum Step {
+        /// An inbound frame arrived, with response-channel capacity already
+        /// reserved for forwarding it.
+        Inbound(Option<std::result::Result<Message, tungstenite::Error>>),
+        /// An outbound message is ready to be written to the socket.
+        Outbound(Option<WsMessage>),
+        /// The response consumer went away.
+        ResponsesClosed,
+    }
+
     loop {
-        select_biased! {
-            response = ws_stream_recv.next() => {
+        // Reserve response-channel capacity *before* reading an inbound
+        // frame: when the consumer is backpressured, inbound reads pause
+        // (backpressure propagates to the socket) instead of blocking this
+        // loop mid-forward — so outbound control messages (ForceEndTurn,
+        // Configure, CloseStream) stay deliverable throughout. The inbound
+        // future borrows `response_tx` and `ws_stream_recv`, so it is scoped
+        // to the selection and dropped before the step is handled.
+        let step = {
+            let inbound = async {
+                match poll_fn(|cx| response_tx.poll_ready(cx)).await {
+                    Ok(()) => Step::Inbound(ws_stream_recv.next().await),
+                    Err(_) => Step::ResponsesClosed,
+                }
+            }
+            .fuse();
+            pin_mut!(inbound);
+            // A fair (rather than biased) select, so neither a flood of
+            // inbound responses nor a flood of outbound audio can starve
+            // the other direction.
+            select! {
+                step = inbound => step,
+                message = message_rx.next() => Step::Outbound(message),
+            }
+        };
+
+        match step {
+            Step::ResponsesClosed => {
+                // Responses are no longer being received; close the stream.
+                break;
+            }
+            Step::Inbound(response) => {
                 match response {
                     Some(Ok(Message::Text(response))) => {
-                        match serde_json::from_str(&response) {
-                            Ok(response) => {
-                                if (response_tx.send(Ok(response)).await).is_err() {
-                                    // Responses are no longer being received; close the stream.
-                                    break;
-                                }
-                            }
-                            Err(err) => {
-                                if (response_tx.send(Err(err.into())).await).is_err() {
-                                    // Responses are no longer being received; close the stream.
-                                    break;
-                                }
-                            }
+                        let response = serde_json::from_str(&response).map_err(DeepgramError::from);
+                        // Capacity was reserved above, so this does not block.
+                        if response_tx.start_send(response).is_err() {
+                            // Responses are no longer being received; close the stream.
+                            break;
                         }
                     }
                     Some(Ok(Message::Ping(value))) => {
                         // We don't really care if the server receives the pong.
                         let _ = ws_stream_send.send(Message::Pong(value)).await;
                     }
-                    Some(Ok(Message::Close(None))) => {
-                        return Ok(());
-                    }
-                    Some(Ok(Message::Close(Some(closeframe)))) => {
-                        return Err(DeepgramError::WebsocketClose {
-                            code: closeframe.code.into(),
-                            reason: closeframe.reason.to_string(),
-                        });
+                    Some(Ok(Message::Close(closeframe))) => {
+                        // Forward abnormal closes to the consumer as errors —
+                        // otherwise the stream silently ends and an abnormal
+                        // shutdown is indistinguishable from a normal one.
+                        if let Some(closeframe) = closeframe {
+                            if closeframe.code != CloseCode::Normal {
+                                let _ =
+                                    response_tx.start_send(Err(DeepgramError::WebsocketClose {
+                                        code: closeframe.code.into(),
+                                        reason: closeframe.reason.to_string(),
+                                    }));
+                            }
+                        }
+                        // The server is closing the connection; don't send
+                        // CloseStream during cleanup.
+                        is_open = false;
+                        break;
                     }
                     Some(Ok(Message::Frame(frame))) => {
                         match frame.header().opcode {
@@ -561,10 +604,11 @@ async fn run_flux_worker(
                         }
                         if frame.header().is_final {
                             let response = std::mem::take(&mut partial_frame);
-                            let response = serde_json::from_slice(&response).map_err(|err| err.into());
-                            if (response_tx.send(response).await).is_err() {
+                            let response =
+                                serde_json::from_slice(&response).map_err(|err| err.into());
+                            if response_tx.start_send(response).is_err() {
                                 // Responses are no longer being received; close the stream.
-                                break
+                                break;
                             }
                         }
                     }
@@ -573,22 +617,27 @@ async fn run_flux_worker(
                         // They can be safely ignored.
                     }
                     Some(Err(err)) => {
-                        if (response_tx.send(Err(err.into())).await).is_err() {
+                        if response_tx.start_send(Err(err.into())).is_err() {
                             // Responses are no longer being received; close the stream.
                             break;
                         }
                     }
                     None => {
-                        // Upstream is closed
-                        return Ok(())
+                        // Upstream is closed; there is no socket to send
+                        // CloseStream to during cleanup.
+                        is_open = false;
+                        break;
                     }
                 }
             }
-            message = message_rx.next() => {
+            Step::Outbound(message) => {
                 if is_open {
                     match message {
                         Some(WsMessage::Audio(audio)) => {
-                            if let Err(err) = ws_stream_send.send(Message::Binary(Bytes::from(audio))).await {
+                            if let Err(err) = ws_stream_send
+                                .send(Message::Binary(Bytes::from(audio)))
+                                .await
+                            {
                                 if response_tx.send(Err(err.into())).await.is_err() {
                                     break;
                                 }
@@ -605,18 +654,26 @@ async fn run_flux_worker(
                             }
                         }
                         Some(WsMessage::ForceEndTurn) => {
-                            if let Err(err) = ws_stream_send.send(Message::Text(
-                                Utf8Bytes::from(serde_json::to_string(&ControlMessage::ForceEndTurn).unwrap_or_default())
-                            )).await {
+                            if let Err(err) = ws_stream_send
+                                .send(Message::Text(Utf8Bytes::from(
+                                    serde_json::to_string(&ControlMessage::ForceEndTurn)
+                                        .unwrap_or_default(),
+                                )))
+                                .await
+                            {
                                 if response_tx.send(Err(err.into())).await.is_err() {
                                     break;
                                 }
                             }
                         }
                         Some(WsMessage::CloseStream) | None => {
-                            if let Err(err) = ws_stream_send.send(Message::Text(
-                                Utf8Bytes::from(serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default())
-                            )).await {
+                            if let Err(err) = ws_stream_send
+                                .send(Message::Text(Utf8Bytes::from(
+                                    serde_json::to_string(&ControlMessage::CloseStream)
+                                        .unwrap_or_default(),
+                                )))
+                                .await
+                            {
                                 let _ = response_tx.send(Err(err.into())).await;
                             }
                             is_open = false;
