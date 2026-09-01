@@ -24,11 +24,7 @@ const QUEUED_RESPONSES: usize = 600;
 /// `dg-request-id`), and hand the accepted WebSocket to `serve`.
 async fn spawn_mock_server<F, Fut>(serve: F) -> u16
 where
-    F: FnOnce(
-            tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
-        ) -> Fut
-        + Send
-        + 'static,
+    F: FnOnce(tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = ()> + Send,
 {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
@@ -36,6 +32,9 @@ where
 
     tokio::spawn(async move {
         let (stream, _) = listener.accept().await.expect("accept");
+        // The callback signature (and its large `ErrorResponse` Err variant)
+        // is fixed by tungstenite's accept_hdr API.
+        #[allow(clippy::result_large_err)]
         let callback = |_request: &Request, mut response: Response| {
             response
                 .headers_mut()
