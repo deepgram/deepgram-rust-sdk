@@ -417,9 +417,9 @@ pub enum TurnEvent {
 /// The cause of a turn ending, reported on [`TurnEvent::EndOfTurn`] events.
 ///
 /// This is an open enum: new values may be added over time, and
-/// unrecognized values deserialize as [`TurnTrigger::Unknown`].
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
+/// unrecognized values deserialize as [`TurnTrigger::Unknown`], which
+/// preserves the original wire string and re-serializes to it exactly.
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum TurnTrigger {
     /// The turn ended by Flux's native end-of-turn detection
@@ -431,9 +431,41 @@ pub enum TurnTrigger {
     /// The turn ended because `eot_timeout_ms` elapsed
     Timeout,
 
-    /// An unrecognized trigger value from the server.
-    #[serde(other)]
-    Unknown,
+    /// An unrecognized trigger value from the server, preserved verbatim.
+    Unknown(String),
+}
+
+impl TurnTrigger {
+    /// The wire representation of this trigger.
+    pub fn as_str(&self) -> &str {
+        match self {
+            TurnTrigger::Model => "model",
+            TurnTrigger::Manual => "manual",
+            TurnTrigger::Timeout => "timeout",
+            TurnTrigger::Unknown(value) => value,
+        }
+    }
+}
+
+// Manual scalar (de)serialization: `TurnTrigger` is a plain string on the
+// wire, and unknown values must survive an exact round trip — a derived
+// `#[serde(other)]` unit variant would collapse them all to one value.
+impl Serialize for TurnTrigger {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for TurnTrigger {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        Ok(match value.as_str() {
+            "model" => TurnTrigger::Model,
+            "manual" => TurnTrigger::Manual,
+            "timeout" => TurnTrigger::Timeout,
+            _ => TurnTrigger::Unknown(value),
+        })
+    }
 }
 
 /// A word in a Flux turn with confidence
@@ -593,15 +625,20 @@ mod tests {
     }
 
     #[test]
-    fn turninfo_unknown_trigger_tolerated() {
+    fn turninfo_unknown_trigger_round_trips_verbatim() {
         let json = r#"{"type":"TurnInfo","request_id":"550e8400-e29b-41d4-a716-446655440000","sequence_id":11,"event":"EndOfTurn","turn_index":0,"audio_window_start":0.0,"audio_window_end":1.0,"transcript":"hello","words":[],"end_of_turn_confidence":0.9,"trigger":"some_future_trigger"}"#;
         let response: FluxResponse = serde_json::from_str(json).unwrap();
-        match response {
+        match &response {
             FluxResponse::TurnInfo { trigger, .. } => {
-                assert_eq!(trigger, Some(TurnTrigger::Unknown));
+                assert_eq!(
+                    trigger,
+                    &Some(TurnTrigger::Unknown("some_future_trigger".to_string()))
+                );
             }
             _ => panic!("expected TurnInfo"),
         }
+        // The unknown wire value must survive an exact round trip.
+        assert_eq!(serde_json::to_string(&response).unwrap(), json);
     }
 
     #[test]
