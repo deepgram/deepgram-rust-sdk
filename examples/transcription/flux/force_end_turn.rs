@@ -9,17 +9,25 @@ Sending ForceEndTurn
 
 //! Flux `ForceEndTurn` example.
 //!
-//! Pumps a file into the Flux WebSocket and, on the first non-empty
+//! Pumps a WAV file into the Flux WebSocket and, on the first non-empty
 //! `Update` (proof that a turn is active), sends a `ForceEndTurn`
 //! message to end the current turn immediately. The server replies
 //! with a standard `EndOfTurn`
-//! [`crate::common::flux_response::FluxResponse::TurnInfo`] event whose
-//! `trigger` is [`crate::common::flux_response::TurnTrigger::Manual`];
+//! [`deepgram::common::flux_response::FluxResponse::TurnInfo`] event whose
+//! `trigger` is [`deepgram::common::flux_response::TurnTrigger::Manual`];
 //! turns that end naturally afterwards carry `trigger: Model`.
+//!
+//! The audio is sent as a containerized WAV, so no `encoding` or
+//! `sample_rate` parameters are set — the server detects the format
+//! from the container. (Those parameters are for raw, headerless audio
+//! such as a microphone PCM stream; see the `microphone_flux` example.)
 //!
 //! `ForceEndTurn` operates on the turn currently in progress — sent
 //! while no turn is active (e.g. during leading silence), it is
-//! ignored.
+//! ignored. `Ok(())` from `force_end_turn()` means only that the
+//! message was queued locally: this example therefore treats the
+//! session as successful only after observing an `EndOfTurn` with
+//! `trigger: Manual`, and exits nonzero otherwise.
 //!
 //! `ForceEndTurn` is useful when your application has a definitive
 //! turn-end signal of its own: a push-to-talk release, a DTMF tone, a
@@ -27,7 +35,8 @@ Sending ForceEndTurn
 //!
 //! NOTE: `ForceEndTurn` is gated per deployment. On a deployment where
 //! it is not enabled, the server responds with a fatal
-//! `UNPARSABLE_CLIENT_MESSAGE` error and closes the connection.
+//! `UNPARSABLE_CLIENT_MESSAGE` error and closes the connection — this
+//! example surfaces that as an error.
 //!
 //! Run with:
 //!
@@ -37,23 +46,27 @@ Sending ForceEndTurn
 //! ```
 
 use std::env;
+use std::error::Error;
 use std::time::Duration;
 
 use deepgram::{
     common::{
-        flux_response::{FluxResponse, TurnEvent},
-        options::{Encoding, Model, Options},
+        flux_response::{FluxResponse, TurnEvent, TurnTrigger},
+        options::{Model, Options},
     },
-    Deepgram, DeepgramError,
+    Deepgram,
 };
 
 static PATH_TO_FILE: &str = "examples/audio/bueller-mono.wav";
 static AUDIO_CHUNK_SIZE: usize = 8_820; // 100ms @ 44.1 kHz Linear16 mono
 static FRAME_DELAY: Duration = Duration::from_millis(100);
+/// How long to wait for the server to finish the session after
+/// `CloseStream` before giving up.
+static SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[tokio::main]
-async fn main() -> Result<(), DeepgramError> {
-    let api_key = env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environment variable");
+async fn main() -> Result<(), Box<dyn Error>> {
+    let api_key = env::var("DEEPGRAM_API_KEY")?;
     let dg = Deepgram::new(&api_key)?;
 
     let options = Options::builder()
@@ -62,11 +75,10 @@ async fn main() -> Result<(), DeepgramError> {
         .eot_timeout_ms(5_000)
         .build();
 
+    // The file is a containerized WAV, so encoding/sample_rate are not set.
     let mut handle = dg
         .transcription()
         .flux_request_with_options(options)
-        .encoding(Encoding::Linear16)
-        .sample_rate(44_100)
         .handle()
         .await?;
 
@@ -75,24 +87,36 @@ async fn main() -> Result<(), DeepgramError> {
     // Read the file up front and slice it into pacable chunks.
     let audio_bytes = tokio::fs::read(PATH_TO_FILE).await?;
     let mut offset = 0usize;
-    let mut audio_done = false;
+    let mut shutdown_deadline: Option<tokio::time::Instant> = None;
     let mut sent_force_end_turn = false;
+    let mut saw_manual_end_of_turn = false;
 
     let mut frame_timer = tokio::time::interval(FRAME_DELAY);
     frame_timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     loop {
         tokio::select! {
-            _ = frame_timer.tick(), if !audio_done => {
+            _ = frame_timer.tick(), if shutdown_deadline.is_none() => {
                 if offset >= audio_bytes.len() {
                     handle.close_stream().await?;
-                    audio_done = true;
+                    // The audio is done; the server has SHUTDOWN_TIMEOUT to
+                    // deliver the remaining results and end the session.
+                    shutdown_deadline =
+                        Some(tokio::time::Instant::now() + SHUTDOWN_TIMEOUT);
                     continue;
                 }
                 let end = (offset + AUDIO_CHUNK_SIZE).min(audio_bytes.len());
                 let chunk = audio_bytes[offset..end].to_vec();
                 offset = end;
                 handle.send_data(chunk).await?;
+            }
+            _ = tokio::time::sleep_until(shutdown_deadline.unwrap_or_else(tokio::time::Instant::now)),
+                if shutdown_deadline.is_some() =>
+            {
+                return Err(format!(
+                    "server did not end the session within {SHUTDOWN_TIMEOUT:?} of CloseStream"
+                )
+                .into());
             }
             response = handle.receive() => {
                 let Some(response) = response else { break };
@@ -131,19 +155,29 @@ async fn main() -> Result<(), DeepgramError> {
                                 "[Turn {}] EndOfTurn (trigger: {:?}): {}",
                                 turn_index, trigger, transcript
                             );
+                            if trigger == Some(TurnTrigger::Manual) {
+                                saw_manual_end_of_turn = true;
+                            }
                         }
                         _ => {}
                     },
                     FluxResponse::FatalError {
                         code, description, ..
                     } => {
-                        eprintln!("FatalError {code}: {description}");
-                        break;
+                        return Err(format!("fatal Flux error {code}: {description}").into());
                     }
                     _ => {}
                 }
             }
         }
+    }
+
+    // Success requires server confirmation, not just a locally queued
+    // message: the forced turn must have ended with trigger: Manual.
+    if !saw_manual_end_of_turn {
+        return Err("session ended without an EndOfTurn with trigger: Manual — \
+             ForceEndTurn was not demonstrated"
+            .into());
     }
 
     Ok(())
