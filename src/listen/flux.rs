@@ -469,9 +469,26 @@ impl FluxHandle {
     /// [`trigger`](crate::common::flux_response::TurnTrigger) set to
     /// [`Manual`](crate::common::flux_response::TurnTrigger::Manual).
     ///
-    /// Note that `ForceEndTurn` is gated per deployment. On a deployment
-    /// where it is not enabled, the server responds with a fatal
-    /// `UNPARSABLE_CLIENT_MESSAGE` error and closes the connection.
+    /// # Confirming the turn actually ended
+    ///
+    /// `Ok(())` means only that the message was queued locally for the
+    /// connection worker — it is **not** confirmation that the server ended
+    /// the turn. Server acceptance arrives asynchronously through
+    /// [`receive`](Self::receive):
+    ///
+    /// - **Confirmed**: an `EndOfTurn` `TurnInfo` event with
+    ///   `trigger: Manual`.
+    /// - **No active turn**: sent while no turn is in progress (e.g. during
+    ///   leading silence), the message is silently ignored — no response is
+    ///   produced.
+    /// - **Unsupported deployment**: `ForceEndTurn` is gated per deployment.
+    ///   Where it is not enabled, the server responds with a fatal
+    ///   `UNPARSABLE_CLIENT_MESSAGE` error (surfaced as
+    ///   [`FluxResponse::FatalError`] from [`receive`](Self::receive)) and
+    ///   closes the connection.
+    ///
+    /// Callers that need to know the turn ended manually must observe the
+    /// `EndOfTurn` event rather than rely on this method's return value.
     pub async fn force_end_turn(&mut self) -> Result<()> {
         self.message_tx
             .send(WsMessage::ForceEndTurn)
