@@ -16,7 +16,9 @@ Audio saved to "flux-tts-websocket.wav" (<n> bytes of linear16 @ 24000 Hz)
 //! lifecycle (`SpeechStarted`, binary audio frames, `Flushed`,
 //! `SpeechMetadata`); a graceful `Close` drains remaining audio and
 //! ends with `SessionMetadata`. The synthesized audio is collected and
-//! saved as a playable WAV file.
+//! saved as a playable WAV file — but only after the session completed:
+//! a fatal error, a session that ends without its terminal
+//! `SessionMetadata`, or empty audio exits nonzero and writes nothing.
 //!
 //! Run with:
 //!
@@ -26,6 +28,7 @@ Audio saved to "flux-tts-websocket.wav" (<n> bytes of linear16 @ 24000 Hz)
 //! ```
 
 use std::env;
+use std::error::Error;
 use std::io::Write;
 
 use deepgram::{
@@ -33,7 +36,7 @@ use deepgram::{
         options::{Encoding, Model, Options},
         response::FluxSpeakResponse,
     },
-    Deepgram, DeepgramError,
+    Deepgram,
 };
 
 static SAMPLE_RATE: u32 = 24_000;
@@ -49,8 +52,8 @@ static TOKENS: &[&str] = &[
 ];
 
 #[tokio::main]
-async fn main() -> Result<(), DeepgramError> {
-    let api_key = env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environment variable");
+async fn main() -> Result<(), Box<dyn Error>> {
+    let api_key = env::var("DEEPGRAM_API_KEY")?;
     let dg = Deepgram::new(&api_key)?;
 
     let options = Options::builder(Model::FluxHaleyEn)
@@ -72,6 +75,7 @@ async fn main() -> Result<(), DeepgramError> {
     handle.close().await?;
 
     let mut audio: Vec<u8> = Vec::new();
+    let mut saw_session_metadata = false;
 
     while let Some(response) = handle.receive().await {
         match response? {
@@ -108,6 +112,9 @@ async fn main() -> Result<(), DeepgramError> {
                     "SessionMetadata: {total_audio_duration_ms}ms total audio, \
                      {total_billable_character_count} total billable chars"
                 );
+                // SessionMetadata is the terminal event of a graceful
+                // close — the session completed.
+                saw_session_metadata = true;
             }
             FluxSpeakResponse::Warning {
                 code, description, ..
@@ -117,11 +124,21 @@ async fn main() -> Result<(), DeepgramError> {
             FluxSpeakResponse::FatalError {
                 code, description, ..
             } => {
-                eprintln!("Error {code}: {description}");
-                break;
+                return Err(format!("fatal Flux TTS error {code}: {description}").into());
             }
             _ => {}
         }
+    }
+
+    // Write the artifact only for a complete, non-empty synthesis: the
+    // graceful close must have finished with SessionMetadata, and audio
+    // must have actually been produced. Otherwise exit nonzero with no
+    // output file.
+    if !saw_session_metadata {
+        return Err("session ended before its terminal SessionMetadata event".into());
+    }
+    if audio.is_empty() {
+        return Err("session completed but produced no audio".into());
     }
 
     let output_file = std::path::Path::new("flux-tts-websocket.wav");
