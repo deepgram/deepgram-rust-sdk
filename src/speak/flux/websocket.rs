@@ -35,7 +35,8 @@ impl Speak<'_> {
     ///
     /// The WebSocket transport does not accept the REST-only options
     /// (`container`, `bit_rate`, `callback`, `callback_method`,
-    /// `priority`); [`FluxSpeakBuilder::handle`] returns
+    /// `priority`) or the REST-only compressed encodings (`mp3`, `opus`,
+    /// `flac`, `aac`); [`FluxSpeakBuilder::handle`] returns
     /// [`DeepgramError::InvalidOptions`] if any of them are set.
     ///
     /// ```
@@ -117,6 +118,11 @@ impl FluxSpeakBuilder<'_> {
         if let Some(param) = self.options.rest_only_options_set() {
             return Err(DeepgramError::InvalidOptions(format!(
                 "the `{param}` option applies to the REST (batch) transport only and is not accepted by the /v2/speak websocket"
+            )));
+        }
+        if let Some(encoding) = self.options.rest_only_encoding_set() {
+            return Err(DeepgramError::InvalidOptions(format!(
+                "the `{encoding}` encoding applies to the REST (batch) transport only; the /v2/speak websocket emits raw audio (`linear16`, `mulaw`, or `alaw`)"
             )));
         }
         FluxSpeakHandle::new(self).await
@@ -542,6 +548,32 @@ mod tests {
             builder.urlencoded().unwrap(),
             "model=flux-haley-en&encoding=linear16&sample_rate=24000&speed=1.05"
         );
+    }
+
+    #[tokio::test]
+    async fn handle_rejects_rest_only_encodings() {
+        let dg = crate::Deepgram::new("token").unwrap();
+        for (encoding, name) in [
+            (Encoding::Mp3, "mp3"),
+            (Encoding::Opus, "opus"),
+            (Encoding::Flac, "flac"),
+            (Encoding::Aac, "aac"),
+        ] {
+            let options = Options::builder(Model::FluxHaleyEn)
+                .encoding(encoding)
+                .build();
+            let speak = dg.text_to_speech();
+            let result = speak.flux_request(options).handle().await;
+            match result {
+                Err(crate::DeepgramError::InvalidOptions(message)) => {
+                    assert!(
+                        message.contains(name),
+                        "error for `{name}` should name the encoding: {message}"
+                    );
+                }
+                _ => panic!("expected InvalidOptions error for `{name}`"),
+            }
+        }
     }
 
     #[tokio::test]

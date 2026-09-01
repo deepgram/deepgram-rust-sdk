@@ -281,6 +281,21 @@ impl Options {
             None
         }
     }
+
+    /// Whether the configured encoding is one of the known REST-only
+    /// compressed encodings. The `/v2/speak` WebSocket emits raw audio
+    /// only (`linear16`, `mulaw`, `alaw`). [`Encoding::CustomEncoding`]
+    /// is not checked — unknown values are left for the server to
+    /// validate.
+    pub(super) fn rest_only_encoding_set(&self) -> Option<&'static str> {
+        match self.encoding {
+            Some(Encoding::Mp3) => Some("mp3"),
+            Some(Encoding::Opus) => Some("opus"),
+            Some(Encoding::Flac) => Some("flac"),
+            Some(Encoding::Aac) => Some("aac"),
+            _ => None,
+        }
+    }
 }
 
 impl OptionsBuilder {
@@ -536,5 +551,40 @@ mod tests {
 
         let with_priority = Options::builder(Model::FluxHaleyEn).priority_low().build();
         assert_eq!(with_priority.rest_only_options_set(), Some("priority"));
+    }
+
+    #[test]
+    fn rest_only_encoding_detection() {
+        for (encoding, name) in [
+            (Encoding::Mp3, "mp3"),
+            (Encoding::Opus, "opus"),
+            (Encoding::Flac, "flac"),
+            (Encoding::Aac, "aac"),
+        ] {
+            let options = Options::builder(Model::FluxHaleyEn)
+                .encoding(encoding)
+                .build();
+            assert_eq!(options.rest_only_encoding_set(), Some(name));
+        }
+
+        // Raw encodings pass, no encoding passes, and custom encodings
+        // are left for the server to validate.
+        for options in [
+            Options::builder(Model::FluxHaleyEn).build(),
+            Options::builder(Model::FluxHaleyEn)
+                .encoding(Encoding::Linear16)
+                .build(),
+            Options::builder(Model::FluxHaleyEn)
+                .encoding(Encoding::Mulaw)
+                .build(),
+            Options::builder(Model::FluxHaleyEn)
+                .encoding(Encoding::Alaw)
+                .build(),
+            Options::builder(Model::FluxHaleyEn)
+                .encoding(Encoding::CustomEncoding("linear32".to_string()))
+                .build(),
+        ] {
+            assert_eq!(options.rest_only_encoding_set(), None);
+        }
     }
 }
