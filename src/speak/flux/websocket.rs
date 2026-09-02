@@ -326,6 +326,11 @@ async fn run_flux_speak_worker(
     let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
+    // False once `message_rx` is exhausted (all senders dropped or the
+    // channel closed): a closed-and-drained channel reports `Ready(None)`
+    // on every poll, so keeping it in the select would busy-spin while
+    // draining the final inbound responses.
+    let mut commands_open: bool = true;
 
     /// One scheduling decision per loop iteration.
     enum Step {
@@ -355,12 +360,16 @@ async fn run_flux_speak_worker(
             }
             .fuse();
             pin_mut!(inbound);
-            // A fair (rather than biased) select, so neither a flood of
-            // inbound audio nor a flood of outbound text can starve the
-            // other direction.
-            select! {
-                step = inbound => step,
-                message = message_rx.next() => Step::Outbound(message),
+            if commands_open {
+                // A fair (rather than biased) select, so neither a flood of
+                // inbound audio nor a flood of outbound text can starve the
+                // other direction.
+                select! {
+                    step = inbound => step,
+                    message = message_rx.next() => Step::Outbound(message),
+                }
+            } else {
+                inbound.await
             }
         };
 
@@ -404,6 +413,11 @@ async fn run_flux_speak_worker(
                                     }));
                             }
                         }
+                        // Reading a Close frame queues the acknowledgement on
+                        // the shared websocket context; flush the write half so
+                        // the closing handshake completes now rather than at
+                        // socket teardown.
+                        let _ = ws_stream_send.flush().await;
                         // The server is closing the connection; don't send
                         // Close during cleanup.
                         is_open = false;
@@ -446,10 +460,13 @@ async fn run_flux_speak_worker(
                         // safely ignored.
                     }
                     Some(Err(err)) => {
-                        if response_tx.start_send(Err(err.into())).is_err() {
-                            // Responses are no longer being received; close the stream.
-                            break;
-                        }
+                        // A read error is terminal for the transport: forward
+                        // it once and end the worker, rather than keep polling
+                        // a broken socket (which can surface duplicate errors)
+                        // or accept further commands doomed to fail.
+                        let _ = response_tx.start_send(Err(err.into()));
+                        is_open = false;
+                        break;
                     }
                     None => {
                         // Upstream is closed; there is no socket to send
@@ -460,6 +477,11 @@ async fn run_flux_speak_worker(
                 }
             }
             Step::Outbound(message) => {
+                if message.is_none() {
+                    // The command channel is exhausted; stop polling it so the
+                    // remaining inbound responses drain without busy-spinning.
+                    commands_open = false;
+                }
                 if is_open {
                     let message = match message {
                         Some(ClientMessage::Close) | None => {
@@ -474,9 +496,13 @@ async fn run_flux_speak_worker(
                                 .send(Message::Text(Utf8Bytes::from(json)))
                                 .await
                             {
-                                if response_tx.send(Err(err.into())).await.is_err() {
-                                    break;
-                                }
+                                // A failed write means the transport is broken:
+                                // forward the first terminal error and end the
+                                // worker, rather than accept further commands
+                                // doomed to fail the same way.
+                                let _ = response_tx.send(Err(err.into())).await;
+                                is_open = false;
+                                break;
                             }
                         }
                         Err(err) => {
@@ -502,10 +528,9 @@ async fn run_flux_speak_worker(
         }
     }
     response_tx.close_channel();
-    // Waiting for message_tx to be dropped before exiting
-    while message_rx.next().await.is_some() {
-        // Receiving messages after closing down. Ignore them.
-    }
+    // Return immediately, dropping `message_rx`: once the session is over,
+    // later sends from the handle fail fast instead of being silently
+    // discarded, and the socket is torn down promptly.
     Ok(())
 }
 
