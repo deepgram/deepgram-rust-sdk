@@ -64,6 +64,8 @@ crossbeam = "0.8"
 audio = "0.2.0"
 rodio = { version = "0.20.1" }
 pkg-config = { version = "0.3.30" }
+rcgen = "0.13"
+tokio-rustls = "0.26"
 
 [package.metadata.docs.rs]
 all-features = true

@@ -730,10 +730,23 @@ impl WebsocketHandle {
             .as_ref()
             .map(|sink| DiagnosticsGuard::new(sink.clone(), &url));
 
+        // Both arms use the same explicit rustls connector (see
+        // `diagnostics::tls_connector`): with `connect-diagnostics` enabled,
+        // downstream feature unification (e.g. a consumer also enabling
+        // `tokio-tungstenite/native-tls`) must not make timed and untimed
+        // connections select different TLS providers or trust roots.
         #[cfg(feature = "connect-diagnostics")]
         let (ws_stream, upgrade_response) = match diagnostics_guard.as_mut() {
             Some(guard) => crate::diagnostics::connect_with_diagnostics(request, guard).await?,
-            None => tokio_tungstenite::connect_async(request).await?,
+            None => {
+                tokio_tungstenite::connect_async_tls_with_config(
+                    request,
+                    None,
+                    false,
+                    Some(crate::diagnostics::tls_connector()),
+                )
+                .await?
+            }
         };
 
         #[cfg(not(feature = "connect-diagnostics"))]

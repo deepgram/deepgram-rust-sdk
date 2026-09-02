@@ -16,14 +16,18 @@
 //! attempt carries [`ConnectOutcome::Cancelled`], the furthest phase reached,
 //! and every phase timing captured up to the moment of cancellation.
 //!
-//! When no sink is configured, the SDK uses its stock connect path and this
-//! module's code does not run.
+//! When no sink is configured, the SDK uses its stock connect path
+//! (`tokio_tungstenite::connect_async_tls_with_config`) and no phases are
+//! timed or recorded.
 //!
-//! The phase-timed connect path is composed from the same building blocks as
-//! the stock path (`tokio-tungstenite` with the `rustls-tls-webpki-roots`
-//! feature): the same TLS provider, the same trust roots, the same upgrade
-//! machinery, and the same request. Only the granularity of measurement
-//! differs.
+//! With this feature enabled, both connect paths — stock and phase-timed —
+//! are handed the same explicit rustls connector ([`tls_connector`]): webpki
+//! trust roots, no client auth, the crate-default provider. That keeps timed
+//! and untimed connections on identical TLS provider and trust configuration
+//! even when downstream feature unification enables another TLS backend
+//! (e.g. `tokio-tungstenite/native-tls`) in the dependency graph. The
+//! upgrade machinery and the request are the same on both paths; only the
+//! granularity of measurement differs.
 
 use std::fmt;
 use std::sync::Arc;
@@ -441,11 +445,10 @@ async fn connect_phases(
 
     let stream = if tls {
         guard.enter_phase(ConnectPhase::TlsHandshake);
-        let config = tls_client_config();
         let server_name = rustls_pki_types::ServerName::try_from(domain.as_str())
             .map_err(|_| TungsteniteError::Tls(tungstenite::error::TlsError::InvalidDnsName))?
             .to_owned();
-        let connector = tokio_rustls::TlsConnector::from(Arc::new(config));
+        let connector = tokio_rustls::TlsConnector::from(tls_client_config());
         let tls_stream = connector
             .connect(server_name, tcp)
             .await
@@ -468,12 +471,24 @@ async fn connect_phases(
 /// supplied and its `rustls-tls-webpki-roots` feature is enabled: webpki
 /// trust roots, no client auth, and the crate-default provider. Built per
 /// attempt, like the stock path, so TLS session resumption behavior matches.
-fn tls_client_config() -> rustls::ClientConfig {
+fn tls_client_config() -> Arc<rustls::ClientConfig> {
     let mut root_store = rustls::RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    rustls::ClientConfig::builder()
-        .with_root_certificates(root_store)
-        .with_no_client_auth()
+    Arc::new(
+        rustls::ClientConfig::builder()
+            .with_root_certificates(root_store)
+            .with_no_client_auth(),
+    )
+}
+
+/// The one TLS connector every `/v1/listen` connection uses while the
+/// `connect-diagnostics` feature is enabled — passed explicitly to both the
+/// stock (`tokio_tungstenite::connect_async_tls_with_config`) and the
+/// phase-timed connect paths, so downstream feature unification (e.g. a
+/// consumer also enabling `tokio-tungstenite/native-tls`) cannot make the
+/// two paths select different TLS providers or trust configurations.
+pub(crate) fn tls_connector() -> tokio_tungstenite::Connector {
+    tokio_tungstenite::Connector::Rustls(tls_client_config())
 }
 
 /// Hostname from the request URI, with IPv6 brackets stripped as `rustls`
