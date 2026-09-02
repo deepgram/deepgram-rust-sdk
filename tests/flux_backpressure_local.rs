@@ -159,6 +159,105 @@ async fn abnormal_server_close_surfaces_as_error() {
     );
 }
 
+/// PR #170 review, S6: after the server initiates the close, the client must
+/// flush its close acknowledgement promptly — completing the closing
+/// handshake while the handle is still alive — rather than leaving the
+/// acknowledgement queued until socket teardown.
+#[tokio::test]
+async fn peer_close_handshake_completes_while_handle_is_alive() {
+    let (done_tx, done_rx) = tokio::sync::oneshot::channel::<bool>();
+
+    let port = spawn_mock_server(|mut ws| async move {
+        ws.close(Some(CloseFrame {
+            code: CloseCode::Normal,
+            reason: "".into(),
+        }))
+        .await
+        .expect("server close");
+        // Drain until the connection ends. A clean end means the client's
+        // close acknowledgement arrived and the handshake completed; an
+        // `Err` here means the socket was torn down without one.
+        let mut clean = true;
+        while let Some(message) = ws.next().await {
+            if message.is_err() {
+                clean = false;
+            }
+        }
+        let _ = done_tx.send(clean);
+    })
+    .await;
+
+    let dg = client(port);
+    let transcription = dg.transcription();
+    let mut handle = transcription
+        .flux_request()
+        .handle()
+        .await
+        .expect("connect");
+
+    while handle.receive().await.is_some() {}
+
+    // The handle is deliberately still alive here: the closing handshake
+    // must not wait for it to be dropped.
+    let clean = tokio::time::timeout(Duration::from_secs(2), done_rx)
+        .await
+        .expect("close handshake must complete while the handle is alive")
+        .expect("server task reports");
+    assert!(
+        clean,
+        "the close acknowledgement must be flushed to the server"
+    );
+
+    // The worker has ended: sends after peer close must fail rather than
+    // be silently discarded.
+    assert!(
+        handle.send_data(vec![0u8; 4]).await.is_err(),
+        "send_data after peer close must return an error"
+    );
+}
+
+/// PR #170 review, S5: the first terminal transport error must end the
+/// worker — exactly one error is forwarded (no duplicates), and later
+/// commands fail instead of being accepted by a dead session.
+#[tokio::test]
+async fn terminal_read_error_ends_worker_after_single_error() {
+    let port = spawn_mock_server(|ws| async move {
+        // Abrupt teardown without a closing handshake produces a terminal
+        // read error on the client.
+        drop(ws);
+    })
+    .await;
+
+    let dg = client(port);
+    let transcription = dg.transcription();
+    let mut handle = transcription
+        .flux_request()
+        .handle()
+        .await
+        .expect("connect");
+
+    let mut errors = 0usize;
+    while let Some(response) = tokio::time::timeout(Duration::from_secs(5), handle.receive())
+        .await
+        .expect("stream must end promptly after a terminal error")
+    {
+        assert!(
+            response.is_err(),
+            "only the terminal error is expected, got: {response:?}"
+        );
+        errors += 1;
+    }
+    assert_eq!(
+        errors, 1,
+        "exactly one terminal error must be forwarded, without duplicates"
+    );
+
+    assert!(
+        handle.send_data(vec![0u8; 4]).await.is_err(),
+        "send_data after a terminal error must return an error"
+    );
+}
+
 /// A normal server close ends the stream without an error.
 #[tokio::test]
 async fn normal_server_close_ends_stream_silently() {

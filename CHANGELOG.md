@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `FluxWord` now exposes optional per-word `start` and `end` timings, in seconds.
 - New example: `flux_force_end_turn` under `examples/transcription/flux/`.
 
+### Fixed
+
+- The Flux connection worker now ends on the first terminal transport error (forwarding it exactly once) and completes the WebSocket closing handshake promptly when the server initiates the close, instead of leaving the close acknowledgement queued until socket teardown. After the session ends — peer close or terminal error — `FluxHandle::send_data`, `configure`, and `force_end_turn` return an error instead of silently discarding the message.
+
 ## [0.10.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.9.2...0.10.0)
 
 ### Added
