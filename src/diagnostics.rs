@@ -21,7 +21,8 @@
 //! timed or recorded.
 //!
 //! With this feature enabled, both connect paths — stock and phase-timed —
-//! are handed the same explicit rustls connector ([`tls_connector`]): webpki
+//! are handed the same explicit rustls connector (the crate-internal
+//! `tls_connector`): webpki
 //! trust roots, no client auth, the crate-default provider. That keeps timed
 //! and untimed connections on identical TLS provider and trust configuration
 //! even when downstream feature unification enables another TLS backend
