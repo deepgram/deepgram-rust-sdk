@@ -481,11 +481,6 @@ impl FluxHandle {
     /// - **No active turn**: sent while no turn is in progress (e.g. during
     ///   leading silence), the message is silently ignored — no response is
     ///   produced.
-    /// - **Unsupported deployment**: `ForceEndTurn` is gated per deployment.
-    ///   Where it is not enabled, the server responds with a fatal
-    ///   `UNPARSABLE_CLIENT_MESSAGE` error (surfaced as
-    ///   [`FluxResponse::FatalError`] from [`receive`](Self::receive)) and
-    ///   closes the connection.
     ///
     /// Callers that need to know the turn ended manually must observe the
     /// `EndOfTurn` event rather than rely on this method's return value.

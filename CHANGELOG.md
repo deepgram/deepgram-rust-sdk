@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `FluxHandle::force_end_turn()` sends the `ForceEndTurn` control message to end the current turn immediately on an external signal (push-to-talk release, DTMF tone, UI event, or an external endpointing stack). Note that `ForceEndTurn` is gated per deployment: where it is not enabled, the server replies with a fatal `UNPARSABLE_CLIENT_MESSAGE` error and closes the connection.
+- `FluxHandle::force_end_turn()` sends the `ForceEndTurn` control message to end the current turn immediately on an external signal (push-to-talk release, DTMF tone, UI event, or an external endpointing stack). Sent while no turn is active, it is silently ignored.
 - `FluxResponse::TurnInfo` now exposes `trigger` (`Option<TurnTrigger>`), the cause of a turn ending, reported on `EndOfTurn` events: `Model` (native end-of-turn detection), `Manual` (a `ForceEndTurn` was sent), or `Timeout` (`eot_timeout_ms` elapsed). `TurnTrigger` is an open enum — unrecognized values deserialize as `TurnTrigger::Unknown(String)`, preserving the original wire value so it survives re-serialization.
 - `FluxWord` now exposes optional per-word `start` and `end` timings, in seconds.
 - New example: `flux_force_end_turn` under `examples/transcription/flux/`.
