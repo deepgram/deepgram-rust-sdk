@@ -339,7 +339,7 @@ impl OptionsBuilder {
     }
 
     /// Set the speech-rate multiplier. `1.0` is the model's nominal rate;
-    /// lower is slower. Accepted values run `0.85` to `1.15` in `0.05`
+    /// lower is slower. Accepted values run `0.5` to `1.5` in `0.05`
     /// increments. Not supported by every model or language.
     ///
     /// On the WebSocket transport this can also be changed mid-session

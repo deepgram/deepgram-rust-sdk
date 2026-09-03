@@ -485,7 +485,7 @@ mod tests {
         }
 
         let failure: FluxSpeakResponse = serde_json::from_str(
-            r#"{"type":"ConfigureFailure","code":"SPEED_OUT_OF_RANGE","field":"speed","value":3.5,"description":"speed must be between 0.85 and 1.15 in 0.05 increments"}"#,
+            r#"{"type":"ConfigureFailure","code":"SPEED_OUT_OF_RANGE","field":"speed","value":3.5,"description":"speed must be between 0.5 and 1.5 in 0.05 increments"}"#,
         )
         .unwrap();
         match failure {
