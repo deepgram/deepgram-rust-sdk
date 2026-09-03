@@ -33,11 +33,6 @@ Sending ForceEndTurn
 //! turn-end signal of its own: a push-to-talk release, a DTMF tone, a
 //! "send" button, or an external VAD/endpointing stack.
 //!
-//! NOTE: `ForceEndTurn` is gated per deployment. On a deployment where
-//! it is not enabled, the server responds with a fatal
-//! `UNPARSABLE_CLIENT_MESSAGE` error and closes the connection — this
-//! example surfaces that as an error.
-//!
 //! Run with:
 //!
 //! ```bash
