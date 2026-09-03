@@ -2,3 +2,4 @@
 .env
 your_output_file.wav
 .DS_Store
+/target-*
