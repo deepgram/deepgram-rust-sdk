@@ -41,6 +41,8 @@ use url::Url;
 use uuid::Uuid;
 
 use self::file_chunker::FileChunker;
+#[cfg(feature = "connect-diagnostics")]
+use crate::diagnostics::{DiagnosticsGuard, DiagnosticsSink, SharedSink};
 use crate::{
     common::{
         options::{Encoding, Endpointing, Options},
@@ -66,9 +68,11 @@ pub struct WebsocketBuilder<'a> {
     stream_url: Url,
     keep_alive: Option<bool>,
     callback: Option<Url>,
+    #[cfg(feature = "connect-diagnostics")]
+    diagnostics: Option<SharedSink>,
 }
 
-impl Transcription<'_> {
+impl<'a> Transcription<'a> {
     /// Begin to configure a websocket request with common options
     /// set to their default values.
     ///
@@ -95,7 +99,7 @@ impl Transcription<'_> {
     ///     .stream_request()
     ///     .no_delay(true);
     /// ```
-    pub fn stream_request(&self) -> WebsocketBuilder<'_> {
+    pub fn stream_request(&self) -> WebsocketBuilder<'a> {
         self.stream_request_with_options(Options::default())
     }
 
@@ -132,7 +136,10 @@ impl Transcription<'_> {
     ///
     /// assert_eq!(&builder.urlencoded().unwrap(), "model=nova-2&detect_language=true&no_delay=true")
     /// ```
-    pub fn stream_request_with_options(&self, options: Options) -> WebsocketBuilder<'_> {
+    // The builder borrows the underlying `Deepgram` client (`'a`), not this
+    // `Transcription` handle, so callers can chain from a temporary:
+    // `dg.transcription().stream_request_with_options(...)`.
+    pub fn stream_request_with_options(&self, options: Options) -> WebsocketBuilder<'a> {
         WebsocketBuilder {
             deepgram: self.0,
             options,
@@ -147,6 +154,8 @@ impl Transcription<'_> {
             stream_url: self.listen_stream_url(),
             keep_alive: None,
             callback: None,
+            #[cfg(feature = "connect-diagnostics")]
+            diagnostics: None,
         }
     }
 
@@ -208,6 +217,8 @@ impl WebsocketBuilder<'_> {
         let Self {
             deepgram: _,
             keep_alive: _,
+            #[cfg(feature = "connect-diagnostics")]
+                diagnostics: _,
             options,
             encoding,
             sample_rate,
@@ -326,6 +337,37 @@ impl WebsocketBuilder<'_> {
 
     pub fn callback(mut self, callback: Url) -> Self {
         self.callback = Some(callback);
+
+        self
+    }
+
+    /// Emit one [`crate::diagnostics::ConnectRecord`] per connect attempt to
+    /// the given sink.
+    ///
+    /// With a sink configured, the SDK establishes the connection in four
+    /// individually timed phases (DNS, TCP, TLS, WebSocket upgrade) using the
+    /// same TLS configuration as the stock connect path. A record is emitted
+    /// on success, on failure, and — because delivery happens synchronously
+    /// from a drop guard — when the caller cancels the connect, e.g. via
+    /// `tokio::time::timeout`.
+    ///
+    /// Accepts a `tokio::sync::mpsc::UnboundedSender<ConnectRecord>` or a
+    /// closure wrapped with [`crate::diagnostics::sink_fn`].
+    ///
+    /// ```
+    /// # use deepgram::{Deepgram, common::options::Options, diagnostics::ConnectRecord};
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
+    /// let (diag_tx, mut diag_rx) = tokio::sync::mpsc::unbounded_channel::<ConnectRecord>();
+    /// let builder = dg
+    ///     .transcription()
+    ///     .stream_request_with_options(Options::default())
+    ///     .keep_alive()
+    ///     .diagnostics(diag_tx);
+    /// # drop(builder); // the builder outlives the temporary Transcription handle
+    /// ```
+    #[cfg(feature = "connect-diagnostics")]
+    pub fn diagnostics(mut self, sink: impl DiagnosticsSink + 'static) -> Self {
+        self.diagnostics = Some(SharedSink(std::sync::Arc::new(sink)));
 
         self
     }
@@ -679,6 +721,35 @@ impl WebsocketHandle {
             builder.body(())?
         };
 
+        // With a diagnostics sink configured, connect via the phase-timed
+        // path; the guard emits one record per attempt from its destructor,
+        // which also covers caller-side cancellation (a dropped future).
+        #[cfg(feature = "connect-diagnostics")]
+        let mut diagnostics_guard = builder
+            .diagnostics
+            .as_ref()
+            .map(|sink| DiagnosticsGuard::new(sink.clone(), &url));
+
+        // Both arms use the same explicit rustls connector (see
+        // `diagnostics::tls_connector`): with `connect-diagnostics` enabled,
+        // downstream feature unification (e.g. a consumer also enabling
+        // `tokio-tungstenite/native-tls`) must not make timed and untimed
+        // connections select different TLS providers or trust roots.
+        #[cfg(feature = "connect-diagnostics")]
+        let (ws_stream, upgrade_response) = match diagnostics_guard.as_mut() {
+            Some(guard) => crate::diagnostics::connect_with_diagnostics(request, guard).await?,
+            None => {
+                tokio_tungstenite::connect_async_tls_with_config(
+                    request,
+                    None,
+                    false,
+                    Some(crate::diagnostics::tls_connector()),
+                )
+                .await?
+            }
+        };
+
+        #[cfg(not(feature = "connect-diagnostics"))]
         let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
 
         let request_id = upgrade_response
@@ -686,13 +757,38 @@ impl WebsocketHandle {
             .get("dg-request-id")
             .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
                 "Websocket upgrade headers missing request ID"
-            )))?
-            .to_str()
-            .ok()
-            .and_then(|req_header_str| Uuid::parse_str(req_header_str).ok())
-            .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
-                "Received malformed request ID in websocket upgrade headers"
-            )))?;
+            )))
+            .and_then(|header| {
+                header
+                    .to_str()
+                    .ok()
+                    .and_then(|req_header_str| Uuid::parse_str(req_header_str).ok())
+                    .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
+                        "Received malformed request ID in websocket upgrade headers"
+                    )))
+            });
+
+        // The record's outcome must match what the caller experiences: the
+        // upgrade succeeded, but a missing or malformed request ID makes this
+        // constructor return an error, so only a validated request ID counts
+        // as a completed attempt. The raw header is recorded either way, for
+        // correlation.
+        #[cfg(feature = "connect-diagnostics")]
+        if let Some(guard) = diagnostics_guard.as_mut() {
+            if let Some(raw_request_id) = upgrade_response
+                .headers()
+                .get("dg-request-id")
+                .and_then(|value| value.to_str().ok())
+            {
+                guard.set_request_id(raw_request_id);
+            }
+            match &request_id {
+                Ok(_) => guard.complete(),
+                Err(err) => guard.fail_client(&err.to_string()),
+            }
+        }
+
+        let request_id = request_id?;
 
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);

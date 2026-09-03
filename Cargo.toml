@@ -40,6 +40,17 @@ tokio-tungstenite = { version = "^0.28.0", features = [
 ], optional = true }
 tokio-util = { version = "^0.7", features = ["codec", "io"] }
 tungstenite = { version = "^0.28.0", optional = true }
+# TLS crates for the connect-diagnostics phase-timed connect path. Versions
+# must stay in lockstep with what tokio-tungstenite's rustls-tls-webpki-roots
+# feature resolves to, so both connect paths compile against the same crates.
+# default-features = false: these deps must not enable any rustls feature
+# (provider, logging, prefer-post-quantum, ...) beyond what tokio-tungstenite
+# already enables, or turning on `connect-diagnostics` would change the TLS
+# configuration of the stock connect path via feature unification.
+rustls = { version = "^0.23", optional = true, default-features = false }
+rustls-pki-types = { version = "^1", optional = true }
+tokio-rustls = { version = "^0.26", optional = true, default-features = false }
+webpki-roots = { version = "^0.26", optional = true }
 url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Dependencies below are specified only to satisfy minimal-versions.
@@ -53,12 +64,25 @@ crossbeam = "0.8"
 audio = "0.2.0"
 rodio = { version = "0.20.1" }
 pkg-config = { version = "0.3.30" }
+rcgen = "0.13"
+tokio-rustls = "0.26"
+
+[package.metadata.docs.rs]
+all-features = true
 
 [features]
 default = ["manage", "listen", "speak"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
 speak = ["dep:tungstenite", "dep:tokio-tungstenite"]
+connect-diagnostics = [
+  "listen",
+  "dep:rustls",
+  "dep:rustls-pki-types",
+  "dep:tokio-rustls",
+  "dep:webpki-roots",
+  "uuid/v4",
+]
 
 [[example]]
 name = "grant_token"
@@ -88,6 +112,11 @@ required-features = ["listen"]
 name = "simple_stream"
 path = "examples/transcription/websocket/simple_stream.rs"
 required-features = ["listen"]
+
+[[example]]
+name = "connect_diagnostics"
+path = "examples/transcription/websocket/connect_diagnostics.rs"
+required-features = ["connect-diagnostics"]
 
 [[example]]
 name = "callback_stream"

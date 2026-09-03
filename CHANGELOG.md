@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [Unreleased](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.0...HEAD)
 
 ### Added
 
@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `FluxResponse::TurnInfo` now exposes `trigger` (`Option<TurnTrigger>`), the cause of a turn ending, reported on `EndOfTurn` events: `Model` (native end-of-turn detection), `Manual` (a `ForceEndTurn` was sent), or `Timeout` (`eot_timeout_ms` elapsed). `TurnTrigger` is an open enum — unrecognized values deserialize as `TurnTrigger::Unknown(String)`, preserving the original wire value so it survives re-serialization.
 - `FluxWord` now exposes optional per-word `start` and `end` timings, in seconds.
 - New example: `flux_force_end_turn` under `examples/transcription/flux/`.
+- Opt-in connect diagnostics behind the new `connect-diagnostics` cargo feature, for live transcription (`/v1/listen`) WebSocket connections (other WebSocket surfaces are not covered yet). Configuring a sink via `WebsocketBuilder::diagnostics` makes the SDK establish the streaming connection in four individually timed phases (DNS, TCP connect, TLS handshake, WebSocket upgrade) and emit one `diagnostics::ConnectRecord` per connect attempt. New example: `connect_diagnostics`.
+  - Records are emitted for every attempt — including attempts cancelled by a caller-side `tokio::time::timeout`, and failed upgrades, which capture the `dg-request-id` and `dg-error` response headers.
+  - Records serialize to flat JSON for JSONL pipelines (`schema_version: 1`, additive-only). The recorded URL is reduced to scheme, host, port, and path — userinfo and query parameters are never persisted.
+  - TLS note: with the feature enabled, both the timed and the untimed `/v1/listen` connect paths are handed one explicit rustls connector (webpki trust roots, crate-default provider), so downstream feature unification — e.g. a consumer also enabling `tokio-tungstenite/native-tls` — cannot make the two paths select different TLS providers. Without the feature, the stock connect path runs unchanged.
 
 ### Changed
 
