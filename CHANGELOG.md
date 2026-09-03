@@ -9,10 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Flux text-to-speech (`/v2/speak`) support in the new `speak::flux` module:
+  - Batch (REST): `Speak::flux_speak_to_file` and `Speak::flux_speak_to_stream` synthesize a complete block of text with `POST /v2/speak`. Query options cover `model` (required, e.g. `Model::FluxHaleyEn`), `encoding`, `sample_rate`, `speed`, `expressivity`, `mip_opt_out`, `tag`, and the REST-only `container`, `bit_rate`, `callback`, `callback_method`, and `priority`.
+  - Streaming (WebSocket): `Speak::flux_request(options).handle()` connects to the `/v2/speak` websocket and returns a `FluxSpeakHandle` with `speak`, `flush`, `interrupt`, `configure_speed`, `close`, and `receive`. Server events surface as `FluxSpeakResponse`: binary `Audio` frames plus `Connected`, `SpeechStarted`, `Flushed`, `SpeechMetadata`, `SpeechInterrupted`, `SessionMetadata`, `ConfigureSuccess`/`ConfigureFailure`, `Warning`, `FatalError`, and a forward-compatible `Unknown`.
+  - The websocket rejects REST-only options and the REST-only compressed encodings (`mp3`, `opus`, `flac`, `aac`) up front with the new `DeepgramError::InvalidOptions` variant; custom encodings are left for the server to validate.
+  - New examples: `flux_tts_batch` and `flux_tts_websocket` under `examples/speak/flux/`.
+- `FluxHandle::force_end_turn()` sends the `ForceEndTurn` control message to end the current turn immediately on an external signal (push-to-talk release, DTMF tone, UI event, or an external endpointing stack). Sent while no turn is active, it is silently ignored.
+- `FluxResponse::TurnInfo` now exposes `trigger` (`Option<TurnTrigger>`), the cause of a turn ending, reported on `EndOfTurn` events: `Model` (native end-of-turn detection), `Manual` (a `ForceEndTurn` was sent), or `Timeout` (`eot_timeout_ms` elapsed). `TurnTrigger` is an open enum — unrecognized values deserialize as `TurnTrigger::Unknown(String)`, preserving the original wire value so it survives re-serialization.
+- `FluxWord` now exposes optional per-word `start` and `end` timings, in seconds.
+- New example: `flux_force_end_turn` under `examples/transcription/flux/`.
 - Opt-in connect diagnostics behind the new `connect-diagnostics` cargo feature, for live transcription (`/v1/listen`) WebSocket connections (other WebSocket surfaces are not covered yet). Configuring a sink via `WebsocketBuilder::diagnostics` makes the SDK establish the streaming connection in four individually timed phases (DNS, TCP connect, TLS handshake, WebSocket upgrade) and emit one `diagnostics::ConnectRecord` per connect attempt. New example: `connect_diagnostics`.
   - Records are emitted for every attempt — including attempts cancelled by a caller-side `tokio::time::timeout`, and failed upgrades, which capture the `dg-request-id` and `dg-error` response headers.
   - Records serialize to flat JSON for JSONL pipelines (`schema_version: 1`, additive-only). The recorded URL is reduced to scheme, host, port, and path — userinfo and query parameters are never persisted.
   - TLS note: with the feature enabled, both the timed and the untimed `/v1/listen` connect paths are handed one explicit rustls connector (webpki trust roots, crate-default provider), so downstream feature unification — e.g. a consumer also enabling `tokio-tungstenite/native-tls` — cannot make the two paths select different TLS providers. Without the feature, the stock connect path runs unchanged.
+
+### Changed
+
+- The `speak` feature now enables the websocket dependencies (`tungstenite`, `tokio-tungstenite`), and `DeepgramError::WsError` is available under `speak` as well as `listen`. No API change for default-feature users.
+
+### Fixed
+
+- The Flux connection workers (STT and TTS) now end on the first terminal transport error (forwarding it exactly once) and complete the WebSocket closing handshake promptly when the server initiates the close, instead of leaving the close acknowledgement queued until socket teardown. After the session ends — peer close or terminal error — sends from the handle (`FluxHandle::send_data`/`configure`/`force_end_turn`, `FluxSpeakHandle::speak`/`flush`/`interrupt`/`configure_speed`) return an error instead of silently discarding the message.
 
 ## [0.10.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.9.2...0.10.0)
 

@@ -51,6 +51,10 @@ pub enum FluxResponse {
         /// Confidence that this is end of turn
         end_of_turn_confidence: f64,
 
+        /// The cause of the turn ending. Present on every
+        /// [`TurnEvent::EndOfTurn`] event and only there.
+        trigger: Option<TurnTrigger>,
+
         /// Languages detected in the user's speech (descending by word
         /// count). Only populated when the listen model is
         /// `flux-general-multi`; empty otherwise.
@@ -179,6 +183,8 @@ enum TaggedFluxResponse {
         transcript: String,
         words: Vec<FluxWord>,
         end_of_turn_confidence: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        trigger: Option<TurnTrigger>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         languages: Vec<String>,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -225,6 +231,7 @@ impl From<TaggedFluxResponse> for FluxResponse {
                 transcript,
                 words,
                 end_of_turn_confidence,
+                trigger,
                 languages,
                 languages_hinted,
             } => FluxResponse::TurnInfo {
@@ -237,6 +244,7 @@ impl From<TaggedFluxResponse> for FluxResponse {
                 transcript,
                 words,
                 end_of_turn_confidence,
+                trigger,
                 languages,
                 languages_hinted,
             },
@@ -319,6 +327,7 @@ impl Serialize for FluxResponse {
                 transcript,
                 words,
                 end_of_turn_confidence,
+                trigger,
                 languages,
                 languages_hinted,
             } => {
@@ -332,6 +341,7 @@ impl Serialize for FluxResponse {
                     transcript: transcript.clone(),
                     words: words.clone(),
                     end_of_turn_confidence: *end_of_turn_confidence,
+                    trigger: trigger.clone(),
                     languages: languages.clone(),
                     languages_hinted: languages_hinted.clone(),
                 };
@@ -404,6 +414,60 @@ pub enum TurnEvent {
     Unknown,
 }
 
+/// The cause of a turn ending, reported on [`TurnEvent::EndOfTurn`] events.
+///
+/// This is an open enum: new values may be added over time, and
+/// unrecognized values deserialize as [`TurnTrigger::Unknown`], which
+/// preserves the original wire string and re-serializes to it exactly.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TurnTrigger {
+    /// The turn ended by Flux's native end-of-turn detection
+    Model,
+
+    /// The turn ended because a `ForceEndTurn` message was sent
+    Manual,
+
+    /// The turn ended because `eot_timeout_ms` elapsed
+    Timeout,
+
+    /// An unrecognized trigger value from the server, preserved verbatim.
+    Unknown(String),
+}
+
+impl TurnTrigger {
+    /// The wire representation of this trigger.
+    pub fn as_str(&self) -> &str {
+        match self {
+            TurnTrigger::Model => "model",
+            TurnTrigger::Manual => "manual",
+            TurnTrigger::Timeout => "timeout",
+            TurnTrigger::Unknown(value) => value,
+        }
+    }
+}
+
+// Manual scalar (de)serialization: `TurnTrigger` is a plain string on the
+// wire, and unknown values must survive an exact round trip — a derived
+// `#[serde(other)]` unit variant would collapse them all to one value.
+impl Serialize for TurnTrigger {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for TurnTrigger {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        Ok(match value.as_str() {
+            "model" => TurnTrigger::Model,
+            "manual" => TurnTrigger::Manual,
+            "timeout" => TurnTrigger::Timeout,
+            _ => TurnTrigger::Unknown(value),
+        })
+    }
+}
+
 /// A word in a Flux turn with confidence
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[non_exhaustive]
@@ -413,6 +477,14 @@ pub struct FluxWord {
 
     #[allow(missing_docs)]
     pub confidence: f64,
+
+    /// The start time of the word, in seconds
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start: Option<f64>,
+
+    /// The end time of the word, in seconds
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end: Option<f64>,
 }
 
 #[cfg(test)]
@@ -517,6 +589,75 @@ mod tests {
         }
         let back = serde_json::to_string(&response).unwrap();
         assert_eq!(back, json);
+    }
+
+    #[test]
+    fn turninfo_trigger_absent_on_non_eot_events() {
+        let json = r#"{"type":"TurnInfo","request_id":"550e8400-e29b-41d4-a716-446655440000","sequence_id":1,"event":"Update","turn_index":0,"audio_window_start":0.0,"audio_window_end":1.0,"transcript":"hello","words":[],"end_of_turn_confidence":0.5}"#;
+        let response: FluxResponse = serde_json::from_str(json).unwrap();
+        match &response {
+            FluxResponse::TurnInfo { trigger, .. } => assert_eq!(trigger, &None),
+            _ => panic!("expected TurnInfo"),
+        }
+        // `trigger: None` must serialize back to the same JSON (field omitted).
+        assert_eq!(serde_json::to_string(&response).unwrap(), json);
+    }
+
+    #[test]
+    fn turninfo_trigger_round_trip() {
+        for (wire, expected) in [
+            ("model", TurnTrigger::Model),
+            ("manual", TurnTrigger::Manual),
+            ("timeout", TurnTrigger::Timeout),
+        ] {
+            let json = format!(
+                r#"{{"type":"TurnInfo","request_id":"550e8400-e29b-41d4-a716-446655440000","sequence_id":11,"event":"EndOfTurn","turn_index":3,"audio_window_start":4.2,"audio_window_end":6.8,"transcript":"hello","words":[],"end_of_turn_confidence":0.35,"trigger":"{wire}"}}"#
+            );
+            let response: FluxResponse = serde_json::from_str(&json).unwrap();
+            match &response {
+                FluxResponse::TurnInfo { trigger, .. } => {
+                    assert_eq!(trigger, &Some(expected.clone()))
+                }
+                _ => panic!("expected TurnInfo"),
+            }
+            assert_eq!(serde_json::to_string(&response).unwrap(), json);
+        }
+    }
+
+    #[test]
+    fn turninfo_unknown_trigger_round_trips_verbatim() {
+        let json = r#"{"type":"TurnInfo","request_id":"550e8400-e29b-41d4-a716-446655440000","sequence_id":11,"event":"EndOfTurn","turn_index":0,"audio_window_start":0.0,"audio_window_end":1.0,"transcript":"hello","words":[],"end_of_turn_confidence":0.9,"trigger":"some_future_trigger"}"#;
+        let response: FluxResponse = serde_json::from_str(json).unwrap();
+        match &response {
+            FluxResponse::TurnInfo { trigger, .. } => {
+                assert_eq!(
+                    trigger,
+                    &Some(TurnTrigger::Unknown("some_future_trigger".to_string()))
+                );
+            }
+            _ => panic!("expected TurnInfo"),
+        }
+        // The unknown wire value must survive an exact round trip.
+        assert_eq!(serde_json::to_string(&response).unwrap(), json);
+    }
+
+    #[test]
+    fn flux_word_timings_round_trip() {
+        let json = r#"{"word":"Hello,","confidence":0.96,"start":0.0,"end":0.18}"#;
+        let word: FluxWord = serde_json::from_str(json).unwrap();
+        assert_eq!(word.start, Some(0.0));
+        assert_eq!(word.end, Some(0.18));
+        assert_eq!(serde_json::to_string(&word).unwrap(), json);
+    }
+
+    #[test]
+    fn flux_word_timings_optional() {
+        let json = r#"{"word":"Hello,","confidence":0.96}"#;
+        let word: FluxWord = serde_json::from_str(json).unwrap();
+        assert_eq!(word.start, None);
+        assert_eq!(word.end, None);
+        // Absent timings must not be invented on re-serialization.
+        assert_eq!(serde_json::to_string(&word).unwrap(), json);
     }
 
     #[test]

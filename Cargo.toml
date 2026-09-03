@@ -74,7 +74,7 @@ all-features = true
 default = ["manage", "listen", "speak"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
-speak = []
+speak = ["dep:tungstenite", "dep:tokio-tungstenite"]
 connect-diagnostics = [
   "listen",
   "dep:rustls",
@@ -159,6 +159,11 @@ path = "examples/transcription/flux/dynamic_configure.rs"
 required-features = ["listen"]
 
 [[example]]
+name = "flux_force_end_turn"
+path = "examples/transcription/flux/force_end_turn.rs"
+required-features = ["listen"]
+
+[[example]]
 name = "text_to_speech_to_file"
 path = "examples/speak/rest/text_to_speech_to_file.rs"
 required-features = ["speak"]
@@ -166,4 +171,14 @@ required-features = ["speak"]
 [[example]]
 name = "text_to_speech_to_stream"
 path = "examples/speak/rest/text_to_speech_to_stream.rs"
+required-features = ["speak"]
+
+[[example]]
+name = "flux_tts_batch"
+path = "examples/speak/flux/batch_synthesize.rs"
+required-features = ["speak"]
+
+[[example]]
+name = "flux_tts_websocket"
+path = "examples/speak/flux/websocket_synthesize.rs"
 required-features = ["speak"]

@@ -13,7 +13,7 @@ pub use serde_json::Error as SerdeJsonError;
 pub use serde_urlencoded::ser::Error as SerdeUrlencodedError;
 use std::io;
 use std::ops::Deref;
-#[cfg(feature = "listen")]
+#[cfg(any(feature = "listen", feature = "speak"))]
 pub use tungstenite::Error as TungsteniteError;
 
 use reqwest::{
@@ -178,7 +178,7 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
-    #[cfg(feature = "listen")]
+    #[cfg(any(feature = "listen", feature = "speak"))]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] Box<TungsteniteError>),
@@ -199,6 +199,11 @@ pub enum DeepgramError {
     #[error("The provided base url is not valid")]
     InvalidUrl,
 
+    /// The provided options are not valid for the requested transport
+    /// or endpoint.
+    #[error("The provided options are not valid for this request: {0}")]
+    InvalidOptions(String),
+
     /// A websocket close from was received indicating an error
     #[error("websocket close frame received with error content: code: {code}, reason: {reason}")]
     WebsocketClose {
@@ -217,7 +222,7 @@ pub enum DeepgramError {
     UnexpectedServerResponse(anyhow::Error),
 }
 
-#[cfg(feature = "listen")]
+#[cfg(any(feature = "listen", feature = "speak"))]
 impl From<TungsteniteError> for DeepgramError {
     fn from(err: TungsteniteError) -> Self {
         Self::from(Box::new(err))
