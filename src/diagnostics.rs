@@ -38,8 +38,9 @@
 //! an internal CA, or a self-hosted Deepgram deployment.
 
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use http::Request;
 use serde::Serialize;
@@ -504,14 +505,13 @@ async fn connect_phases(
 ///
 /// Reading the OS certificate store is genuinely blocking I/O (platform
 /// keychain/CryptoAPI calls, or a directory scan on Unix) and can be slow,
-/// so unlike the webpki set below it is not read on every call: the native
-/// portion is loaded at most once per process, off the async runtime's
-/// worker threads via [`spawn_blocking`](tokio::task::spawn_blocking), and
-/// cached for the life of the process. The OS trust store essentially never
-/// changes while a long-running process is up, and this is no more stale
-/// than the webpki roots, which are already fixed for the life of the
-/// build; a process that needs to pick up a rotated CA still picks it up on
-/// restart, same as a webpki-roots update needs a rebuild.
+/// so unlike the webpki set below it is not read on every call: it is loaded
+/// off the async runtime's worker threads via
+/// [`spawn_blocking`](tokio::task::spawn_blocking) and cached, subject to
+/// [`NATIVE_ROOTS_TTL`] — see [`cached_native_root_cert_store`] for the
+/// staleness/refresh policy. A newly installed or rotated corporate/internal
+/// CA is picked up within one TTL window of a connect attempt, without every
+/// connect paying the OS read's latency.
 async fn root_cert_store(trust_native_roots: bool) -> rustls::RootCertStore {
     let mut root_store = if trust_native_roots {
         (*native_root_cert_store().await).clone()
@@ -523,38 +523,96 @@ async fn root_cert_store(trust_native_roots: bool) -> rustls::RootCertStore {
     root_store
 }
 
-/// Process-wide cache for [`root_cert_store`]'s native portion; see that
-/// function's doc comment for why this is cached rather than reloaded per
-/// connect.
-static NATIVE_ROOT_CERT_STORE: tokio::sync::OnceCell<Arc<rustls::RootCertStore>> =
-    tokio::sync::OnceCell::const_new();
+/// How long a cached native root store is served before a connect triggers
+/// a background refresh. Chosen as a middle ground: short enough that a
+/// rotated corporate/internal CA is picked up promptly by a long-lived
+/// client, long enough that the OS trust store (read via blocking I/O) is
+/// not re-read on anything like every connect.
+const NATIVE_ROOTS_TTL: Duration = Duration::from_secs(5 * 60);
+
+struct CachedNativeRoots {
+    store: Arc<rustls::RootCertStore>,
+    loaded_at: Instant,
+}
+
+/// Process-wide cache for [`root_cert_store`]'s native portion; see
+/// [`cached_native_root_cert_store`] for the staleness/refresh policy.
+static NATIVE_ROOT_CERT_STORE: tokio::sync::RwLock<Option<CachedNativeRoots>> =
+    tokio::sync::RwLock::const_new(None);
+
+/// Guards against piling up redundant background refreshes when many
+/// connects land after the cache has gone stale: only one refresh task runs
+/// at a time, and every other stale hit just keeps serving the old value
+/// until that refresh completes.
+static NATIVE_ROOTS_REFRESHING: AtomicBool = AtomicBool::new(false);
 
 async fn native_root_cert_store() -> Arc<rustls::RootCertStore> {
-    NATIVE_ROOT_CERT_STORE
-        .get_or_init(|| async {
-            let store = tokio::task::spawn_blocking(|| {
-                let mut store = rustls::RootCertStore::empty();
-                let rustls_native_certs::CertificateResult { certs, errors, .. } =
-                    rustls_native_certs::load_native_certs();
-                if !errors.is_empty() {
-                    tracing::warn!("native root CA certificate loading errors: {errors:?}");
-                }
-                let (added, ignored) = store.add_parsable_certificates(certs);
-                tracing::debug!("added {added} native root certificates ({ignored} ignored)");
-                store
-            })
-            .await
-            .unwrap_or_else(|join_err| {
-                tracing::warn!(
-                    "native root CA loading task panicked, continuing with webpki roots \
-                     only: {join_err}"
-                );
-                rustls::RootCertStore::empty()
-            });
-            Arc::new(store)
-        })
-        .await
-        .clone()
+    cached_native_root_cert_store(NATIVE_ROOTS_TTL).await
+}
+
+/// Stale-while-revalidate cache for the OS-native root store.
+///
+/// - Cold (nothing cached yet): loads synchronously and blocks the caller —
+///   unavoidable, since a connect needs a trust store to proceed, but this
+///   only ever happens once per process.
+/// - Fresh (`loaded_at` within `ttl`): returns the cached value immediately.
+/// - Stale (`loaded_at` older than `ttl`): still returns the cached value
+///   immediately — no connect after the first ever pays the OS read's
+///   latency — while kicking off a detached background reload that updates
+///   the cache for subsequent connects. Worst-case staleness is therefore
+///   up to roughly two TTL windows, not one, in exchange for connects never
+///   observing a latency spike after the initial load.
+async fn cached_native_root_cert_store(ttl: Duration) -> Arc<rustls::RootCertStore> {
+    if let Some(cached) = NATIVE_ROOT_CERT_STORE.read().await.as_ref() {
+        if cached.loaded_at.elapsed() < ttl {
+            return cached.store.clone();
+        }
+        let stale = cached.store.clone();
+        spawn_native_roots_refresh();
+        return stale;
+    }
+
+    load_and_cache_native_roots().await
+}
+
+fn spawn_native_roots_refresh() {
+    if NATIVE_ROOTS_REFRESHING
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return;
+    }
+    tokio::spawn(async {
+        load_and_cache_native_roots().await;
+        NATIVE_ROOTS_REFRESHING.store(false, Ordering::Release);
+    });
+}
+
+async fn load_and_cache_native_roots() -> Arc<rustls::RootCertStore> {
+    let store = tokio::task::spawn_blocking(|| {
+        let mut store = rustls::RootCertStore::empty();
+        let rustls_native_certs::CertificateResult { certs, errors, .. } =
+            rustls_native_certs::load_native_certs();
+        if !errors.is_empty() {
+            tracing::warn!("native root CA certificate loading errors: {errors:?}");
+        }
+        let (added, ignored) = store.add_parsable_certificates(certs);
+        tracing::debug!("added {added} native root certificates ({ignored} ignored)");
+        store
+    })
+    .await
+    .unwrap_or_else(|join_err| {
+        tracing::warn!(
+            "native root CA loading task panicked, continuing with webpki roots only: {join_err}"
+        );
+        rustls::RootCertStore::empty()
+    });
+    let store = Arc::new(store);
+    *NATIVE_ROOT_CERT_STORE.write().await = Some(CachedNativeRoots {
+        store: store.clone(),
+        loaded_at: Instant::now(),
+    });
+    store
 }
 
 /// The TLS configuration `tokio-tungstenite` builds when no connector is
@@ -840,13 +898,57 @@ mod tests {
         assert!(with_native >= webpki_only);
     }
 
-    /// The native portion is cached process-wide (see `native_root_cert_store`);
-    /// repeated calls must not re-read the OS trust store, and must keep
-    /// returning a store that still includes the webpki baseline.
+    /// The native portion is cached (see `cached_native_root_cert_store`);
+    /// within the TTL, repeated calls must not re-read the OS trust store,
+    /// and must keep returning a store that still includes the webpki
+    /// baseline.
     #[tokio::test]
     async fn native_root_cache_is_stable_across_repeated_calls() {
         let first = root_cert_store(true).await.len();
         let second = root_cert_store(true).await.len();
         assert_eq!(first, second);
+    }
+
+    /// Once the TTL has elapsed, a call must still return immediately
+    /// (serving the stale value, not blocking on a fresh OS read) while a
+    /// background task refreshes the cache for subsequent calls. Uses its
+    /// own short TTL so it doesn't depend on `NATIVE_ROOTS_TTL`'s real
+    /// (multi-minute) value, but shares the same process-wide cache as the
+    /// other tests in this module — harmless, since every assertion here is
+    /// about the *shape* of what's returned and whether a refresh
+    /// eventually lands, not about a specific `loaded_at` baseline.
+    #[tokio::test]
+    async fn stale_native_root_cache_is_served_immediately_and_refreshed_in_background() {
+        let ttl = Duration::from_millis(20);
+
+        let fresh = cached_native_root_cert_store(ttl).await;
+        tokio::time::sleep(ttl * 3).await;
+
+        let loaded_at_before_stale_hit = NATIVE_ROOT_CERT_STORE
+            .read()
+            .await
+            .as_ref()
+            .expect("cache populated by the call above")
+            .loaded_at;
+
+        let stale = cached_native_root_cert_store(ttl).await;
+        assert!(
+            Arc::ptr_eq(&fresh, &stale),
+            "a stale hit must return the existing cached Arc, not a freshly loaded one"
+        );
+
+        for _ in 0..50 {
+            let refreshed = NATIVE_ROOT_CERT_STORE
+                .read()
+                .await
+                .as_ref()
+                .map(|cached| cached.loaded_at > loaded_at_before_stale_hit)
+                .unwrap_or(false);
+            if refreshed {
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        panic!("expected the stale hit to have triggered a background refresh by now");
     }
 }
