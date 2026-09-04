@@ -553,8 +553,10 @@ async fn native_root_cert_store() -> Arc<rustls::RootCertStore> {
 /// Stale-while-revalidate cache for the OS-native root store.
 ///
 /// - Cold (nothing cached yet): loads synchronously and blocks the caller —
-///   unavoidable, since a connect needs a trust store to proceed, but this
-///   only ever happens once per process.
+///   unavoidable, since a connect needs a trust store to proceed. Concurrent
+///   connects racing this for the first time are serialized onto a single
+///   load via [`NATIVE_ROOTS_COLD_START_LOCK`], so a burst of connects at
+///   process startup performs one blocking OS read, not one each.
 /// - Fresh (`loaded_at` within `ttl`): returns the cached value immediately.
 /// - Stale (`loaded_at` older than `ttl`): still returns the cached value
 ///   immediately — no connect after the first ever pays the OS read's
@@ -562,7 +564,7 @@ async fn native_root_cert_store() -> Arc<rustls::RootCertStore> {
 ///   the cache for subsequent connects. Worst-case staleness is therefore
 ///   up to roughly two TTL windows, not one, in exchange for connects never
 ///   observing a latency spike after the initial load. That reload can
-///   never regress a working store to an empty or degraded one — see
+///   never regress a working store to an empty one — see
 ///   [`merge_refreshed_native_roots`].
 async fn cached_native_root_cert_store(ttl: Duration) -> Arc<rustls::RootCertStore> {
     if let Some(cached) = NATIVE_ROOT_CERT_STORE.read().await.as_ref() {
@@ -574,8 +576,20 @@ async fn cached_native_root_cert_store(ttl: Duration) -> Arc<rustls::RootCertSto
         return stale;
     }
 
+    let _cold_start_guard = NATIVE_ROOTS_COLD_START_LOCK.lock().await;
+    // Re-check: another racer may have already completed the cold load
+    // while this task was waiting for the lock.
+    if let Some(cached) = NATIVE_ROOT_CERT_STORE.read().await.as_ref() {
+        return cached.store.clone();
+    }
     load_and_cache_native_roots(None).await
 }
+
+/// Serializes the first-ever native-roots load across concurrent callers.
+/// Without this, several connects racing at process startup would each see
+/// an empty cache and each perform their own redundant blocking OS read
+/// before any of them observed another's result.
+static NATIVE_ROOTS_COLD_START_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 fn spawn_native_roots_refresh() {
     if NATIVE_ROOTS_REFRESHING
@@ -585,6 +599,17 @@ fn spawn_native_roots_refresh() {
         return;
     }
     tokio::spawn(async {
+        // Resets the in-flight flag when this task ends, including on
+        // panic/cancellation, so a single unexpected failure here can't
+        // permanently wedge future refreshes into a no-op.
+        struct ResetRefreshingOnDrop;
+        impl Drop for ResetRefreshingOnDrop {
+            fn drop(&mut self) {
+                NATIVE_ROOTS_REFRESHING.store(false, Ordering::Release);
+            }
+        }
+        let _reset_guard = ResetRefreshingOnDrop;
+
         // Cloned under a read lock rather than taken, so a concurrent
         // connect can keep reading the still-valid previous store for the
         // whole duration of this reload instead of briefly seeing no cache
@@ -596,7 +621,6 @@ fn spawn_native_roots_refresh() {
             .as_ref()
             .map(|cached| cached.store.clone());
         load_and_cache_native_roots(previous).await;
-        NATIVE_ROOTS_REFRESHING.store(false, Ordering::Release);
     });
 }
 
@@ -604,15 +628,18 @@ fn spawn_native_roots_refresh() {
 /// runtime's worker threads.
 struct NativeRootsLoad {
     store: rustls::RootCertStore,
-    /// How many certificates actually made it into `store`. Distinguishes a
-    /// load that found genuine trust material from one that didn't — the
-    /// latter needs to be treated as a failure by
-    /// [`merge_refreshed_native_roots`] when there's a previous store to
-    /// fall back to, since [`rustls::RootCertStore::add_parsable_certificates`]
-    /// can legitimately add zero certificates even when `load_native_certs`
-    /// itself reports no error (e.g. a locked keychain, a transient
-    /// permissions issue, or a sandboxed/minimal environment).
+    /// How many certificates actually made it into `store`. A refresh that
+    /// found none is never trusted enough to touch a previously cached
+    /// store — see [`merge_refreshed_native_roots`].
     added: usize,
+    /// Whether `load_native_certs` reported any per-source errors (a locked
+    /// keychain entry, a directory it couldn't read, an unparsable file).
+    /// Certificates can still have been found alongside such errors — this
+    /// is what distinguishes a genuinely complete read (safe to treat as
+    /// authoritative) from a partial one (safe only to add from, never to
+    /// replace with, since the failing source might be exactly the one that
+    /// previously supplied a still-valid, still-needed certificate).
+    had_errors: bool,
 }
 
 async fn load_native_roots_once() -> NativeRootsLoad {
@@ -620,12 +647,17 @@ async fn load_native_roots_once() -> NativeRootsLoad {
         let mut store = rustls::RootCertStore::empty();
         let rustls_native_certs::CertificateResult { certs, errors, .. } =
             rustls_native_certs::load_native_certs();
-        if !errors.is_empty() {
+        let had_errors = !errors.is_empty();
+        if had_errors {
             tracing::warn!("native root CA certificate loading errors: {errors:?}");
         }
         let (added, ignored) = store.add_parsable_certificates(certs);
         tracing::debug!("added {added} native root certificates ({ignored} ignored)");
-        NativeRootsLoad { store, added }
+        NativeRootsLoad {
+            store,
+            added,
+            had_errors,
+        }
     })
     .await
     .unwrap_or_else(|join_err| {
@@ -635,33 +667,69 @@ async fn load_native_roots_once() -> NativeRootsLoad {
         NativeRootsLoad {
             store: rustls::RootCertStore::empty(),
             added: 0,
+            had_errors: true,
         }
     })
 }
 
-/// Decides what a load attempt should do to the cache. A load that found no
-/// usable certificates never overwrites a previously cached store — a
-/// transient OS-level failure must not downgrade (or empty out) trust that
-/// was already established, since that would fail TLS connections that were
-/// working moments earlier. It only becomes the new cache when there's
-/// nothing cached yet (the first-ever load, which has nothing to preserve
-/// and must produce *something*, even if empty) or when it actually found
-/// certificates. Either way `loaded_at` is bumped to now, so a repeatedly
-/// failing refresh retries once per TTL rather than on every stale connect.
+/// Decides what a load attempt should do to the cache.
+///
+/// - Nothing cached yet (first-ever load): whatever was loaded becomes the
+///   cache, even if empty or errored — there's nothing to preserve, and a
+///   connect needs *some* store to proceed (webpki roots are layered on top
+///   regardless, by [`root_cert_store`]).
+/// - Found no certificates at all: always keeps the previous store,
+///   regardless of whether errors were reported. Going from "N trusted
+///   certificates" to zero between refreshes is never itself trustworthy
+///   enough to erase established trust — that would fail TLS connections
+///   that were working moments earlier over what's most likely a transient
+///   OS-level hiccup (a locked keychain, a permissions blip, a
+///   momentarily-empty sandboxed environment).
+/// - Found certificates with no errors: a clean, complete read is
+///   authoritative and replaces the previous store wholesale. This is the
+///   only path that lets a certificate genuinely removed or rotated out of
+///   the OS store actually stop being trusted; the two paths below
+///   deliberately favor availability over that.
+/// - Found certificates alongside errors: a partial read. One failing
+///   source (one directory, one keychain entry) must not silently drop
+///   certificates a previous clean read already established as trusted, so
+///   this merges (a union, deduplicated) into the previous store instead of
+///   replacing it — previously trusted certificates are kept, and anything
+///   newly found is added, at the cost of not being able to *remove* trust
+///   this way. A persistently erroring environment therefore only sheds
+///   stale trust via a later fully-clean read, or a process restart —
+///   deliberately the same staleness bound as the bundled webpki roots
+///   already have.
+///
+/// `loaded_at` is bumped to now on every outcome, so a repeatedly failing or
+/// partial refresh still only retries once per TTL, rather than on every
+/// stale connect.
 fn merge_refreshed_native_roots(
     previous: Option<Arc<rustls::RootCertStore>>,
     loaded: NativeRootsLoad,
 ) -> CachedNativeRoots {
-    let store = if loaded.added > 0 {
-        Arc::new(loaded.store)
-    } else if let Some(previous) = previous {
-        tracing::warn!(
-            "native root CA refresh found no usable certificates; keeping the \
-             previously cached native trust store"
-        );
-        previous
-    } else {
-        Arc::new(loaded.store)
+    let store = match previous {
+        None => Arc::new(loaded.store),
+        Some(previous) if loaded.added == 0 => {
+            tracing::warn!(
+                "native root CA refresh found no usable certificates; keeping the \
+                 previously cached native trust store"
+            );
+            previous
+        }
+        Some(_) if !loaded.had_errors => Arc::new(loaded.store),
+        Some(previous) => {
+            tracing::warn!(
+                "native root CA refresh reported errors alongside {} certificates found; \
+                 merging into rather than replacing the previously cached native trust store",
+                loaded.added
+            );
+            let mut roots: std::collections::HashSet<_> = previous.roots.iter().cloned().collect();
+            roots.extend(loaded.store.roots);
+            Arc::new(rustls::RootCertStore {
+                roots: roots.into_iter().collect(),
+            })
+        }
     };
     CachedNativeRoots {
         store,
@@ -1032,20 +1100,33 @@ mod tests {
         panic!("expected the stale hit to have triggered a background refresh by now");
     }
 
+    /// Splits the bundled webpki roots into two disjoint, non-empty halves,
+    /// for building "previous" and "newly loaded" stores in the merge tests
+    /// below that share no certificates — so a passing union assertion
+    /// actually proves both halves survived, not just one.
+    fn disjoint_root_halves() -> (rustls::RootCertStore, rustls::RootCertStore) {
+        let mid = webpki_roots::TLS_SERVER_ROOTS.len() / 2;
+        assert!(mid > 0, "need at least two roots to split");
+        let mut first = rustls::RootCertStore::empty();
+        first.extend(webpki_roots::TLS_SERVER_ROOTS[..mid].iter().cloned());
+        let mut second = rustls::RootCertStore::empty();
+        second.extend(webpki_roots::TLS_SERVER_ROOTS[mid..].iter().cloned());
+        (first, second)
+    }
+
     /// Pins the fix for the finding that a failed/degraded refresh (e.g. a
-    /// transient keychain read error, or an environment that returns zero
-    /// certificates) must not discard a previously working native trust
-    /// store: TLS connections that worked a moment ago must keep working
-    /// until a refresh actually succeeds.
+    /// transient keychain read error) must not discard a previously working
+    /// native trust store: TLS connections that worked a moment ago must
+    /// keep working until a refresh actually succeeds.
     #[test]
-    fn failed_refresh_keeps_previous_native_root_store() {
-        let mut previous_store = rustls::RootCertStore::empty();
-        previous_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let previous_store = Arc::new(previous_store);
+    fn errored_refresh_with_no_certificates_keeps_previous_native_root_store() {
+        let (previous, _unused) = disjoint_root_halves();
+        let previous_store = Arc::new(previous);
 
         let failed_load = NativeRootsLoad {
             store: rustls::RootCertStore::empty(),
             added: 0,
+            had_errors: true,
         };
 
         let merged = merge_refreshed_native_roots(Some(previous_store.clone()), failed_load);
@@ -1056,27 +1137,91 @@ mod tests {
         );
     }
 
-    /// The mirror case: a load that actually found certificates must
-    /// replace the previous store, so a rotated/newly installed CA is
-    /// picked up rather than being masked by the failure-preservation
-    /// behavior above.
+    /// Even a load that reports *no* errors but still found zero
+    /// certificates must not overwrite a previously non-empty store: going
+    /// from N trusted certificates to none is itself implausible enough
+    /// (e.g. a momentarily empty sandboxed environment, or a directory that
+    /// silently vanished) that it should never be trusted to erase
+    /// established trust, error flag or not.
     #[test]
-    fn successful_refresh_replaces_previous_native_root_store() {
-        let previous_store = Arc::new(rustls::RootCertStore::empty());
+    fn clean_but_empty_refresh_keeps_previous_native_root_store() {
+        let (previous, _unused) = disjoint_root_halves();
+        let previous_store = Arc::new(previous);
 
-        let successful_load = NativeRootsLoad {
-            store: {
-                let mut store = rustls::RootCertStore::empty();
-                store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-                store
-            },
-            added: webpki_roots::TLS_SERVER_ROOTS.len(),
+        let clean_but_empty_load = NativeRootsLoad {
+            store: rustls::RootCertStore::empty(),
+            added: 0,
+            had_errors: false,
         };
 
-        let merged = merge_refreshed_native_roots(Some(previous_store.clone()), successful_load);
+        let merged =
+            merge_refreshed_native_roots(Some(previous_store.clone()), clean_but_empty_load);
+
+        assert!(
+            Arc::ptr_eq(&merged.store, &previous_store),
+            "an empty result must keep serving the previous store even without a reported error"
+        );
+    }
+
+    /// A clean (no errors) load that found certificates is authoritative
+    /// and replaces the previous store wholesale — this is what lets a
+    /// certificate genuinely removed or rotated out of the OS store
+    /// actually stop being trusted, rather than lingering forever.
+    #[test]
+    fn clean_refresh_replaces_previous_native_root_store() {
+        let (previous, new) = disjoint_root_halves();
+        let previous_store = Arc::new(previous);
+        let new_len = new.roots.len();
+
+        let clean_load = NativeRootsLoad {
+            store: new,
+            added: new_len,
+            had_errors: false,
+        };
+
+        let merged = merge_refreshed_native_roots(Some(previous_store.clone()), clean_load);
 
         assert!(!Arc::ptr_eq(&merged.store, &previous_store));
-        assert!(!merged.store.is_empty());
+        assert_eq!(merged.store.roots.len(), new_len);
+    }
+
+    /// Pins the fix for the adversarial-review finding that a *partial*
+    /// refresh (certificates found alongside reported errors) must not
+    /// silently drop certificates a previous clean read already
+    /// established as trusted: the failing source could be exactly the one
+    /// that previously supplied a still-needed certificate. The previous
+    /// and newly loaded stores are disjoint, so a correct union contains
+    /// every certificate from both.
+    #[test]
+    fn partial_refresh_with_errors_merges_with_previous_native_root_store() {
+        let (previous, new) = disjoint_root_halves();
+        let previous_len = previous.roots.len();
+        let new_len = new.roots.len();
+        let previous_store = Arc::new(previous);
+
+        let partial_load = NativeRootsLoad {
+            store: new,
+            added: new_len,
+            had_errors: true,
+        };
+
+        let merged = merge_refreshed_native_roots(Some(previous_store.clone()), partial_load);
+
+        assert!(
+            !Arc::ptr_eq(&merged.store, &previous_store),
+            "a merge must produce a new store, not alias the previous one"
+        );
+        assert_eq!(
+            merged.store.roots.len(),
+            previous_len + new_len,
+            "a partial-but-nonempty refresh must union with, not replace, the previous store"
+        );
+        for anchor in &previous_store.roots {
+            assert!(
+                merged.store.roots.contains(anchor),
+                "the previous store's certificates must survive a partial merge"
+            );
+        }
     }
 
     /// The first-ever load has nothing to preserve, so even a load that
@@ -1088,6 +1233,7 @@ mod tests {
         let failed_load = NativeRootsLoad {
             store: rustls::RootCertStore::empty(),
             added: 0,
+            had_errors: true,
         };
 
         let merged = merge_refreshed_native_roots(None, failed_load);
