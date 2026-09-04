@@ -70,6 +70,8 @@ pub struct WebsocketBuilder<'a> {
     callback: Option<Url>,
     #[cfg(feature = "connect-diagnostics")]
     diagnostics: Option<SharedSink>,
+    #[cfg(feature = "connect-diagnostics")]
+    trust_native_roots: bool,
 }
 
 impl<'a> Transcription<'a> {
@@ -156,6 +158,8 @@ impl<'a> Transcription<'a> {
             callback: None,
             #[cfg(feature = "connect-diagnostics")]
             diagnostics: None,
+            #[cfg(feature = "connect-diagnostics")]
+            trust_native_roots: false,
         }
     }
 
@@ -219,6 +223,8 @@ impl WebsocketBuilder<'_> {
             keep_alive: _,
             #[cfg(feature = "connect-diagnostics")]
                 diagnostics: _,
+            #[cfg(feature = "connect-diagnostics")]
+                trust_native_roots: _,
             options,
             encoding,
             sample_rate,
@@ -368,6 +374,32 @@ impl WebsocketBuilder<'_> {
     #[cfg(feature = "connect-diagnostics")]
     pub fn diagnostics(mut self, sink: impl DiagnosticsSink + 'static) -> Self {
         self.diagnostics = Some(SharedSink(std::sync::Arc::new(sink)));
+
+        self
+    }
+
+    /// Trust the operating system's certificate store, in addition to the
+    /// bundled public root CAs, when verifying the WebSocket's TLS
+    /// certificate.
+    ///
+    /// Enable this wherever trust is anchored in the OS store rather than
+    /// the public CA bundle this crate trusts by default: a corporate
+    /// network's TLS-inspecting proxy, an internal CA, or a self-hosted
+    /// deployment.
+    ///
+    /// This expands the set of certificate authorities this client trusts to
+    /// include every CA the OS trusts. In particular, it means traffic to
+    /// Deepgram may be decrypted and re-encrypted in transit by such a
+    /// proxy. Only enable this if you understand and accept that tradeoff.
+    /// This is independent of [`Self::diagnostics`] — it applies whether or
+    /// not a diagnostics sink is configured.
+    ///
+    /// Requires the `connect-diagnostics` feature, which owns the only
+    /// explicit TLS connector in this crate; without it, connections use
+    /// `tokio-tungstenite`'s stock webpki-only trust path.
+    #[cfg(feature = "connect-diagnostics")]
+    pub fn trust_native_roots(mut self) -> Self {
+        self.trust_native_roots = true;
 
         self
     }
@@ -737,13 +769,21 @@ impl WebsocketHandle {
         // connections select different TLS providers or trust roots.
         #[cfg(feature = "connect-diagnostics")]
         let (ws_stream, upgrade_response) = match diagnostics_guard.as_mut() {
-            Some(guard) => crate::diagnostics::connect_with_diagnostics(request, guard).await?,
+            Some(guard) => {
+                crate::diagnostics::connect_with_diagnostics(
+                    request,
+                    guard,
+                    builder.trust_native_roots,
+                )
+                .await?
+            }
             None => {
+                let connector = crate::diagnostics::tls_connector(builder.trust_native_roots).await;
                 tokio_tungstenite::connect_async_tls_with_config(
                     request,
                     None,
                     false,
-                    Some(crate::diagnostics::tls_connector()),
+                    Some(connector),
                 )
                 .await?
             }

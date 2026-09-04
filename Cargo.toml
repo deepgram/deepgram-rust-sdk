@@ -48,6 +48,16 @@ tungstenite = { version = "^0.28.0", optional = true }
 # already enables, or turning on `connect-diagnostics` would change the TLS
 # configuration of the stock connect path via feature unification.
 rustls = { version = "^0.23", optional = true, default-features = false }
+# Backs WebsocketBuilder::trust_native_roots (src/diagnostics.rs's
+# root_cert_store). We call this directly rather than enabling
+# tokio-tungstenite's own rustls-tls-native-roots feature, because the
+# explicit connector this crate builds bypasses tokio-tungstenite's
+# feature-driven connector selection entirely (see tls_connector's doc
+# comment) — so that feature would be inert here. That means this version is
+# NOT unified by Cargo's own dependency resolution the way the other TLS
+# crates below are: when bumping tokio-tungstenite, check what version its
+# (unused) rustls-tls-native-roots feature would pull and keep this matching.
+rustls-native-certs = { version = "^0.8", optional = true }
 rustls-pki-types = { version = "^1", optional = true }
 tokio-rustls = { version = "^0.26", optional = true, default-features = false }
 webpki-roots = { version = "^0.26", optional = true }
@@ -66,6 +76,7 @@ rodio = { version = "0.20.1" }
 pkg-config = { version = "0.3.30" }
 rcgen = "0.13"
 tokio-rustls = "0.26"
+tempfile = "3.27.0"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -78,6 +89,7 @@ speak = ["dep:tungstenite", "dep:tokio-tungstenite"]
 connect-diagnostics = [
   "listen",
   "dep:rustls",
+  "dep:rustls-native-certs",
   "dep:rustls-pki-types",
   "dep:tokio-rustls",
   "dep:webpki-roots",

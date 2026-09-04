@@ -29,6 +29,13 @@
 //! (e.g. `tokio-tungstenite/native-tls`) in the dependency graph. The
 //! upgrade machinery and the request are the same on both paths; only the
 //! granularity of measurement differs.
+//!
+//! [`crate::listen::websocket::WebsocketBuilder::trust_native_roots`] is a
+//! separate opt-in, independent of whether a diagnostics sink is configured:
+//! it additionally trusts the operating system's certificate store, for
+//! environments where trust is anchored there rather than in the public
+//! webpki bundle — for example, a corporate network's TLS-inspecting proxy,
+//! an internal CA, or a self-hosted Deepgram deployment.
 
 use std::fmt;
 use std::sync::Arc;
@@ -378,11 +385,12 @@ fn header_str(headers: &http::HeaderMap, name: &str) -> Option<String> {
 pub(crate) async fn connect_with_diagnostics(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
+    trust_native_roots: bool,
 ) -> Result<(
     WebSocketStream<MaybeTlsStream<TcpStream>>,
     tungstenite::handshake::client::Response,
 )> {
-    match connect_phases(request, guard).await {
+    match connect_phases(request, guard, trust_native_roots).await {
         Ok(ok) => Ok(ok),
         Err(err) => {
             guard.fail(&err);
@@ -394,6 +402,7 @@ pub(crate) async fn connect_with_diagnostics(
 async fn connect_phases(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
+    trust_native_roots: bool,
 ) -> std::result::Result<
     (
         WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -449,7 +458,8 @@ async fn connect_phases(
         let server_name = rustls_pki_types::ServerName::try_from(domain.as_str())
             .map_err(|_| TungsteniteError::Tls(tungstenite::error::TlsError::InvalidDnsName))?
             .to_owned();
-        let connector = tokio_rustls::TlsConnector::from(tls_client_config());
+        let connector =
+            tokio_rustls::TlsConnector::from(tls_client_config(trust_native_roots).await);
         let tls_stream = connector
             .connect(server_name, tcp)
             .await
@@ -468,16 +478,97 @@ async fn connect_phases(
     Ok((ws_stream, response))
 }
 
+/// The trust roots backing [`tls_client_config`]: the bundled public webpki
+/// roots, the same set `tokio-tungstenite`'s `rustls-tls-webpki-roots`
+/// feature trusts. When `trust_native_roots` is set, the operating system's
+/// certificate store is also consulted — this is what lets the connection
+/// succeed wherever trust is anchored in the OS store rather than the
+/// public CA bundle this crate ships by default: a corporate network's
+/// TLS-inspecting proxy, an internal CA, or a self-hosted deployment.
+/// Enabling it means Deepgram's TLS traffic is trusted as decrypted and
+/// re-encrypted by anything the OS trusts, which may include such a proxy;
+/// it is opt-in for that reason.
+///
+/// This intentionally mirrors `tokio-tungstenite` 0.28's own native+webpki
+/// merge (`encryption::rustls::wrap_stream` in its `src/tls.rs`, reachable
+/// only via its feature-driven default connector, which this crate's
+/// explicit connector never uses — see [`tls_connector`]'s doc comment): load
+/// native certs, warn and continue past per-cert errors, add whatever
+/// parsed, then always add the webpki set regardless. That upstream
+/// function is private and not reusable from here, so this is a maintained
+/// copy, not a delegation — if a `tokio-tungstenite` bump changes that
+/// merge's order or error handling, this function needs the same change by
+/// hand. The equivalence this function relies on is pinned by
+/// `root_store_still_trusts_public_roots_with_native_roots_enabled` below;
+/// a change here that breaks that invariant should fail that test.
+///
+/// Reading the OS certificate store is genuinely blocking I/O (platform
+/// keychain/CryptoAPI calls, or a directory scan on Unix) and can be slow,
+/// so unlike the webpki set below it is not read on every call: the native
+/// portion is loaded at most once per process, off the async runtime's
+/// worker threads via [`spawn_blocking`](tokio::task::spawn_blocking), and
+/// cached for the life of the process. The OS trust store essentially never
+/// changes while a long-running process is up, and this is no more stale
+/// than the webpki roots, which are already fixed for the life of the
+/// build; a process that needs to pick up a rotated CA still picks it up on
+/// restart, same as a webpki-roots update needs a rebuild.
+async fn root_cert_store(trust_native_roots: bool) -> rustls::RootCertStore {
+    let mut root_store = if trust_native_roots {
+        (*native_root_cert_store().await).clone()
+    } else {
+        rustls::RootCertStore::empty()
+    };
+
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    root_store
+}
+
+/// Process-wide cache for [`root_cert_store`]'s native portion; see that
+/// function's doc comment for why this is cached rather than reloaded per
+/// connect.
+static NATIVE_ROOT_CERT_STORE: tokio::sync::OnceCell<Arc<rustls::RootCertStore>> =
+    tokio::sync::OnceCell::const_new();
+
+async fn native_root_cert_store() -> Arc<rustls::RootCertStore> {
+    NATIVE_ROOT_CERT_STORE
+        .get_or_init(|| async {
+            let store = tokio::task::spawn_blocking(|| {
+                let mut store = rustls::RootCertStore::empty();
+                let rustls_native_certs::CertificateResult { certs, errors, .. } =
+                    rustls_native_certs::load_native_certs();
+                if !errors.is_empty() {
+                    tracing::warn!("native root CA certificate loading errors: {errors:?}");
+                }
+                let (added, ignored) = store.add_parsable_certificates(certs);
+                tracing::debug!("added {added} native root certificates ({ignored} ignored)");
+                store
+            })
+            .await
+            .unwrap_or_else(|join_err| {
+                tracing::warn!(
+                    "native root CA loading task panicked, continuing with webpki roots \
+                     only: {join_err}"
+                );
+                rustls::RootCertStore::empty()
+            });
+            Arc::new(store)
+        })
+        .await
+        .clone()
+}
+
 /// The TLS configuration `tokio-tungstenite` builds when no connector is
 /// supplied and its `rustls-tls-webpki-roots` feature is enabled: webpki
-/// trust roots, no client auth, and the crate-default provider. Built per
-/// attempt, like the stock path, so TLS session resumption behavior matches.
-fn tls_client_config() -> Arc<rustls::ClientConfig> {
-    let mut root_store = rustls::RootCertStore::empty();
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+/// trust roots, no client auth, and the crate-default provider — plus, when
+/// `trust_native_roots` is set, the OS-trusted root CAs (see
+/// [`root_cert_store`]). The returned `ClientConfig` is still a fresh object
+/// built per attempt, like the stock path, so TLS session resumption
+/// behavior matches — only the expensive native-certificate load underneath
+/// it is cached, not the config object itself.
+async fn tls_client_config(trust_native_roots: bool) -> Arc<rustls::ClientConfig> {
     Arc::new(
         rustls::ClientConfig::builder()
-            .with_root_certificates(root_store)
+            .with_root_certificates(root_cert_store(trust_native_roots).await)
             .with_no_client_auth(),
     )
 }
@@ -488,8 +579,8 @@ fn tls_client_config() -> Arc<rustls::ClientConfig> {
 /// phase-timed connect paths, so downstream feature unification (e.g. a
 /// consumer also enabling `tokio-tungstenite/native-tls`) cannot make the
 /// two paths select different TLS providers or trust configurations.
-pub(crate) fn tls_connector() -> tokio_tungstenite::Connector {
-    tokio_tungstenite::Connector::Rustls(tls_client_config())
+pub(crate) async fn tls_connector(trust_native_roots: bool) -> tokio_tungstenite::Connector {
+    tokio_tungstenite::Connector::Rustls(tls_client_config(trust_native_roots).await)
 }
 
 /// Hostname from the request URI, with IPv6 brackets stripped as `rustls`
@@ -701,23 +792,61 @@ mod tests {
         assert_eq!(rx.try_recv().unwrap(), ConnectOutcome::Completed);
     }
 
-    #[test]
-    fn tls_config_matches_tokio_tungstenite_defaults() {
+    #[tokio::test]
+    async fn tls_config_matches_tokio_tungstenite_defaults() {
         // The stock path (tokio-tungstenite, rustls-tls-webpki-roots) builds
         // its trust store from webpki_roots::TLS_SERVER_ROOTS with no client
-        // auth. Assert our replica loads the identical root set.
-        let config = tls_client_config();
+        // auth. Assert our replica loads the identical root set when native
+        // roots are not opted into.
+        let config = tls_client_config(false).await;
         assert!(!config.client_auth_cert_resolver.has_certs());
         let roots = rustls::RootCertStore {
             roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
         };
         assert_eq!(
-            tls_client_config().crypto_provider().cipher_suites,
+            tls_client_config(false)
+                .await
+                .crypto_provider()
+                .cipher_suites,
             rustls::ClientConfig::builder()
                 .with_root_certificates(roots)
                 .with_no_client_auth()
                 .crypto_provider()
                 .cipher_suites,
         );
+    }
+
+    #[tokio::test]
+    async fn root_store_trusts_public_roots_without_native_roots() {
+        assert!(!root_cert_store(false).await.is_empty());
+    }
+
+    /// Pins the merge invariant `root_cert_store`'s doc comment claims to
+    /// replicate from `tokio-tungstenite`'s own (private, unreusable)
+    /// native+webpki merge: native roots are additive, and webpki roots are
+    /// always present regardless of what native loading finds. Since that
+    /// merge is hand-copied rather than delegated to, this test — not the
+    /// upstream source — is what would catch this function silently
+    /// diverging from it after a future edit.
+    #[tokio::test]
+    async fn root_store_still_trusts_public_roots_with_native_roots_enabled() {
+        // Native root loading is best-effort and platform/sandbox dependent
+        // (e.g. it may find zero certs in a minimal CI container), but the
+        // bundled webpki roots must always be present regardless, and native
+        // roots (when found) are additive, never fewer than webpki alone.
+        let webpki_only = root_cert_store(false).await.len();
+        let with_native = root_cert_store(true).await.len();
+        assert!(!root_cert_store(true).await.is_empty());
+        assert!(with_native >= webpki_only);
+    }
+
+    /// The native portion is cached process-wide (see `native_root_cert_store`);
+    /// repeated calls must not re-read the OS trust store, and must keep
+    /// returning a store that still includes the webpki baseline.
+    #[tokio::test]
+    async fn native_root_cache_is_stable_across_repeated_calls() {
+        let first = root_cert_store(true).await.len();
+        let second = root_cert_store(true).await.len();
+        assert_eq!(first, second);
     }
 }
