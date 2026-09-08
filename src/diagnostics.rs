@@ -38,9 +38,8 @@
 //! an internal CA, or a self-hosted Deepgram deployment.
 
 use std::fmt;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use http::Request;
 use serde::Serialize;
@@ -505,13 +504,32 @@ async fn connect_phases(
 ///
 /// Reading the OS certificate store is genuinely blocking I/O (platform
 /// keychain/CryptoAPI calls, or a directory scan on Unix) and can be slow,
-/// so unlike the webpki set below it is not read on every call: it is loaded
-/// off the async runtime's worker threads via
-/// [`spawn_blocking`](tokio::task::spawn_blocking) and cached, subject to
-/// [`NATIVE_ROOTS_TTL`] — see [`cached_native_root_cert_store`] for the
-/// staleness/refresh policy. A newly installed or rotated corporate/internal
-/// CA is picked up within one TTL window of a connect attempt, without every
-/// connect paying the OS read's latency.
+/// so unlike the webpki set below it is not read on every call: the native
+/// portion is loaded at most once per process, off the async runtime's
+/// worker threads via [`spawn_blocking`](tokio::task::spawn_blocking), and
+/// cached for the life of the process. The OS trust store essentially never
+/// changes while a long-running process is up, and this is no more stale
+/// than the webpki roots, which are already fixed for the life of the
+/// build; a process that needs to pick up a rotated CA still picks it up on
+/// restart, same as a webpki-roots update needs a rebuild.
+///
+/// This is a deliberate scope decision, not an oversight: an earlier
+/// revision of this feature tried a TTL-based background-refresh cache
+/// instead, so a long-running process could pick up a rotated CA without a
+/// restart. That chased an unbounded sequence of edge cases — a failed
+/// refresh silently discarding a working store, a partial refresh dropping
+/// certificates a clean read had already established, and finally a
+/// refresh policy that, to avoid those two, ended up able to keep a
+/// genuinely revoked CA trusted indefinitely. Those two goals (never lose
+/// established trust to a transient read failure; always drop trust
+/// promptly once revoked) are in real tension and don't both fit in a
+/// process-wide cache without meaningfully more machinery (bounded grace
+/// periods, fail-closed behavior on a stale/unreadable store, tracking a
+/// last-known-good snapshot separately from refresh attempts). That's out
+/// of scope here: this feature's stated purpose is trusting a corporate
+/// proxy or internal CA the OS already trusts, not implementing revocation
+/// semantics, so it settles for exactly the same staleness bound the
+/// bundled webpki roots already have.
 async fn root_cert_store(trust_native_roots: bool) -> rustls::RootCertStore {
     let mut root_store = if trust_native_roots {
         (*native_root_cert_store().await).clone()
@@ -523,228 +541,38 @@ async fn root_cert_store(trust_native_roots: bool) -> rustls::RootCertStore {
     root_store
 }
 
-/// How long a cached native root store is served before a connect triggers
-/// a background refresh. Chosen as a middle ground: short enough that a
-/// rotated corporate/internal CA is picked up promptly by a long-lived
-/// client, long enough that the OS trust store (read via blocking I/O) is
-/// not re-read on anything like every connect.
-const NATIVE_ROOTS_TTL: Duration = Duration::from_secs(5 * 60);
-
-struct CachedNativeRoots {
-    store: Arc<rustls::RootCertStore>,
-    loaded_at: Instant,
-}
-
-/// Process-wide cache for [`root_cert_store`]'s native portion; see
-/// [`cached_native_root_cert_store`] for the staleness/refresh policy.
-static NATIVE_ROOT_CERT_STORE: tokio::sync::RwLock<Option<CachedNativeRoots>> =
-    tokio::sync::RwLock::const_new(None);
-
-/// Guards against piling up redundant background refreshes when many
-/// connects land after the cache has gone stale: only one refresh task runs
-/// at a time, and every other stale hit just keeps serving the old value
-/// until that refresh completes.
-static NATIVE_ROOTS_REFRESHING: AtomicBool = AtomicBool::new(false);
+/// Process-wide cache for [`root_cert_store`]'s native portion; see that
+/// function's doc comment for why this is cached rather than reloaded per
+/// connect.
+static NATIVE_ROOT_CERT_STORE: tokio::sync::OnceCell<Arc<rustls::RootCertStore>> =
+    tokio::sync::OnceCell::const_new();
 
 async fn native_root_cert_store() -> Arc<rustls::RootCertStore> {
-    cached_native_root_cert_store(NATIVE_ROOTS_TTL).await
-}
-
-/// Stale-while-revalidate cache for the OS-native root store.
-///
-/// - Cold (nothing cached yet): loads synchronously and blocks the caller —
-///   unavoidable, since a connect needs a trust store to proceed. Concurrent
-///   connects racing this for the first time are serialized onto a single
-///   load via [`NATIVE_ROOTS_COLD_START_LOCK`], so a burst of connects at
-///   process startup performs one blocking OS read, not one each.
-/// - Fresh (`loaded_at` within `ttl`): returns the cached value immediately.
-/// - Stale (`loaded_at` older than `ttl`): still returns the cached value
-///   immediately — no connect after the first ever pays the OS read's
-///   latency — while kicking off a detached background reload that updates
-///   the cache for subsequent connects. Worst-case staleness is therefore
-///   up to roughly two TTL windows, not one, in exchange for connects never
-///   observing a latency spike after the initial load. That reload can
-///   never regress a working store to an empty one — see
-///   [`merge_refreshed_native_roots`].
-async fn cached_native_root_cert_store(ttl: Duration) -> Arc<rustls::RootCertStore> {
-    if let Some(cached) = NATIVE_ROOT_CERT_STORE.read().await.as_ref() {
-        if cached.loaded_at.elapsed() < ttl {
-            return cached.store.clone();
-        }
-        let stale = cached.store.clone();
-        spawn_native_roots_refresh();
-        return stale;
-    }
-
-    let _cold_start_guard = NATIVE_ROOTS_COLD_START_LOCK.lock().await;
-    // Re-check: another racer may have already completed the cold load
-    // while this task was waiting for the lock.
-    if let Some(cached) = NATIVE_ROOT_CERT_STORE.read().await.as_ref() {
-        return cached.store.clone();
-    }
-    load_and_cache_native_roots(None).await
-}
-
-/// Serializes the first-ever native-roots load across concurrent callers.
-/// Without this, several connects racing at process startup would each see
-/// an empty cache and each perform their own redundant blocking OS read
-/// before any of them observed another's result.
-static NATIVE_ROOTS_COLD_START_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-
-fn spawn_native_roots_refresh() {
-    if NATIVE_ROOTS_REFRESHING
-        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-        .is_err()
-    {
-        return;
-    }
-    tokio::spawn(async {
-        // Resets the in-flight flag when this task ends, including on
-        // panic/cancellation, so a single unexpected failure here can't
-        // permanently wedge future refreshes into a no-op.
-        struct ResetRefreshingOnDrop;
-        impl Drop for ResetRefreshingOnDrop {
-            fn drop(&mut self) {
-                NATIVE_ROOTS_REFRESHING.store(false, Ordering::Release);
-            }
-        }
-        let _reset_guard = ResetRefreshingOnDrop;
-
-        // Cloned under a read lock rather than taken, so a concurrent
-        // connect can keep reading the still-valid previous store for the
-        // whole duration of this reload instead of briefly seeing no cache
-        // at all (which would make it fall through to the cold-start path
-        // and treat a merely-in-progress refresh as a total loss of trust).
-        let previous = NATIVE_ROOT_CERT_STORE
-            .read()
-            .await
-            .as_ref()
-            .map(|cached| cached.store.clone());
-        load_and_cache_native_roots(previous).await;
-    });
-}
-
-/// One attempt at reading the OS-native certificate store, off the async
-/// runtime's worker threads.
-struct NativeRootsLoad {
-    store: rustls::RootCertStore,
-    /// How many certificates actually made it into `store`. A refresh that
-    /// found none is never trusted enough to touch a previously cached
-    /// store — see [`merge_refreshed_native_roots`].
-    added: usize,
-    /// Whether `load_native_certs` reported any per-source errors (a locked
-    /// keychain entry, a directory it couldn't read, an unparsable file).
-    /// Certificates can still have been found alongside such errors — this
-    /// is what distinguishes a genuinely complete read (safe to treat as
-    /// authoritative) from a partial one (safe only to add from, never to
-    /// replace with, since the failing source might be exactly the one that
-    /// previously supplied a still-valid, still-needed certificate).
-    had_errors: bool,
-}
-
-async fn load_native_roots_once() -> NativeRootsLoad {
-    tokio::task::spawn_blocking(|| {
-        let mut store = rustls::RootCertStore::empty();
-        let rustls_native_certs::CertificateResult { certs, errors, .. } =
-            rustls_native_certs::load_native_certs();
-        let had_errors = !errors.is_empty();
-        if had_errors {
-            tracing::warn!("native root CA certificate loading errors: {errors:?}");
-        }
-        let (added, ignored) = store.add_parsable_certificates(certs);
-        tracing::debug!("added {added} native root certificates ({ignored} ignored)");
-        NativeRootsLoad {
-            store,
-            added,
-            had_errors,
-        }
-    })
-    .await
-    .unwrap_or_else(|join_err| {
-        tracing::warn!(
-            "native root CA loading task panicked, continuing with webpki roots only: {join_err}"
-        );
-        NativeRootsLoad {
-            store: rustls::RootCertStore::empty(),
-            added: 0,
-            had_errors: true,
-        }
-    })
-}
-
-/// Decides what a load attempt should do to the cache.
-///
-/// - Nothing cached yet (first-ever load): whatever was loaded becomes the
-///   cache, even if empty or errored — there's nothing to preserve, and a
-///   connect needs *some* store to proceed (webpki roots are layered on top
-///   regardless, by [`root_cert_store`]).
-/// - Found no certificates at all: always keeps the previous store,
-///   regardless of whether errors were reported. Going from "N trusted
-///   certificates" to zero between refreshes is never itself trustworthy
-///   enough to erase established trust — that would fail TLS connections
-///   that were working moments earlier over what's most likely a transient
-///   OS-level hiccup (a locked keychain, a permissions blip, a
-///   momentarily-empty sandboxed environment).
-/// - Found certificates with no errors: a clean, complete read is
-///   authoritative and replaces the previous store wholesale. This is the
-///   only path that lets a certificate genuinely removed or rotated out of
-///   the OS store actually stop being trusted; the two paths below
-///   deliberately favor availability over that.
-/// - Found certificates alongside errors: a partial read. One failing
-///   source (one directory, one keychain entry) must not silently drop
-///   certificates a previous clean read already established as trusted, so
-///   this merges (a union, deduplicated) into the previous store instead of
-///   replacing it — previously trusted certificates are kept, and anything
-///   newly found is added, at the cost of not being able to *remove* trust
-///   this way. A persistently erroring environment therefore only sheds
-///   stale trust via a later fully-clean read, or a process restart —
-///   deliberately the same staleness bound as the bundled webpki roots
-///   already have.
-///
-/// `loaded_at` is bumped to now on every outcome, so a repeatedly failing or
-/// partial refresh still only retries once per TTL, rather than on every
-/// stale connect.
-fn merge_refreshed_native_roots(
-    previous: Option<Arc<rustls::RootCertStore>>,
-    loaded: NativeRootsLoad,
-) -> CachedNativeRoots {
-    let store = match previous {
-        None => Arc::new(loaded.store),
-        Some(previous) if loaded.added == 0 => {
-            tracing::warn!(
-                "native root CA refresh found no usable certificates; keeping the \
-                 previously cached native trust store"
-            );
-            previous
-        }
-        Some(_) if !loaded.had_errors => Arc::new(loaded.store),
-        Some(previous) => {
-            tracing::warn!(
-                "native root CA refresh reported errors alongside {} certificates found; \
-                 merging into rather than replacing the previously cached native trust store",
-                loaded.added
-            );
-            let mut roots: std::collections::HashSet<_> = previous.roots.iter().cloned().collect();
-            roots.extend(loaded.store.roots);
-            Arc::new(rustls::RootCertStore {
-                roots: roots.into_iter().collect(),
+    NATIVE_ROOT_CERT_STORE
+        .get_or_init(|| async {
+            let store = tokio::task::spawn_blocking(|| {
+                let mut store = rustls::RootCertStore::empty();
+                let rustls_native_certs::CertificateResult { certs, errors, .. } =
+                    rustls_native_certs::load_native_certs();
+                if !errors.is_empty() {
+                    tracing::warn!("native root CA certificate loading errors: {errors:?}");
+                }
+                let (added, ignored) = store.add_parsable_certificates(certs);
+                tracing::debug!("added {added} native root certificates ({ignored} ignored)");
+                store
             })
-        }
-    };
-    CachedNativeRoots {
-        store,
-        loaded_at: Instant::now(),
-    }
-}
-
-async fn load_and_cache_native_roots(
-    previous: Option<Arc<rustls::RootCertStore>>,
-) -> Arc<rustls::RootCertStore> {
-    let loaded = load_native_roots_once().await;
-    let cached = merge_refreshed_native_roots(previous, loaded);
-    let store = cached.store.clone();
-    *NATIVE_ROOT_CERT_STORE.write().await = Some(cached);
-    store
+            .await
+            .unwrap_or_else(|join_err| {
+                tracing::warn!(
+                    "native root CA loading task panicked, continuing with webpki roots \
+                     only: {join_err}"
+                );
+                rustls::RootCertStore::empty()
+            });
+            Arc::new(store)
+        })
+        .await
+        .clone()
 }
 
 /// The TLS configuration `tokio-tungstenite` builds when no connector is
@@ -1030,214 +858,13 @@ mod tests {
         assert!(with_native >= webpki_only);
     }
 
-    /// The native portion is cached (see `cached_native_root_cert_store`);
-    /// within the TTL, repeated calls must not re-read the OS trust store,
-    /// and must keep returning a store that still includes the webpki
-    /// baseline.
+    /// The native portion is cached process-wide (see `native_root_cert_store`);
+    /// repeated calls must not re-read the OS trust store, and must keep
+    /// returning a store that still includes the webpki baseline.
     #[tokio::test]
     async fn native_root_cache_is_stable_across_repeated_calls() {
         let first = root_cert_store(true).await.len();
         let second = root_cert_store(true).await.len();
         assert_eq!(first, second);
-    }
-
-    /// Once the TTL has elapsed, a call must still return immediately
-    /// (serving the stale value, not blocking on a fresh OS read) while a
-    /// background task refreshes the cache for subsequent calls. Uses its
-    /// own short TTL so it doesn't depend on `NATIVE_ROOTS_TTL`'s real
-    /// (multi-minute) value, but shares the same process-wide cache as the
-    /// other tests in this module — harmless, since every assertion here is
-    /// about the *shape* of what's returned and whether a refresh
-    /// eventually lands, not about a specific `loaded_at` baseline.
-    #[tokio::test]
-    async fn stale_native_root_cache_is_served_immediately_and_refreshed_in_background() {
-        let ttl = Duration::from_millis(20);
-
-        // Seed the shared cache directly with a known-fresh entry, rather
-        // than relying on whatever state sibling tests (sharing this same
-        // process-wide static via the real multi-minute TTL) happened to
-        // leave it in — otherwise this test's own tiny TTL could find an
-        // already-stale ambient entry and trigger an unplanned refresh
-        // before the deliberate one below, racing the two.
-        let seeded = Arc::new(rustls::RootCertStore::empty());
-        *NATIVE_ROOT_CERT_STORE.write().await = Some(CachedNativeRoots {
-            store: seeded.clone(),
-            loaded_at: Instant::now(),
-        });
-
-        let fresh = cached_native_root_cert_store(ttl).await;
-        assert!(
-            Arc::ptr_eq(&fresh, &seeded),
-            "a fresh hit right after seeding must reuse the seeded entry"
-        );
-        tokio::time::sleep(ttl * 3).await;
-
-        let loaded_at_before_stale_hit = NATIVE_ROOT_CERT_STORE
-            .read()
-            .await
-            .as_ref()
-            .expect("cache populated by the call above")
-            .loaded_at;
-
-        let stale = cached_native_root_cert_store(ttl).await;
-        assert!(
-            Arc::ptr_eq(&fresh, &stale),
-            "a stale hit must return the existing cached Arc, not a freshly loaded one"
-        );
-
-        for _ in 0..50 {
-            let refreshed = NATIVE_ROOT_CERT_STORE
-                .read()
-                .await
-                .as_ref()
-                .map(|cached| cached.loaded_at > loaded_at_before_stale_hit)
-                .unwrap_or(false);
-            if refreshed {
-                return;
-            }
-            tokio::time::sleep(Duration::from_millis(20)).await;
-        }
-        panic!("expected the stale hit to have triggered a background refresh by now");
-    }
-
-    /// Splits the bundled webpki roots into two disjoint, non-empty halves,
-    /// for building "previous" and "newly loaded" stores in the merge tests
-    /// below that share no certificates — so a passing union assertion
-    /// actually proves both halves survived, not just one.
-    fn disjoint_root_halves() -> (rustls::RootCertStore, rustls::RootCertStore) {
-        let mid = webpki_roots::TLS_SERVER_ROOTS.len() / 2;
-        assert!(mid > 0, "need at least two roots to split");
-        let mut first = rustls::RootCertStore::empty();
-        first.extend(webpki_roots::TLS_SERVER_ROOTS[..mid].iter().cloned());
-        let mut second = rustls::RootCertStore::empty();
-        second.extend(webpki_roots::TLS_SERVER_ROOTS[mid..].iter().cloned());
-        (first, second)
-    }
-
-    /// Pins the fix for the finding that a failed/degraded refresh (e.g. a
-    /// transient keychain read error) must not discard a previously working
-    /// native trust store: TLS connections that worked a moment ago must
-    /// keep working until a refresh actually succeeds.
-    #[test]
-    fn errored_refresh_with_no_certificates_keeps_previous_native_root_store() {
-        let (previous, _unused) = disjoint_root_halves();
-        let previous_store = Arc::new(previous);
-
-        let failed_load = NativeRootsLoad {
-            store: rustls::RootCertStore::empty(),
-            added: 0,
-            had_errors: true,
-        };
-
-        let merged = merge_refreshed_native_roots(Some(previous_store.clone()), failed_load);
-
-        assert!(
-            Arc::ptr_eq(&merged.store, &previous_store),
-            "a load that found no usable certificates must keep serving the previous store"
-        );
-    }
-
-    /// Even a load that reports *no* errors but still found zero
-    /// certificates must not overwrite a previously non-empty store: going
-    /// from N trusted certificates to none is itself implausible enough
-    /// (e.g. a momentarily empty sandboxed environment, or a directory that
-    /// silently vanished) that it should never be trusted to erase
-    /// established trust, error flag or not.
-    #[test]
-    fn clean_but_empty_refresh_keeps_previous_native_root_store() {
-        let (previous, _unused) = disjoint_root_halves();
-        let previous_store = Arc::new(previous);
-
-        let clean_but_empty_load = NativeRootsLoad {
-            store: rustls::RootCertStore::empty(),
-            added: 0,
-            had_errors: false,
-        };
-
-        let merged =
-            merge_refreshed_native_roots(Some(previous_store.clone()), clean_but_empty_load);
-
-        assert!(
-            Arc::ptr_eq(&merged.store, &previous_store),
-            "an empty result must keep serving the previous store even without a reported error"
-        );
-    }
-
-    /// A clean (no errors) load that found certificates is authoritative
-    /// and replaces the previous store wholesale — this is what lets a
-    /// certificate genuinely removed or rotated out of the OS store
-    /// actually stop being trusted, rather than lingering forever.
-    #[test]
-    fn clean_refresh_replaces_previous_native_root_store() {
-        let (previous, new) = disjoint_root_halves();
-        let previous_store = Arc::new(previous);
-        let new_len = new.roots.len();
-
-        let clean_load = NativeRootsLoad {
-            store: new,
-            added: new_len,
-            had_errors: false,
-        };
-
-        let merged = merge_refreshed_native_roots(Some(previous_store.clone()), clean_load);
-
-        assert!(!Arc::ptr_eq(&merged.store, &previous_store));
-        assert_eq!(merged.store.roots.len(), new_len);
-    }
-
-    /// Pins the fix for the adversarial-review finding that a *partial*
-    /// refresh (certificates found alongside reported errors) must not
-    /// silently drop certificates a previous clean read already
-    /// established as trusted: the failing source could be exactly the one
-    /// that previously supplied a still-needed certificate. The previous
-    /// and newly loaded stores are disjoint, so a correct union contains
-    /// every certificate from both.
-    #[test]
-    fn partial_refresh_with_errors_merges_with_previous_native_root_store() {
-        let (previous, new) = disjoint_root_halves();
-        let previous_len = previous.roots.len();
-        let new_len = new.roots.len();
-        let previous_store = Arc::new(previous);
-
-        let partial_load = NativeRootsLoad {
-            store: new,
-            added: new_len,
-            had_errors: true,
-        };
-
-        let merged = merge_refreshed_native_roots(Some(previous_store.clone()), partial_load);
-
-        assert!(
-            !Arc::ptr_eq(&merged.store, &previous_store),
-            "a merge must produce a new store, not alias the previous one"
-        );
-        assert_eq!(
-            merged.store.roots.len(),
-            previous_len + new_len,
-            "a partial-but-nonempty refresh must union with, not replace, the previous store"
-        );
-        for anchor in &previous_store.roots {
-            assert!(
-                merged.store.roots.contains(anchor),
-                "the previous store's certificates must survive a partial merge"
-            );
-        }
-    }
-
-    /// The first-ever load has nothing to preserve, so even a load that
-    /// found nothing must still become the cache — there is no "previous"
-    /// to fall back to, and a connect needs *some* store (webpki roots are
-    /// layered on top regardless, by `root_cert_store`).
-    #[test]
-    fn cold_start_with_no_certificates_still_populates_the_cache() {
-        let failed_load = NativeRootsLoad {
-            store: rustls::RootCertStore::empty(),
-            added: 0,
-            had_errors: true,
-        };
-
-        let merged = merge_refreshed_native_roots(None, failed_load);
-
-        assert!(merged.store.is_empty());
     }
 }

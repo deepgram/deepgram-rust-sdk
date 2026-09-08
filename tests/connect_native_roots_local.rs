@@ -17,18 +17,16 @@
 //! store. See `connect_tls_provider_local.rs` for the server/cert helpers
 //! this borrows the shape of.
 //!
-//! The SDK caches the native portion of the trust store (see
-//! `cached_native_root_cert_store` in `src/diagnostics.rs`) for a multi-
-//! minute TTL, refreshed in the background once stale -- reading it is
-//! genuinely blocking OS I/O, so it isn't re-read on every connect. This
-//! test binary runs in well under that TTL, so in practice it behaves like
-//! a single process-wide read: only the *first* `SSL_CERT_FILE` value this
-//! binary's process ever sees while `trust_native_roots` is in play takes
-//! effect. Every test below that needs an OS-trusted cert therefore shares
-//! one fixture (one cert, one server) rather than each pointing
-//! `SSL_CERT_FILE` at its own -- a second, different value would silently
-//! be ignored for the duration of this test run, exactly like a real
-//! long-lived process serving its cached trust store between refreshes.
+//! The SDK caches the native portion of the trust store process-wide, for
+//! the life of the process (see `native_root_cert_store` in
+//! `src/diagnostics.rs`) -- reading it is genuinely blocking OS I/O, so it's
+//! read at most once, not on every connect. That means only the *first*
+//! `SSL_CERT_FILE` value this binary's process ever sees while
+//! `trust_native_roots` is in play takes effect; every test below that
+//! needs an OS-trusted cert therefore shares one fixture (one cert, one
+//! server) rather than each pointing `SSL_CERT_FILE` at its own -- a second,
+//! different value would silently be ignored, exactly like a real process
+//! that started with one native trust store already loaded.
 
 #![cfg(feature = "connect-diagnostics")]
 
@@ -50,8 +48,7 @@ struct SharedCert {
 
 /// Lazily generates one certificate and points `SSL_CERT_FILE` at it, exactly
 /// once for this binary's process -- matching the SDK's own native-roots
-/// cache, which (within this short test run, well under its multi-minute
-/// TTL) likewise only ever reads that env var once. This caches
+/// cache, which likewise only ever reads that env var once. This caches
 /// certificate *data*, not a server: `tokio::spawn` binds a task's lifetime
 /// to whichever runtime called it, and `#[tokio::test]` gives each test
 /// function its own runtime, so a server spawned inside one test's runtime
