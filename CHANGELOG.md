@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.1...HEAD)
+
+### Added
+
+- `rustls-tls-native-roots` cargo feature: WebSocket connections also trust the operating system's certificate store, on top of the bundled webpki roots (never instead of them). For TLS-inspecting proxies (Zscaler, Netskope, …), internal CAs, and self-hosted deployments. Named after the `tokio-tungstenite` and `reqwest` features it mirrors; `rustls-native-certs` honors `SSL_CERT_FILE` / `SSL_CERT_DIR` in place of the platform store.
+- `Deepgram::tls_config(impl Into<Arc<rustls::ClientConfig>>)`: supply your own rustls configuration once, on the client, and every WebSocket it opens (live transcription, Flux speech-to-text, Flux text-to-speech) uses it verbatim. `rustls` is re-exported as `deepgram::rustls` so the versions match.
+- `DeepgramError::UntrustedTlsCertificate { host, trust, source }`: returned instead of a bare `WsError` when the server certificate's issuer is not in the trust roots. The message ends with the remedy that applies to the trust roots in effect (the feature, the OS store, or the supplied config).
+- `deepgram::tls` module with `TlsTrust` (`webpki`, `webpki_and_native`, `custom`), the trust roots in effect for a connection.
+- Connect-diagnostics records gain `tls_trust` (always present) and `tls_resumed` (present once the TLS phase completed). Resumed handshakes are cheaper than full ones, so `tls_handshake_ms` should be compared within one value of `tls_resumed`. Additive; `schema_version` stays 1.
+
+### Changed
+
+- Every WebSocket surface (live transcription, Flux speech-to-text, Flux text-to-speech) now connects through one explicit rustls connector owned by the `Deepgram` client. Trust roots and TLS provider are therefore identical across surfaces and no longer depend on which TLS features other crates in the dependency graph enable on `tokio-tungstenite`. Previously only `/v1/listen` with `connect-diagnostics` used an explicit connector, and the Flux surfaces took whatever feature unification produced. If a Flux connection behind a TLS-inspecting proxy or private CA worked on 0.10.1 only because another crate enabled `tokio-tungstenite/rustls-tls-native-roots` or `native-tls`, it now fails with `UntrustedTlsCertificate` until you enable `rustls-tls-native-roots` on `deepgram` (or pass `Deepgram::tls_config`).
+- The default TLS configuration is built once per `Deepgram` client (on its first WebSocket connect) and reused, so TLS sessions can be resumed across connections from the same client. Before, a fresh configuration was built per attempt and no session was ever resumed.
+- The TLS dependencies (`rustls`, `tokio-rustls`, `rustls-pki-types`, `webpki-roots`) are now enabled by the `listen` and `speak` features rather than only by `connect-diagnostics`. They were already present in the dependency graph through `tokio-tungstenite`; nothing new is downloaded.
+
+### Fixed
+
+- With `connect-diagnostics` enabled, connections behind a TLS-inspecting proxy failed even where the same application's 0.10.0 build succeeded: the explicit connector introduced in 0.10.1 bypassed the OS-root merge that `tokio-tungstenite/rustls-tls-native-roots` (enabled elsewhere in the consumer's dependency graph) had been providing through feature unification. Enable `rustls-tls-native-roots` on `deepgram` to restore that behavior explicitly.
+- On a client's first connect the OS certificate store (when enabled) is read before any phase timer starts, so it is never charged to `tls_handshake_ms`.
+
 ## [0.10.1](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.0...0.10.1)
 
 ### Added

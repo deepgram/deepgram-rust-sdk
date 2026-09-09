@@ -196,7 +196,18 @@ impl FluxSpeakHandle {
             builder.body(())?
         };
 
-        let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
+        // The client's explicit rustls connector (see `crate::tls`), shared
+        // with every other WebSocket surface, so trust roots cannot differ
+        // between surfaces or be changed by downstream feature unification.
+        let tls = &builder.deepgram.tls;
+        let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async_tls_with_config(
+            request,
+            None,
+            false,
+            Some(tls.connector().await),
+        )
+        .await
+        .map_err(|err| crate::tls::connect_error(err, host, tls.trust()))?;
 
         let request_id = upgrade_response
             .headers()

@@ -5,6 +5,18 @@
 //! Official Rust SDK for Deepgram's automated speech recognition APIs.
 //!
 //! Get started transcribing with a [`Transcription`] object.
+//!
+//! # Cargo features
+//!
+//! - `listen` (default): speech-to-text, REST and WebSocket, including Flux.
+//! - `speak` (default): text-to-speech, REST and WebSocket, including Flux.
+//! - `manage` (default): project, key, and usage management.
+//! - `connect-diagnostics`: per-phase connect timings for `/v1/listen`
+//!   WebSocket connections; see [`diagnostics`].
+//! - `rustls-tls-native-roots`: also trust the operating system's certificate
+//!   store for WebSocket connections, on top of the bundled public roots. For
+//!   TLS-inspecting proxies, internal CAs, and self-hosted deployments; see
+//!   [`tls`].
 
 use core::fmt;
 pub use http::Error as HttpError;
@@ -35,6 +47,17 @@ pub mod listen;
 pub mod manage;
 #[cfg(feature = "speak")]
 pub mod speak;
+#[cfg(any(feature = "listen", feature = "speak"))]
+pub mod tls;
+
+/// The `rustls` crate this SDK's WebSocket connections are built on,
+/// re-exported so a [`rustls::ClientConfig`] passed to
+/// [`Deepgram::tls_config`] is guaranteed to be the matching version.
+///
+/// This ties the SDK's public API to rustls 0.23: a future rustls major
+/// bump will be a breaking change for this crate as well.
+#[cfg(any(feature = "listen", feature = "speak"))]
+pub use rustls;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 
@@ -149,6 +172,8 @@ pub struct Deepgram {
     base_url: Url,
     #[cfg_attr(not(feature = "listen"), allow(unused))]
     client: reqwest::Client,
+    #[cfg(any(feature = "listen", feature = "speak"))]
+    tls: tls::TlsSettings,
 }
 
 /// Errors that may arise from the [`deepgram`](crate) crate.
@@ -182,6 +207,26 @@ pub enum DeepgramError {
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] Box<TungsteniteError>),
+
+    /// The server presented a TLS certificate whose issuer is not among this
+    /// client's trust roots, so the WebSocket handshake was refused.
+    ///
+    /// Typical causes are a TLS-inspecting corporate proxy re-signing
+    /// traffic, an internal CA, or a self-hosted deployment. The message
+    /// ends with the remedy that applies to the trust roots in effect: the
+    /// `rustls-tls-native-roots` cargo feature, or [`Deepgram::tls_config`].
+    /// See [`tls`] for the full picture.
+    #[cfg(any(feature = "listen", feature = "speak"))]
+    #[error("TLS certificate presented by {host} is not trusted ({source}). {}", tls::untrusted_hint(.trust))]
+    UntrustedTlsCertificate {
+        /// The host the connection was made to.
+        host: String,
+        /// The trust roots that were in effect for the attempt.
+        trust: tls::TlsTrust,
+        /// The underlying handshake error.
+        #[source]
+        source: Box<TungsteniteError>,
+    },
 
     /// Something went wrong during serialization/deserialization.
     #[error("Something went wrong during json serialization/deserialization: {0}")]
@@ -373,7 +418,44 @@ impl Deepgram {
                 .user_agent(USER_AGENT)
                 .default_headers(authorization_header)
                 .build()?,
+            #[cfg(any(feature = "listen", feature = "speak"))]
+            tls: tls::TlsSettings::new(),
         })
+    }
+
+    /// Use your own [`rustls::ClientConfig`] for every WebSocket connection
+    /// this client opens (live transcription, Flux speech-to-text, Flux
+    /// text-to-speech). It is used verbatim: trust roots, client
+    /// authentication, protocol versions, and session resumption are all
+    /// yours to decide.
+    ///
+    /// Reach for this when the defaults don't fit — pinning to a private CA,
+    /// presenting a client certificate, a custom verifier — and the
+    /// `rustls-tls-native-roots` feature (trust the OS store in addition to
+    /// the bundled public roots) isn't enough. Build the config from
+    /// [`deepgram::rustls`](crate::rustls) so the versions match.
+    ///
+    /// REST requests are made with `reqwest` and are not affected.
+    ///
+    /// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use deepgram::{rustls, Deepgram};
+    ///
+    /// let mut roots = rustls::RootCertStore::empty();
+    /// // roots.add(my_private_ca_der)?;
+    /// let config = rustls::ClientConfig::builder()
+    ///     .with_root_certificates(roots)
+    ///     .with_no_client_auth();
+    ///
+    /// let dg = Deepgram::new("YOUR_DEEPGRAM_API_KEY")?.tls_config(config);
+    /// # let _ = dg;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(any(feature = "listen", feature = "speak"))]
+    pub fn tls_config(mut self, config: impl Into<std::sync::Arc<rustls::ClientConfig>>) -> Self {
+        self.tls = tls::TlsSettings::custom(config.into());
+        self
     }
 }
 

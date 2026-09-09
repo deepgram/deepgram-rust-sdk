@@ -20,15 +20,12 @@
 //! (`tokio_tungstenite::connect_async_tls_with_config`) and no phases are
 //! timed or recorded.
 //!
-//! With this feature enabled, both connect paths — stock and phase-timed —
-//! are handed the same explicit rustls connector (the crate-internal
-//! `tls_connector`): webpki
-//! trust roots, no client auth, the crate-default provider. That keeps timed
-//! and untimed connections on identical TLS provider and trust configuration
-//! even when downstream feature unification enables another TLS backend
-//! (e.g. `tokio-tungstenite/native-tls`) in the dependency graph. The
-//! upgrade machinery and the request are the same on both paths; only the
-//! granularity of measurement differs.
+//! Both connect paths — stock and phase-timed — use the client's one
+//! explicit rustls connector (see [`crate::tls`]), so timed and untimed
+//! connections have identical trust roots and TLS provider, and the record's
+//! [`tls_trust`](ConnectRecord::tls_trust) says which roots were in effect.
+//! The upgrade machinery and the request are the same on both paths; only
+//! the granularity of measurement differs.
 
 use std::fmt;
 use std::sync::Arc;
@@ -42,7 +39,7 @@ use tungstenite::error::UrlError;
 use tungstenite::Error as TungsteniteError;
 use uuid::Uuid;
 
-use crate::{DeepgramError, Result};
+use crate::tls::TlsTrust;
 
 /// Version of the [`ConnectRecord`] schema. Changes are additive only:
 /// consumers should ignore unknown fields.
@@ -129,6 +126,15 @@ pub struct ConnectRecord {
     /// WebSocket upgrade exchange time in milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ws_upgrade_ms: Option<f64>,
+    /// Which trust roots the server certificate was verified against. See
+    /// [`crate::tls`].
+    pub tls_trust: TlsTrust,
+    /// Whether the TLS handshake resumed an earlier session (`true`) or was
+    /// a full handshake (`false`). Present once the TLS phase completed.
+    /// Resumed handshakes are cheaper, so compare `tls_handshake_ms` within
+    /// one value of this, not across both.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tls_resumed: Option<bool>,
     /// The `dg-request-id` response header. Present whenever the server
     /// responded to the upgrade request — on success and on rejected
     /// upgrades. Absent when the attempt was cancelled or failed before a
@@ -172,6 +178,8 @@ impl ConnectRecord {
             tcp_connect_ms: Some(68.9),
             tls_handshake_ms: Some(141.7),
             ws_upgrade_ms: Some(90.6),
+            tls_trust: TlsTrust::Webpki,
+            tls_resumed: Some(false),
             request_id: Some("00000000-0000-0000-0000-000000000000".to_string()),
             dg_error: None,
             error: None,
@@ -251,7 +259,7 @@ pub(crate) struct DiagnosticsGuard {
 }
 
 impl DiagnosticsGuard {
-    pub(crate) fn new(sink: SharedSink, url: &url::Url) -> Self {
+    pub(crate) fn new(sink: SharedSink, url: &url::Url, tls_trust: TlsTrust) -> Self {
         let now = Instant::now();
         DiagnosticsGuard {
             record: ConnectRecord {
@@ -268,6 +276,8 @@ impl DiagnosticsGuard {
                 tcp_connect_ms: None,
                 tls_handshake_ms: None,
                 ws_upgrade_ms: None,
+                tls_trust,
+                tls_resumed: None,
                 request_id: None,
                 dg_error: None,
                 error: None,
@@ -301,6 +311,10 @@ impl DiagnosticsGuard {
     fn set_addrs(&mut self, stream: &TcpStream) {
         self.record.local_addr = stream.local_addr().ok().map(|a| a.to_string());
         self.record.peer_addr = stream.peer_addr().ok().map(|a| a.to_string());
+    }
+
+    fn set_tls_resumed(&mut self, resumed: bool) {
+        self.record.tls_resumed = Some(resumed);
     }
 
     pub(crate) fn set_request_id(&mut self, request_id: &str) {
@@ -371,22 +385,32 @@ fn header_str(headers: &http::HeaderMap, name: &str) -> Option<String> {
 /// Mirrors `tokio_tungstenite::connect_async` phase by phase: hostname
 /// resolution (which `TcpStream::connect` performs internally on the stock
 /// path), sequential TCP connect attempts across the resolved addresses, a
-/// TLS handshake with the same `rustls` configuration `tokio-tungstenite`
-/// builds for its `rustls-tls-webpki-roots` feature, and the upgrade via
+/// TLS handshake with the client's `rustls` configuration (the same one the
+/// stock path is handed), and the upgrade via
 /// `tokio_tungstenite::client_async_with_config` — the same function the
 /// stock path bottoms out in.
+///
+/// The caller resolves `tls_config` before calling, so building it (which
+/// may read the OS certificate store on a client's first connect) is never
+/// charged to a phase timing. Errors are returned raw for the caller to
+/// classify (see [`crate::tls::connect_error`]); the failure is recorded on
+/// the guard here.
 pub(crate) async fn connect_with_diagnostics(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
-) -> Result<(
-    WebSocketStream<MaybeTlsStream<TcpStream>>,
-    tungstenite::handshake::client::Response,
-)> {
-    match connect_phases(request, guard).await {
+    tls_config: Arc<rustls::ClientConfig>,
+) -> std::result::Result<
+    (
+        WebSocketStream<MaybeTlsStream<TcpStream>>,
+        tungstenite::handshake::client::Response,
+    ),
+    TungsteniteError,
+> {
+    match connect_phases(request, guard, tls_config).await {
         Ok(ok) => Ok(ok),
         Err(err) => {
             guard.fail(&err);
-            Err(DeepgramError::from(Box::new(err)))
+            Err(err)
         }
     }
 }
@@ -394,6 +418,7 @@ pub(crate) async fn connect_with_diagnostics(
 async fn connect_phases(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
+    tls_config: Arc<rustls::ClientConfig>,
 ) -> std::result::Result<
     (
         WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -449,12 +474,15 @@ async fn connect_phases(
         let server_name = rustls_pki_types::ServerName::try_from(domain.as_str())
             .map_err(|_| TungsteniteError::Tls(tungstenite::error::TlsError::InvalidDnsName))?
             .to_owned();
-        let connector = tokio_rustls::TlsConnector::from(tls_client_config());
+        let connector = tokio_rustls::TlsConnector::from(tls_config);
         let tls_stream = connector
             .connect(server_name, tcp)
             .await
             .map_err(TungsteniteError::Io)?;
         guard.finish_phase();
+        guard.set_tls_resumed(
+            tls_stream.get_ref().1.handshake_kind() == Some(rustls::HandshakeKind::Resumed),
+        );
         MaybeTlsStream::Rustls(tls_stream)
     } else {
         MaybeTlsStream::Plain(tcp)
@@ -466,30 +494,6 @@ async fn connect_phases(
     guard.finish_phase();
 
     Ok((ws_stream, response))
-}
-
-/// The TLS configuration `tokio-tungstenite` builds when no connector is
-/// supplied and its `rustls-tls-webpki-roots` feature is enabled: webpki
-/// trust roots, no client auth, and the crate-default provider. Built per
-/// attempt, like the stock path, so TLS session resumption behavior matches.
-fn tls_client_config() -> Arc<rustls::ClientConfig> {
-    let mut root_store = rustls::RootCertStore::empty();
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    Arc::new(
-        rustls::ClientConfig::builder()
-            .with_root_certificates(root_store)
-            .with_no_client_auth(),
-    )
-}
-
-/// The one TLS connector every `/v1/listen` connection uses while the
-/// `connect-diagnostics` feature is enabled — passed explicitly to both the
-/// stock (`tokio_tungstenite::connect_async_tls_with_config`) and the
-/// phase-timed connect paths, so downstream feature unification (e.g. a
-/// consumer also enabling `tokio-tungstenite/native-tls`) cannot make the
-/// two paths select different TLS providers or trust configurations.
-pub(crate) fn tls_connector() -> tokio_tungstenite::Connector {
-    tokio_tungstenite::Connector::Rustls(tls_client_config())
 }
 
 /// Hostname from the request URI, with IPv6 brackets stripped as `rustls`
@@ -571,7 +575,7 @@ mod tests {
     #[test]
     fn record_serialization_skips_absent_fields() {
         let (sink, mut rx) = channel_sink();
-        drop(DiagnosticsGuard::new(sink, &test_url()));
+        drop(DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki));
         let record = rx.try_recv().expect("record emitted on drop");
 
         let json: serde_json::Value =
@@ -580,7 +584,9 @@ mod tests {
         assert_eq!(json["outcome"], "cancelled");
         assert_eq!(json["last_phase"], "dns");
         assert_eq!(json["url"], "wss://api.deepgram.com/v1/listen");
+        assert_eq!(json["tls_trust"], "webpki");
         for absent in [
+            "tls_resumed",
             "local_addr",
             "peer_addr",
             "dns_ms",
@@ -611,7 +617,7 @@ mod tests {
         .unwrap();
 
         let (sink, mut rx) = channel_sink();
-        drop(DiagnosticsGuard::new(sink, &url));
+        drop(DiagnosticsGuard::new(sink, &url, TlsTrust::Webpki));
         let record = rx.try_recv().expect("record emitted on drop");
 
         assert_eq!(record.url, "wss://api.deepgram.com/v1/listen");
@@ -627,7 +633,7 @@ mod tests {
     #[test]
     fn cancelled_guard_keeps_finished_phase_timings() {
         let (sink, mut rx) = channel_sink();
-        let mut guard = DiagnosticsGuard::new(sink, &test_url());
+        let mut guard = DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki);
         guard.enter_phase(ConnectPhase::Dns);
         guard.finish_phase();
         guard.enter_phase(ConnectPhase::TcpConnect);
@@ -649,7 +655,7 @@ mod tests {
     async fn record_survives_tokio_timeout() {
         let (sink, mut rx) = channel_sink();
         let connect = async {
-            let mut guard = DiagnosticsGuard::new(sink, &test_url());
+            let mut guard = DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki);
             guard.enter_phase(ConnectPhase::Dns);
             guard.finish_phase();
             guard.enter_phase(ConnectPhase::TcpConnect);
@@ -667,7 +673,7 @@ mod tests {
     #[test]
     fn failed_upgrade_captures_deepgram_headers() {
         let (sink, mut rx) = channel_sink();
-        let mut guard = DiagnosticsGuard::new(sink, &test_url());
+        let mut guard = DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki);
         guard.enter_phase(ConnectPhase::WsUpgrade);
 
         let response = http::Response::builder()
@@ -695,29 +701,9 @@ mod tests {
         let sink = SharedSink(Arc::new(sink_fn(move |record: ConnectRecord| {
             let _ = tx.send(record.outcome);
         })));
-        let mut guard = DiagnosticsGuard::new(sink, &test_url());
+        let mut guard = DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki);
         guard.complete();
         drop(guard);
         assert_eq!(rx.try_recv().unwrap(), ConnectOutcome::Completed);
-    }
-
-    #[test]
-    fn tls_config_matches_tokio_tungstenite_defaults() {
-        // The stock path (tokio-tungstenite, rustls-tls-webpki-roots) builds
-        // its trust store from webpki_roots::TLS_SERVER_ROOTS with no client
-        // auth. Assert our replica loads the identical root set.
-        let config = tls_client_config();
-        assert!(!config.client_auth_cert_resolver.has_certs());
-        let roots = rustls::RootCertStore {
-            roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
-        };
-        assert_eq!(
-            tls_client_config().crypto_provider().cipher_suites,
-            rustls::ClientConfig::builder()
-                .with_root_certificates(roots)
-                .with_no_client_auth()
-                .crypto_provider()
-                .cipher_suites,
-        );
     }
 }

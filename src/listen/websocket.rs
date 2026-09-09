@@ -721,6 +721,13 @@ impl WebsocketHandle {
             builder.body(())?
         };
 
+        // Every connection uses the client's explicit rustls connector (see
+        // `crate::tls`), so trust roots and provider are identical on the
+        // stock and phase-timed paths and across every WebSocket surface,
+        // regardless of which TLS features downstream feature unification
+        // enables on tokio-tungstenite.
+        let tls = &builder.deepgram.tls;
+
         // With a diagnostics sink configured, connect via the phase-timed
         // path; the guard emits one record per attempt from its destructor,
         // which also covers caller-side cancellation (a dropped future).
@@ -728,29 +735,39 @@ impl WebsocketHandle {
         let mut diagnostics_guard = builder
             .diagnostics
             .as_ref()
-            .map(|sink| DiagnosticsGuard::new(sink.clone(), &url));
+            .map(|sink| DiagnosticsGuard::new(sink.clone(), &url, tls.trust()));
 
-        // Both arms use the same explicit rustls connector (see
-        // `diagnostics::tls_connector`): with `connect-diagnostics` enabled,
-        // downstream feature unification (e.g. a consumer also enabling
-        // `tokio-tungstenite/native-tls`) must not make timed and untimed
-        // connections select different TLS providers or trust roots.
+        // Resolve the TLS config before any phase timer starts: on a client's
+        // first connect this may read the OS certificate store, which must
+        // not be charged to the TLS handshake timing.
+        let tls_config = tls.client_config().await;
+
         #[cfg(feature = "connect-diagnostics")]
-        let (ws_stream, upgrade_response) = match diagnostics_guard.as_mut() {
-            Some(guard) => crate::diagnostics::connect_with_diagnostics(request, guard).await?,
+        let connected = match diagnostics_guard.as_mut() {
+            Some(guard) => {
+                crate::diagnostics::connect_with_diagnostics(request, guard, tls_config).await
+            }
             None => {
                 tokio_tungstenite::connect_async_tls_with_config(
                     request,
                     None,
                     false,
-                    Some(crate::diagnostics::tls_connector()),
+                    Some(tokio_tungstenite::Connector::Rustls(tls_config)),
                 )
-                .await?
+                .await
             }
         };
-
         #[cfg(not(feature = "connect-diagnostics"))]
-        let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
+        let connected = tokio_tungstenite::connect_async_tls_with_config(
+            request,
+            None,
+            false,
+            Some(tokio_tungstenite::Connector::Rustls(tls_config)),
+        )
+        .await;
+
+        let (ws_stream, upgrade_response) =
+            connected.map_err(|err| crate::tls::connect_error(err, host, tls.trust()))?;
 
         let request_id = upgrade_response
             .headers()
