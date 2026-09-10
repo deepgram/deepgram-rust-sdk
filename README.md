@@ -127,7 +127,7 @@ the versions match.
 use deepgram::{rustls, Deepgram};
 
 let mut roots = rustls::RootCertStore::empty();
-roots.add(my_private_ca_der)?; // DER bytes of your CA certificate
+roots.add(rustls::pki_types::CertificateDer::from(my_private_ca_der))?; // DER bytes of your CA certificate
 let config = rustls::ClientConfig::builder()
     .with_root_certificates(roots)
     .with_no_client_auth();
