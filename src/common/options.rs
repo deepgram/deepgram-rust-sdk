@@ -1156,7 +1156,10 @@ impl OptionsBuilder {
     ///     .build();
     /// ```
     ///
-    /// ```
+    // `make_prerecorded_request_builder` only exists with the `listen`
+    // feature, so this example is compiled only when it is enabled.
+    #[cfg_attr(feature = "listen", doc = "```")]
+    #[cfg_attr(not(feature = "listen"), doc = "```ignore")]
     /// # use std::env;
     /// #
     /// # use deepgram::{
@@ -2912,7 +2915,9 @@ mod models_to_string_tests {
     }
 }
 
-#[cfg(test)]
+// These tests exercise the pre-recorded request builder, which lives in the
+// `listen` module; `common` itself also compiles under the `read` feature alone.
+#[cfg(all(test, feature = "listen"))]
 mod serialize_options_tests {
     use std::cmp;
     use std::collections::HashMap;

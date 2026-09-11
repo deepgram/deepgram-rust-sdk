@@ -21,30 +21,36 @@ pub struct ModelsResponse {
 
 /// Metadata describing a single Deepgram model.
 ///
+/// This is the management-API model record returned by the `/v1/models`
+/// endpoints. It is distinct from [`common::options::Model`], the request-time
+/// model selector you pass when transcribing.
+///
 /// The same shape is returned for STT and TTS models; STT models populate
 /// `batch` / `streaming` / `formatted_output`, while TTS models populate
 /// `metadata`.
+///
+/// [`common::options::Model`]: crate::common::options::Model
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Model {
     #[allow(missing_docs)]
-    pub name: String,
+    pub name: Option<String>,
 
     #[allow(missing_docs)]
-    pub canonical_name: String,
+    pub canonical_name: Option<String>,
 
     #[allow(missing_docs)]
-    pub architecture: String,
+    pub architecture: Option<String>,
 
     #[allow(missing_docs)]
     #[serde(default)]
     pub languages: Vec<String>,
 
     #[allow(missing_docs)]
-    pub version: String,
+    pub version: Option<String>,
 
     #[allow(missing_docs)]
-    pub uuid: String,
+    pub uuid: Option<String>,
 
     /// Whether the model supports batch (pre-recorded) transcription. STT only.
     pub batch: Option<bool>,
@@ -128,12 +134,12 @@ mod tests {
         assert_eq!(response.tts.len(), 1);
 
         let stt = &response.stt[0];
-        assert_eq!(stt.canonical_name, "nova-3-general");
+        assert_eq!(stt.canonical_name.as_deref(), Some("nova-3-general"));
         assert_eq!(stt.streaming, Some(true));
         assert!(stt.metadata.is_none());
 
         let tts = &response.tts[0];
-        assert_eq!(tts.name, "angus");
+        assert_eq!(tts.name.as_deref(), Some("angus"));
         assert_eq!(
             tts.metadata.as_ref().unwrap().accent.as_deref(),
             Some("Irish")
@@ -141,5 +147,39 @@ mod tests {
         assert_eq!(tts.metadata.as_ref().unwrap().tags, vec!["masculine"]);
         // TTS models don't carry the STT flags.
         assert!(tts.batch.is_none());
+    }
+
+    #[test]
+    fn deserializes_model_with_omitted_optional_fields() {
+        // The Models API marks `name`, `canonical_name`, `architecture`,
+        // `version`, and `uuid` optional; a contract-valid response may omit
+        // any of them and must still deserialize.
+        let json = serde_json::json!({
+            "stt": [{
+                "name": "general",
+                "languages": ["en"],
+                "streaming": true
+            }],
+            "tts": [{
+                "canonical_name": "aura-2-thalia-en",
+                "metadata": { "tags": ["feminine"] }
+            }]
+        });
+
+        let response: ModelsResponse = serde_json::from_value(json).unwrap();
+
+        let stt = &response.stt[0];
+        assert_eq!(stt.name.as_deref(), Some("general"));
+        assert!(stt.canonical_name.is_none());
+        assert!(stt.architecture.is_none());
+        assert!(stt.version.is_none());
+        assert!(stt.uuid.is_none());
+        assert_eq!(stt.streaming, Some(true));
+
+        let tts = &response.tts[0];
+        assert!(tts.name.is_none());
+        assert_eq!(tts.canonical_name.as_deref(), Some("aura-2-thalia-en"));
+        assert!(tts.uuid.is_none());
+        assert_eq!(tts.metadata.as_ref().unwrap().tags, vec!["feminine"]);
     }
 }

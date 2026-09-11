@@ -3,7 +3,7 @@
 //! Run with:
 //!
 //! ```sh
-//! DEEPGRAM_API_KEY=your-key cargo run --example analyze_text --features listen
+//! DEEPGRAM_API_KEY=your-key cargo run --example analyze_text --features read
 //! ```
 
 use std::env;

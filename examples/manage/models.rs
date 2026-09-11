@@ -19,11 +19,15 @@ async fn main() -> Result<(), DeepgramError> {
 
     let models = dg_client.models().get_models(false).await?;
 
+    // The Models API marks these display fields optional, so fall back to a
+    // placeholder rather than failing when one is absent.
     println!("STT models:");
     for model in &models.stt {
         println!(
             "  {} ({}) v{}",
-            model.name, model.canonical_name, model.version
+            model.name.as_deref().unwrap_or("-"),
+            model.canonical_name.as_deref().unwrap_or("-"),
+            model.version.as_deref().unwrap_or("-"),
         );
     }
 
@@ -34,7 +38,11 @@ async fn main() -> Result<(), DeepgramError> {
             .as_ref()
             .and_then(|m| m.accent.as_deref())
             .unwrap_or("unknown accent");
-        println!("  {} ({}) — {accent}", model.name, model.canonical_name);
+        println!(
+            "  {} ({}) — {accent}",
+            model.name.as_deref().unwrap_or("-"),
+            model.canonical_name.as_deref().unwrap_or("-"),
+        );
     }
 
     Ok(())
