@@ -8,11 +8,17 @@ use serde::{ser::SerializeSeq, Serialize};
 
 // Reuse the shared analysis mode + language enums from the transcription
 // options rather than duplicating them.
-pub use crate::common::options::{CustomIntentMode, CustomTopicMode, Language};
+pub use crate::common::options::{CallbackMethod, CustomIntentMode, CustomTopicMode, Language};
 
 /// Features for a Text Intelligence request.
 ///
 /// Construct with [`Options::builder`].
+///
+/// The Text Intelligence API supports English only, and requires the
+/// `language` query parameter on every request. The builder therefore sends
+/// `language=en` by default; you do not need to call
+/// [`OptionsBuilder::language`] unless the API starts accepting other
+/// languages.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options {
     sentiment: Option<bool>,
@@ -25,6 +31,7 @@ pub struct Options {
     custom_intent_mode: Option<CustomIntentMode>,
     language: Option<Language>,
     tags: Vec<String>,
+    callback_method: Option<CallbackMethod>,
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -48,7 +55,7 @@ impl Options {
     /// ```
     /// use deepgram::read::options::Options;
     /// let options = Options::builder().sentiment(true).topics(true).build();
-    /// assert_eq!(&options.urlencoded().unwrap(), "sentiment=true&topics=true");
+    /// assert_eq!(&options.urlencoded().unwrap(), "sentiment=true&topics=true&language=en");
     /// ```
     pub fn urlencoded(&self) -> Result<String, serde_urlencoded::ser::Error> {
         serde_urlencoded::to_string(SerializableOptions(self))
@@ -57,6 +64,10 @@ impl Options {
 
 impl OptionsBuilder {
     /// Construct a new [`OptionsBuilder`].
+    ///
+    /// `language` defaults to [`Language::en`], the only language the Text
+    /// Intelligence API accepts; the API rejects requests that omit it with
+    /// HTTP 400.
     pub fn new() -> Self {
         Self(Options {
             sentiment: None,
@@ -67,8 +78,9 @@ impl OptionsBuilder {
             intents: None,
             custom_intents: Vec::new(),
             custom_intent_mode: None,
-            language: None,
+            language: Some(Language::en),
             tags: Vec::new(),
+            callback_method: None,
         })
     }
 
@@ -149,7 +161,10 @@ impl OptionsBuilder {
 
     /// Set the language of the input text.
     ///
-    /// Only English is supported by the Text Intelligence API at this time.
+    /// Defaults to [`Language::en`], which is sent on every request because
+    /// the Text Intelligence API requires the parameter. Only English is
+    /// supported by the Text Intelligence API at this time, so there is
+    /// normally no reason to call this.
     pub fn language(mut self, language: Language) -> Self {
         self.0.language = Some(language);
         self
@@ -160,6 +175,22 @@ impl OptionsBuilder {
     /// Calling this repeatedly appends to the existing tags.
     pub fn tag<'a>(mut self, tags: impl IntoIterator<Item = &'a str>) -> Self {
         self.0.tags.extend(tags.into_iter().map(String::from));
+        self
+    }
+
+    /// Set the HTTP method Deepgram uses to deliver the callback.
+    ///
+    /// Only meaningful with [`Read::analyze_text_callback`] or
+    /// [`Read::analyze_url_callback`]. Defaults to `POST` on the server when
+    /// omitted.
+    ///
+    /// See the [Deepgram Text Intelligence Callback docs][docs] for more info.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/text-intelligence-callback
+    /// [`Read::analyze_text_callback`]: crate::read::Read::analyze_text_callback
+    /// [`Read::analyze_url_callback`]: crate::read::Read::analyze_url_callback
+    pub fn callback_method(mut self, callback_method: CallbackMethod) -> Self {
+        self.0.callback_method = Some(callback_method);
         self
     }
 
@@ -194,6 +225,7 @@ impl Serialize for SerializableOptions<'_> {
             custom_intent_mode,
             language,
             tags,
+            callback_method,
         } = self.0;
 
         if let Some(sentiment) = sentiment {
@@ -225,6 +257,9 @@ impl Serialize for SerializableOptions<'_> {
         }
         for tag in tags {
             seq.serialize_element(&("tag", tag))?;
+        }
+        if let Some(callback_method) = callback_method {
+            seq.serialize_element(&("callback_method", callback_method.as_str()))?;
         }
 
         seq.end()
@@ -259,6 +294,25 @@ mod tests {
         // The /v1/read endpoint accepts a boolean, unlike the transcription API
         // which serializes `summarize=v2`.
         let options = Options::builder().summarize(true).build();
-        assert_eq!(options.urlencoded().unwrap(), "summarize=true");
+        assert_eq!(options.urlencoded().unwrap(), "summarize=true&language=en");
+    }
+
+    #[test]
+    fn default_options_send_language_en() {
+        // /v1/read rejects requests without `language` (HTTP 400), and English
+        // is the only value it accepts, so the default builder must send it.
+        let options = Options::builder().build();
+        assert_eq!(options.urlencoded().unwrap(), "language=en");
+    }
+
+    #[test]
+    fn callback_method_serializes_lowercase() {
+        let options = Options::builder()
+            .callback_method(CallbackMethod::PUT)
+            .build();
+        assert_eq!(
+            options.urlencoded().unwrap(),
+            "language=en&callback_method=put"
+        );
     }
 }
