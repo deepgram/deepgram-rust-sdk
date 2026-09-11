@@ -99,8 +99,10 @@ docs for the record schema and integration details.
 
 `wss://` WebSocket connections verify Deepgram's certificate against the
 bundled public roots ([webpki-roots](https://crates.io/crates/webpki-roots)).
-That works everywhere, including containers with no OS certificate store,
-and it is the default.
+That is the default, and it needs no OS certificate store. The REST client
+(`reqwest`) already trusts the operating system's store, so behind a
+TLS-inspecting proxy the REST calls typically work while `wss://` connections
+fail with `UntrustedTlsCertificate` until you enable one of the options below.
 
 > **Only `wss://` is covered.** A client built from an `http://` base URL
 > (`Deepgram::with_base_url("http://localhost:8080")`) opens plaintext

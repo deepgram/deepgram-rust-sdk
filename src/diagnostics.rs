@@ -328,10 +328,14 @@ impl DiagnosticsGuard {
     }
 
     /// Record the trust roots the TLS handshake actually verifies against.
-    /// Called on the TLS path only, so a plaintext connection never gains a
-    /// trust value.
-    fn set_tls_trust(&mut self, trust: TlsTrust) {
-        self.record.tls_trust = Some(trust);
+    /// Only refines a record that already carries a trust (a `wss://` URL),
+    /// so a plaintext connection never gains a trust value. Called once the
+    /// client's TLS config is resolved, so an attempt that dies in DNS or TCP
+    /// still reports the effective trust rather than the configured one.
+    pub(crate) fn set_tls_trust(&mut self, trust: TlsTrust) {
+        if self.record.tls_trust.is_some() {
+            self.record.tls_trust = Some(trust);
+        }
     }
 
     pub(crate) fn set_request_id(&mut self, request_id: &str) {

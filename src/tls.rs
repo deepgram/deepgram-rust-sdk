@@ -16,8 +16,8 @@
 //!    on the client's first WebSocket connect and reused, so TLS sessions
 //!    can be resumed across connections.
 //!
-//! The default trusts only the public roots because that works everywhere,
-//! including containers with no OS certificate store at all. Behind a
+//! The default trusts only the public roots so that `wss://` connections
+//! need no OS certificate store at all. Behind a
 //! TLS-inspecting proxy (Zscaler, Netskope, …), an internal CA, or a
 //! self-hosted deployment, enable `rustls-tls-native-roots` or supply your
 //! own config. A connection rejected for an unknown issuer fails with

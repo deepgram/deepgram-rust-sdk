@@ -742,6 +742,10 @@ impl WebsocketHandle {
         // certificate store, which must not be charged to the TLS handshake
         // timing.
         let tls = tls.resolve().await;
+        #[cfg(feature = "connect-diagnostics")]
+        if let Some(guard) = diagnostics_guard.as_mut() {
+            guard.set_tls_trust(tls.trust);
+        }
 
         #[cfg(feature = "connect-diagnostics")]
         let connected = match diagnostics_guard.as_mut() {

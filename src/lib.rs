@@ -14,7 +14,8 @@
 //! - `connect-diagnostics`: per-phase connect timings for `/v1/listen`
 //!   WebSocket connections; see [`diagnostics`].
 //! - `rustls-tls-native-roots`: also trust the operating system's certificate
-//!   store for WebSocket connections, on top of the bundled public roots. For
+//!   store for `wss://` WebSocket connections, on top of the bundled public
+//!   roots. For
 //!   TLS-inspecting proxies, internal CAs, and self-hosted deployments; see
 //!   [`tls`].
 
