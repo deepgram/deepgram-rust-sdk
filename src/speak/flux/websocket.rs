@@ -1,5 +1,9 @@
 //! Websocket Flux TTS module — streaming, turn-based text-to-speech
-//! over the `/v2/speak` WebSocket.
+//! over the `/v2/speak` WebSocket (`flux-*` models).
+//!
+//! For continuous streaming synthesis with Aura (`aura-*`) models over the
+//! `/v1/speak` WebSocket, see [`Speak::speak_stream`](crate::Speak::speak_stream)
+//! in [`crate::speak::websocket`].
 //!
 //! See the [Deepgram Flux TTS API Reference][api] for more info.
 //!

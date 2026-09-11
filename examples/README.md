@@ -45,3 +45,11 @@ cargo run --example text_to_speech_to_file
 ```sh
 cargo run --example text_to_speech_to_stream
 ```
+
+```sh
+cargo run --example text_to_speech_websocket
+```
+
+```sh
+DEEPGRAM_PROJECT_ID=your-project cargo run --example self_hosted_credentials
+```
