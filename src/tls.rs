@@ -30,7 +30,9 @@
 //! base URL: its WebSocket connections are plaintext `ws://`, with no TLS
 //! handshake and no certificate verification at all, so neither the
 //! `rustls-tls-native-roots` feature nor [`Deepgram::tls_config`] has any
-//! effect on them. Credentials and audio travel unencrypted. Keep `ws://`
+//! effect on them, and no trust roots are resolved or loaded for them (a
+//! `ws://` client never reads the OS certificate store). Credentials and
+//! audio travel unencrypted. Keep `ws://`
 //! to local testing (`http://localhost`) and use an `https://` base URL
 //! whenever an API key, a temporary token, or private traffic is involved,
 //! including self-hosted deployments.
@@ -112,6 +114,46 @@ impl ResolvedTls {
     }
 }
 
+/// What a connect attempt hands `tokio-tungstenite`, chosen by the URL
+/// scheme. A plaintext `ws://` attempt has no TLS handshake, so nothing is
+/// resolved for it: the client's default config is not built and the OS
+/// certificate store (with `rustls-tls-native-roots`) is not read.
+#[derive(Debug, Clone)]
+pub(crate) enum ConnectTls {
+    /// Plaintext `ws://`: no TLS, no trust roots.
+    Plain,
+    /// `wss://`: the client's resolved config and the trust it embodies.
+    Tls(ResolvedTls),
+}
+
+impl ConnectTls {
+    pub(crate) fn connector(&self) -> tokio_tungstenite::Connector {
+        match self {
+            ConnectTls::Plain => tokio_tungstenite::Connector::Plain,
+            ConnectTls::Tls(tls) => tls.connector(),
+        }
+    }
+
+    /// The trust roots in effect; `None` for a plaintext connection.
+    #[cfg_attr(not(feature = "connect-diagnostics"), allow(dead_code))]
+    pub(crate) fn trust(&self) -> Option<TlsTrust> {
+        match self {
+            ConnectTls::Plain => None,
+            ConnectTls::Tls(tls) => Some(tls.trust),
+        }
+    }
+
+    /// Classify a connect-time error (see [`connect_error`]). A plaintext
+    /// connection cannot fail certificate verification, so its errors map to
+    /// [`DeepgramError::WsError`] unchanged.
+    pub(crate) fn connect_error(&self, err: TungsteniteError, host: &str) -> DeepgramError {
+        match self {
+            ConnectTls::Plain => DeepgramError::from(err),
+            ConnectTls::Tls(tls) => connect_error(err, host, tls.trust),
+        }
+    }
+}
+
 /// Per-client TLS settings: either a caller-supplied config, or the lazily
 /// built default. Cheap to clone; clones share the same lazily built default.
 #[derive(Debug, Clone)]
@@ -162,6 +204,17 @@ impl TlsSettings {
             };
         }
         self.default.get_or_init(build_default).await.clone()
+    }
+
+    /// The TLS for a connect attempt to `url`: [`resolve`](Self::resolve)d
+    /// for `wss://`, [`ConnectTls::Plain`] for anything else, so a plaintext
+    /// `ws://` client never builds a config or reads the OS store.
+    pub(crate) async fn resolve_for(&self, url: &url::Url) -> ConnectTls {
+        if url.scheme() == "wss" {
+            ConnectTls::Tls(self.resolve().await)
+        } else {
+            ConnectTls::Plain
+        }
     }
 }
 
@@ -280,8 +333,10 @@ pub(crate) fn untrusted_hint(trust: &TlsTrust) -> &'static str {
         TlsTrust::WebpkiAndNative => {
             "The bundled public roots and the OS certificate store were both checked and \
              neither contains this certificate's issuer. Install the issuing CA in the OS \
-             store (or point `SSL_CERT_FILE` at it), or pass your own rustls config to \
-             `Deepgram::tls_config`."
+             store, or point `SSL_CERT_FILE` at a PEM bundle that contains it together \
+             with the public roots you rely on (the variable replaces the OS store for \
+             these WebSockets and, on Linux, for the REST client too), or pass your own \
+             rustls config to `Deepgram::tls_config`."
         }
         TlsTrust::WebpkiNativeUnavailable => {
             "The `rustls-tls-native-roots` feature is enabled, but no native root \
@@ -290,8 +345,8 @@ pub(crate) fn untrusted_hint(trust: &TlsTrust) -> &'static str {
              were logged at `tracing` WARN level; the usual causes are an `SSL_CERT_FILE` / \
              `SSL_CERT_DIR` override that is missing, unreadable, or not PEM, or a system \
              with no OS certificate store. Point `SSL_CERT_FILE` at a valid PEM bundle \
-             containing the issuing CA, or pass your own rustls config to \
-             `Deepgram::tls_config`."
+             containing the issuing CA together with the public roots you rely on, or \
+             pass your own rustls config to `Deepgram::tls_config`."
         }
         TlsTrust::Custom => {
             "The rustls config passed to `Deepgram::tls_config` does not trust this \
@@ -413,6 +468,58 @@ mod tests {
         assert!(untrusted_hint(&TlsTrust::Webpki).contains("rustls-tls-native-roots"));
         assert!(untrusted_hint(&TlsTrust::WebpkiAndNative).contains("SSL_CERT_FILE"));
         assert!(untrusted_hint(&TlsTrust::Custom).contains("tls_config"));
+    }
+
+    #[test]
+    fn ssl_cert_file_hints_ask_for_a_full_bundle() {
+        // `SSL_CERT_FILE` replaces the OS store wherever rustls-native-certs
+        // reads it (these WebSockets and, on Linux, reqwest's platform
+        // verifier), so a file holding only the proxy CA would break REST
+        // calls to hosts that CA did not sign. Every hint that names the
+        // variable must ask for the public roots alongside the CA and must
+        // not suggest pointing it at the CA alone.
+        for trust in [TlsTrust::WebpkiAndNative, TlsTrust::WebpkiNativeUnavailable] {
+            let hint = untrusted_hint(&trust);
+            assert!(hint.contains("SSL_CERT_FILE"), "{hint}");
+            assert!(hint.contains("together with the public roots"), "{hint}");
+            assert!(!hint.contains("`SSL_CERT_FILE` at it"), "{hint}");
+        }
+        assert!(untrusted_hint(&TlsTrust::WebpkiAndNative).contains("replaces the OS store"),);
+    }
+
+    #[tokio::test]
+    async fn plaintext_ws_resolves_nothing() {
+        // A `ws://` attempt must not build the default config (and so must
+        // not read the OS store): the lazily built default stays unbuilt and
+        // the attempt carries no trust roots.
+        let settings = TlsSettings::new();
+        let ws = url::Url::parse("ws://localhost:8080/v1/listen").unwrap();
+        let plain = settings.resolve_for(&ws).await;
+        assert!(matches!(plain, ConnectTls::Plain), "{plain:?}");
+        assert_eq!(plain.trust(), None);
+        assert!(matches!(
+            plain.connector(),
+            tokio_tungstenite::Connector::Plain
+        ));
+        assert!(
+            settings.default.get().is_none(),
+            "default config was built for ws://"
+        );
+
+        // The same client on `wss://` resolves as before.
+        let wss = url::Url::parse("wss://localhost:8080/v1/listen").unwrap();
+        let secure = settings.resolve_for(&wss).await;
+        let ConnectTls::Tls(resolved) = &secure else {
+            panic!("expected resolved TLS for wss://, got {secure:?}");
+        };
+        assert_eq!(secure.trust(), Some(resolved.trust));
+        assert!(settings.default.get().is_some());
+
+        // Plaintext errors are never upgraded to a certificate error.
+        let rustls_err = rustls::Error::InvalidCertificate(rustls::CertificateError::UnknownIssuer);
+        let io = std::io::Error::new(std::io::ErrorKind::InvalidData, rustls_err);
+        let err = plain.connect_error(TungsteniteError::Io(io), "localhost");
+        assert!(matches!(err, DeepgramError::WsError(_)), "{err:?}");
     }
 
     #[test]

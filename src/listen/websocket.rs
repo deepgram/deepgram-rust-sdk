@@ -738,13 +738,14 @@ impl WebsocketHandle {
             .map(|sink| DiagnosticsGuard::new(sink.clone(), &url, tls.trust()));
 
         // Resolve the TLS config (and the trust it embodies) before any phase
-        // timer starts: on a client's first connect this may read the OS
-        // certificate store, which must not be charged to the TLS handshake
-        // timing.
-        let tls = tls.resolve().await;
+        // timer starts: on a client's first `wss://` connect this may read
+        // the OS certificate store, which must not be charged to the TLS
+        // handshake timing. A plaintext `ws://` URL resolves nothing and
+        // never touches the store.
+        let tls = tls.resolve_for(&url).await;
         #[cfg(feature = "connect-diagnostics")]
-        if let Some(guard) = diagnostics_guard.as_mut() {
-            guard.set_tls_trust(tls.trust);
+        if let (Some(guard), Some(trust)) = (diagnostics_guard.as_mut(), tls.trust()) {
+            guard.set_tls_trust(trust);
         }
 
         #[cfg(feature = "connect-diagnostics")]
@@ -770,7 +771,7 @@ impl WebsocketHandle {
         .await;
 
         let (ws_stream, upgrade_response) =
-            connected.map_err(|err| crate::tls::connect_error(err, host, tls.trust))?;
+            connected.map_err(|err| tls.connect_error(err, host))?;
 
         let request_id = upgrade_response
             .headers()

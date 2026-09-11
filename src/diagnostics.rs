@@ -40,7 +40,7 @@ use tungstenite::error::UrlError;
 use tungstenite::Error as TungsteniteError;
 use uuid::Uuid;
 
-use crate::tls::{ResolvedTls, TlsTrust};
+use crate::tls::{ConnectTls, TlsTrust};
 
 /// Version of the [`ConnectRecord`] schema. Changes are additive only:
 /// consumers should ignore unknown fields.
@@ -105,7 +105,11 @@ pub struct ConnectRecord {
     /// header and never appears here either.
     pub url: String,
     /// Total duration from the start of the attempt until completion,
-    /// failure, or cancellation, in milliseconds.
+    /// failure, or cancellation, in milliseconds. On a client's first
+    /// `wss://` connect this can include the one-time load of the trust
+    /// roots (the OS certificate store, with `rustls-tls-native-roots`),
+    /// which is attributed to no phase, so the total can exceed the sum of
+    /// the phase timings.
     pub connect_duration_ms: f64,
     /// Local (source) socket address, available once the TCP connection is
     /// established.
@@ -132,7 +136,8 @@ pub struct ConnectRecord {
     /// connection, from a client built on an `http://` base URL, has no TLS
     /// handshake and verifies no certificate. Present on every `wss://`
     /// attempt, including ones that failed or were cancelled before the TLS
-    /// phase, where it says which roots would have been used.
+    /// phase: the configured trust until the client's TLS config has
+    /// resolved, then the trust actually in effect.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tls_trust: Option<TlsTrust>,
     /// Whether the TLS handshake resumed an earlier session (`true`) or was
@@ -418,7 +423,7 @@ fn header_str(headers: &http::HeaderMap, name: &str) -> Option<String> {
 pub(crate) async fn connect_with_diagnostics(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
-    tls: &ResolvedTls,
+    tls: &ConnectTls,
 ) -> std::result::Result<
     (
         WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -438,7 +443,7 @@ pub(crate) async fn connect_with_diagnostics(
 async fn connect_phases(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
-    tls: &ResolvedTls,
+    tls: &ConnectTls,
 ) -> std::result::Result<
     (
         WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -490,6 +495,12 @@ async fn connect_phases(
     guard.finish_phase();
 
     let stream = if secure {
+        // The caller resolves TLS from the same URL, so a `wss://` request
+        // always arrives with a config; mirror tokio-tungstenite's own error
+        // for a TLS URL with a plain connector should that ever not hold.
+        let ConnectTls::Tls(tls) = tls else {
+            return Err(TungsteniteError::Url(UrlError::TlsFeatureNotEnabled));
+        };
         guard.set_tls_trust(tls.trust);
         guard.enter_phase(ConnectPhase::TlsHandshake);
         let server_name = rustls_pki_types::ServerName::try_from(domain.as_str())

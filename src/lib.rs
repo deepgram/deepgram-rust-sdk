@@ -419,7 +419,12 @@ impl Deepgram {
             let mut header = HeaderMap::new();
             if let Some(auth) = &auth {
                 let header_value = auth.header_value();
-                if let Ok(value) = HeaderValue::from_str(&header_value) {
+                if let Ok(mut value) = HeaderValue::from_str(&header_value) {
+                    // reqwest's `Client` Debug output includes its default
+                    // headers; a sensitive value prints as `Sensitive`
+                    // instead of the token, so `{:?}` on a `Deepgram` (or any
+                    // sub-client holding one) never reveals the credential.
+                    value.set_sensitive(true);
                     header.insert("Authorization", value);
                 }
             }
@@ -540,5 +545,30 @@ mod tests {
                 "test_api_key".to_string()
             )))
         );
+    }
+
+    #[test]
+    fn debug_output_never_contains_the_credential() {
+        // `Deepgram` derives Debug and holds a reqwest `Client`, whose Debug
+        // output dumps its default headers. The Authorization header must be
+        // marked sensitive so neither the raw key nor the header value leaks
+        // through `{:?}` on the client or on any sub-client that holds it.
+        let key = "fake-key-abc123";
+        let client = Deepgram::new(key).unwrap();
+        for debug in [
+            format!("{client:?}"),
+            format!("{:#?}", client),
+            format!("{:?}", client.transcription()),
+            format!("{:?}", client.text_to_speech()),
+        ] {
+            assert!(!debug.contains(key), "{debug}");
+            assert!(!debug.contains("Token "), "{debug}");
+        }
+
+        let token = "fake-temp-token-xyz789";
+        let client = Deepgram::with_temp_token(token).unwrap();
+        let debug = format!("{client:?}");
+        assert!(!debug.contains(token), "{debug}");
+        assert!(!debug.contains("Bearer "), "{debug}");
     }
 }

@@ -58,8 +58,9 @@ rustls-native-certs = { version = "^0.8", optional = true }
 url = "2"
 uuid = { version = "1", features = ["serde"] }
 # Diagnostic events from the TLS trust path (src/tls.rs); no subscriber is
-# installed, so the consumer's logging setup is untouched.
-tracing = ">=0.1.41, <0.2"
+# installed, so the consumer's logging setup is untouched. Optional: only the
+# websocket features (via `__tls`) declare it.
+tracing = { version = ">=0.1.41, <0.2", optional = true }
 # Dependencies below are specified only to satisfy minimal-versions.
 sha256 = "^1.6.0"
 anyhow = "^1.0.98"
@@ -97,6 +98,7 @@ __tls = [
   "dep:rustls-pki-types",
   "dep:tokio-rustls",
   "dep:webpki-roots",
+  "dep:tracing",
 ]
 
 [[example]]

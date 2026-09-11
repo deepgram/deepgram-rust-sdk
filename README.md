@@ -127,6 +127,13 @@ it mirrors.
 cargo add deepgram --features rustls-tls-native-roots
 ```
 
+Install the proxy's or internal CA in the OS store the way your platform
+does it. If you use `SSL_CERT_FILE` / `SSL_CERT_DIR` instead, point them at
+a PEM bundle that holds the CA *together with* the public roots you rely on:
+once set, the variables replace the OS store for these WebSockets and, on
+Linux, for the REST client too, so a file containing only the CA breaks
+requests to hosts that CA did not sign.
+
 **Or supply your own `rustls` config.** Set it once on the client and every
 `wss://` WebSocket it opens (live transcription, Flux speech-to-text, Flux
 text-to-speech) uses it verbatim: pin a private CA, present a client
