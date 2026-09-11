@@ -4,6 +4,8 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-prerecorded-responses
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -62,6 +64,15 @@ pub struct ListenMetadata {
 
     #[allow(missing_docs)]
     pub language: Option<String>,
+
+    /// Arbitrary key-value pairs echoed back from the `extra` request
+    /// parameter, for use in downstream processing.
+    ///
+    /// [`None`] unless the [Extra Metadata feature][docs] is set.
+    ///
+    /// [docs]: https://developers.deepgram.com/docs/extra-metadata
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extra: Option<HashMap<String, String>>,
 }
 
 /// Transcription results.
@@ -475,4 +486,68 @@ pub struct Hit {
 
     #[allow(missing_docs)]
     pub snippet: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const METADATA_WITH_EXTRA: &str = r#"{
+        "transaction_key": "deprecated",
+        "request_id": "550e8400-e29b-41d4-a716-446655440000",
+        "sha256": "abc123",
+        "created": "2026-09-11T10:00:00.000Z",
+        "duration": 12.5,
+        "channels": 1,
+        "extra": {
+            "customer_id": "cust-42",
+            "session": "abc"
+        }
+    }"#;
+
+    const METADATA_WITHOUT_EXTRA: &str = r#"{
+        "transaction_key": "deprecated",
+        "request_id": "550e8400-e29b-41d4-a716-446655440000",
+        "sha256": "abc123",
+        "created": "2026-09-11T10:00:00.000Z",
+        "duration": 12.5,
+        "channels": 1
+    }"#;
+
+    #[test]
+    fn listen_metadata_exposes_extra() {
+        let metadata: ListenMetadata = serde_json::from_str(METADATA_WITH_EXTRA).unwrap();
+
+        let extra = metadata.extra.expect("extra should be present");
+        assert_eq!(extra.len(), 2);
+        assert_eq!(
+            extra.get("customer_id").map(String::as_str),
+            Some("cust-42")
+        );
+        assert_eq!(extra.get("session").map(String::as_str), Some("abc"));
+    }
+
+    #[test]
+    fn listen_metadata_without_extra_is_none() {
+        let metadata: ListenMetadata = serde_json::from_str(METADATA_WITHOUT_EXTRA).unwrap();
+
+        assert_eq!(metadata.duration, 12.5);
+        assert_eq!(metadata.channels, 1);
+        assert!(metadata.extra.is_none());
+    }
+
+    #[test]
+    fn listen_metadata_extra_round_trips() {
+        let metadata: ListenMetadata = serde_json::from_str(METADATA_WITH_EXTRA).unwrap();
+        let json = serde_json::to_value(&metadata).unwrap();
+        assert_eq!(json["extra"]["customer_id"], "cust-42");
+        assert_eq!(json["extra"]["session"], "abc");
+
+        let without: ListenMetadata = serde_json::from_str(METADATA_WITHOUT_EXTRA).unwrap();
+        let json = serde_json::to_value(&without).unwrap();
+        assert!(
+            json.get("extra").is_none(),
+            "absent extra must not serialize as null"
+        );
+    }
 }
