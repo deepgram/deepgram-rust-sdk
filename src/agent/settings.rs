@@ -117,8 +117,15 @@ impl SettingsFlags {
 
 /// Agent configuration on `SettingsMessage.agent` — either an inline
 /// config or a UUID referencing a previously-saved configuration.
+//
+// Same `large_enum_variant` rationale as `ClientMessage`: a `Settings`
+// message is built once and immediately serialized, so boxing the inline
+// config would add a heap allocation per session start for no observable
+// benefit, and would make the public `Inline(InlineAgentConfig)` shape
+// awkward to construct and match.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
+#[allow(clippy::large_enum_variant)]
 pub enum AgentConfig {
     /// Full inline configuration.
     Inline(InlineAgentConfig),
@@ -180,7 +187,7 @@ impl<'de> Deserialize<'de> for AgentConfig {
 pub struct InlineAgentConfig {
     /// Deprecated — set `language` on `listen.provider` and `speak.provider` instead.
     #[deprecated(
-        since = "0.10.0",
+        since = "0.11.0",
         note = "Set `language` on listen.provider and speak.provider instead. Mirrors deprecation in the AsyncAPI spec."
     )]
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -16,14 +16,12 @@ Audio chunk: 4096 bytes
 //! then closes the connection.
 //!
 //! The agent will speak a greeting on connect, but this example does
-//! not capture or send any microphone audio — for that, see the
-//! microphone example (when added).
+//! not capture or send any microphone audio.
 //!
 //! Run with:
 //!
 //! ```bash
-//! DEEPGRAM_API_KEY=<your-key> \
-//!     cargo run --features agent --example agent_simple
+//! DEEPGRAM_API_KEY=<your-key> cargo run --example simple_agent --features agent
 //! ```
 
 use std::env;
@@ -43,6 +41,7 @@ use deepgram::{Deepgram, DeepgramError};
 
 /// How long to keep the session open before closing.
 static SESSION_DURATION: Duration = Duration::from_secs(30);
+static KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(8);
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
@@ -81,11 +80,20 @@ async fn main() -> Result<(), DeepgramError> {
     let timeout = tokio::time::sleep(SESSION_DURATION);
     tokio::pin!(timeout);
 
+    // The server closes idle sessions with CLIENT_MESSAGE_TIMEOUT unless it
+    // hears from the client. While not streaming audio, send KeepAlive every
+    // 8 seconds (the cadence the Voice Agent docs specify).
+    let mut keep_alive = tokio::time::interval(KEEP_ALIVE_INTERVAL);
+    keep_alive.tick().await; // the first tick fires immediately; skip it
+
     loop {
         tokio::select! {
             _ = &mut timeout => {
                 println!("\nSession duration reached, closing.");
                 break;
+            }
+            _ = keep_alive.tick() => {
+                handle.keep_alive().await?;
             }
             event = events.next() => {
                 match event {

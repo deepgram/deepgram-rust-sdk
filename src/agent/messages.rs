@@ -1,15 +1,15 @@
 //! Client-to-server message types for the Voice Agent WebSocket.
 //!
 //! Mirrors `AgentV1*Message` schemas in
-//! `asyncapi/schemas/schemas.agent.v1.yml`. Six are dynamic-control
-//! messages sent during a session (`UpdateSpeak`, `UpdateThink`,
-//! `UpdatePrompt`, `InjectUserMessage`, `InjectAgentMessage`,
-//! `FunctionCallResponse`); one is a connection keep-alive
-//! (`KeepAlive`); the eighth (`Settings`) is defined in
-//! [`crate::agent::settings`] and is the only message that can carry the
-//! agent's full configuration.
+//! `asyncapi/schemas/schemas.agent.v1.yml`. Eight are dynamic-control
+//! messages sent during a session (`UpdateListen`, `UpdateSpeak`,
+//! `UpdateThink`, `UpdatePrompt`, `InjectUserMessage`,
+//! `InjectAgentMessage`, `FunctionCallResponse`, `ForceEndTurn`); one is
+//! a connection keep-alive (`KeepAlive`); the tenth (`Settings`) is
+//! defined in [`crate::agent::settings`] and is the only message that can
+//! carry the agent's full configuration.
 //!
-//! [`ClientMessage`] wraps all eight as a discriminated union. Wire
+//! [`ClientMessage`] wraps all ten as a discriminated union. Wire
 //! discrimination is structural via each variant's own `type` field
 //! (modeled as a single-variant marker enum); on the Rust side serde
 //! [`#[serde(untagged)]`](serde::Deserialize) tries each variant in
@@ -18,15 +18,16 @@
 //! Note: `FunctionCallResponseMessage` is bidirectional in the spec —
 //! the same wire shape appears as both a client→server message and a
 //! server→client event. The struct defined here is reused by the
-//! server-emitted event when that surface lands.
+//! server-emitted event in [`crate::agent::response`].
 
 use serde::{Deserialize, Serialize};
 
+use crate::agent::listen::AgentListenSettings;
 use crate::agent::settings::SettingsMessage;
 use crate::agent::speak::SpeakSettings;
 use crate::agent::think::ThinkSettings;
 
-/// Discriminated union of all eight client-to-server JSON messages.
+/// Discriminated union of all ten client-to-server JSON messages.
 ///
 /// Audio frames sent by the client are binary WebSocket frames and are
 /// therefore not part of this enum — they're handled by the connection
@@ -45,6 +46,9 @@ use crate::agent::think::ThinkSettings;
 pub enum ClientMessage {
     /// Initial / re-issued configuration for the session.
     Settings(SettingsMessage),
+    /// Swap the Listen provider (model, language hints, EOT thresholds,
+    /// keyterms) mid-session.
+    UpdateListen(UpdateListenMessage),
     /// Swap the Speak provider mid-session.
     UpdateSpeak(UpdateSpeakMessage),
     /// Swap the Think provider mid-session.
@@ -59,12 +63,24 @@ pub enum ClientMessage {
     FunctionCallResponse(FunctionCallResponseMessage),
     /// Keep the WebSocket alive between user turns.
     KeepAlive(KeepAliveMessage),
+    /// End the current user turn immediately (Flux listen providers only).
+    ForceEndTurn(ForceEndTurnMessage),
 }
 
 impl ClientMessage {
     /// Convenience: wrap a `SettingsMessage`.
     pub fn settings(message: SettingsMessage) -> Self {
         Self::Settings(message)
+    }
+
+    /// Convenience: build an `UpdateListen` message.
+    pub fn update_listen(listen: AgentListenSettings) -> Self {
+        Self::UpdateListen(UpdateListenMessage::new(listen))
+    }
+
+    /// Convenience: a `ForceEndTurn` message.
+    pub fn force_end_turn() -> Self {
+        Self::ForceEndTurn(ForceEndTurnMessage::default())
     }
 
     /// Convenience: build a one-variant `UpdateSpeak` message.
@@ -110,6 +126,45 @@ impl ClientMessage {
     /// Convenience: a `KeepAlive` message.
     pub fn keep_alive() -> Self {
         Self::KeepAlive(KeepAliveMessage::default())
+    }
+}
+
+// ---------- UpdateListen ----------
+
+/// Marker for the `"UpdateListen"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum UpdateListenType {
+    /// Always serializes as `"UpdateListen"`.
+    #[default]
+    UpdateListen,
+}
+
+/// Mirrors `AgentV1UpdateListenMessage` — change the Listen configuration
+/// mid-session.
+///
+/// The payload uses the same shape as `agent.listen` in `Settings`: a
+/// `provider` object. Model and language can be changed for any provider;
+/// keyterms and the end-of-turn thresholds can only be updated mid-session
+/// for Flux (V2) models. The server confirms with `ListenUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UpdateListenMessage {
+    #[serde(rename = "type", default)]
+    #[allow(missing_docs)]
+    pub message_type: UpdateListenType,
+
+    /// New Listen configuration (`listen.provider`).
+    pub listen: AgentListenSettings,
+}
+
+impl UpdateListenMessage {
+    /// Construct with the given Listen configuration.
+    pub fn new(listen: AgentListenSettings) -> Self {
+        Self {
+            message_type: UpdateListenType::default(),
+            listen,
+        }
     }
 }
 
@@ -297,8 +352,15 @@ pub enum InjectAgentBehavior {
     #[default]
     Default,
     /// Append the message after any queued `ConversationText` without
-    /// interrupting the current turn or think response.
+    /// interrupting the current turn or think response. If nothing is
+    /// queued, the message plays immediately.
     Queue,
+    /// Speak immediately. If the agent was already speaking, the current
+    /// speech is cut off and replaced with the new message. If the user is
+    /// speaking, the agent interrupts them — but the user's continued
+    /// speech triggers `UserStartedSpeaking`, which quickly interrupts the
+    /// agent again.
+    Interrupt,
 }
 
 /// Mirrors `AgentV1InjectAgentMessageMessage` — make the agent speak an
@@ -416,15 +478,43 @@ pub enum KeepAliveType {
 
 /// Mirrors `AgentV1ControlMessage` (`type: "KeepAlive"`).
 ///
-/// The Voice Agent WebSocket can sit idle between turns; sending a
-/// `KeepAlive` message every ~10s keeps proxies and load balancers
-/// from closing the connection.
+/// The server closes connections that go silent. While the client is not
+/// sending audio, send one `KeepAlive` every 8 seconds to hold the
+/// session open; it is not needed while audio is streaming. `KeepAlive`
+/// does not extend the 2-hour maximum session length.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct KeepAliveMessage {
     #[serde(rename = "type", default)]
     #[allow(missing_docs)]
     pub message_type: KeepAliveType,
+}
+
+// ---------- ForceEndTurn ----------
+
+/// Marker for the `"ForceEndTurn"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum ForceEndTurnType {
+    /// Always serializes as `"ForceEndTurn"`.
+    #[default]
+    ForceEndTurn,
+}
+
+/// Mirrors `AgentV1ForceEndTurnMessage` — end the current user turn
+/// immediately, without waiting for end-of-turn detection.
+///
+/// Requires a Deepgram V2 (Flux) listen provider. With any other listen
+/// provider the server replies with a `FORCE_END_TURN_UNSUPPORTED`
+/// `Warning` and the turn does not end. Pair with
+/// `eot_threshold: 1.0` on the listen provider to take full control of
+/// turn boundaries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ForceEndTurnMessage {
+    #[serde(rename = "type", default)]
+    #[allow(missing_docs)]
+    pub message_type: ForceEndTurnType,
 }
 
 // ---------- one-or-many serde helpers ----------
@@ -545,6 +635,65 @@ mod tests {
     }
 
     #[test]
+    fn update_listen_exact_wire_json() {
+        let msg = ClientMessage::update_listen(AgentListenSettings::new(
+            AgentListenProvider::DeepgramV2(
+                DeepgramListenV2Provider::new("flux-general-multi")
+                    .with_language_hints(["en", "es"])
+                    .with_eot_threshold(1.0)
+                    .with_keyterms(["Deepgram"]),
+            ),
+        ));
+        assert_eq!(
+            serde_json::to_string(&msg).unwrap(),
+            r#"{"type":"UpdateListen","listen":{"provider":{"type":"deepgram","version":"v2","model":"flux-general-multi","language_hints":["en","es"],"eot_threshold":1.0,"keyterms":["Deepgram"]}}}"#
+        );
+    }
+
+    #[test]
+    fn update_listen_round_trip() {
+        let raw = json!({
+            "type": "UpdateListen",
+            "listen": {
+                "provider": {
+                    "type": "deepgram",
+                    "version": "v1",
+                    "model": "nova-3",
+                    "language": "en-US"
+                }
+            }
+        });
+        let msg: ClientMessage = serde_json::from_value(raw.clone()).unwrap();
+        match &msg {
+            ClientMessage::UpdateListen(m) => {
+                assert_eq!(m.message_type, UpdateListenType::UpdateListen);
+                assert!(matches!(
+                    m.listen.provider,
+                    AgentListenProvider::DeepgramV1(_)
+                ));
+            }
+            other => panic!("expected UpdateListen, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(&msg).unwrap(), raw);
+    }
+
+    #[test]
+    fn force_end_turn_exact_wire_json() {
+        assert_eq!(
+            serde_json::to_string(&ForceEndTurnMessage::default()).unwrap(),
+            r#"{"type":"ForceEndTurn"}"#
+        );
+        let raw = json!({ "type": "ForceEndTurn" });
+        let msg: ClientMessage = serde_json::from_value(raw.clone()).unwrap();
+        assert!(matches!(msg, ClientMessage::ForceEndTurn(_)));
+        assert_eq!(serde_json::to_value(&msg).unwrap(), raw);
+        assert_eq!(
+            serde_json::to_value(ClientMessage::force_end_turn()).unwrap(),
+            raw
+        );
+    }
+
+    #[test]
     fn update_think_round_trip() {
         let raw = json!({
             "type": "UpdateThink",
@@ -616,6 +765,29 @@ mod tests {
             panic!("expected InjectAgentMessage");
         }
         assert_eq!(serde_json::to_value(&msg).unwrap(), raw);
+    }
+
+    #[test]
+    fn inject_agent_message_interrupt_behavior() {
+        let raw = json!({
+            "type": "InjectAgentMessage",
+            "message": "One moment — transferring you now.",
+            "behavior": "interrupt"
+        });
+        let msg: ClientMessage = serde_json::from_value(raw.clone()).unwrap();
+        if let ClientMessage::InjectAgentMessage(m) = &msg {
+            assert_eq!(m.behavior, Some(InjectAgentBehavior::Interrupt));
+        } else {
+            panic!("expected InjectAgentMessage");
+        }
+        assert_eq!(serde_json::to_value(&msg).unwrap(), raw);
+
+        let built = InjectAgentMessageMessage::new("One moment — transferring you now.")
+            .with_behavior(InjectAgentBehavior::Interrupt);
+        assert_eq!(
+            serde_json::to_string(&built).unwrap(),
+            r#"{"type":"InjectAgentMessage","message":"One moment — transferring you now.","behavior":"interrupt"}"#
+        );
     }
 
     #[test]
@@ -712,6 +884,10 @@ mod tests {
         let _ = ClientMessage::inject_agent_message("hi");
         let _ = ClientMessage::function_call_response("fn", "{}");
         let _ = ClientMessage::keep_alive();
+        let _ = ClientMessage::update_listen(AgentListenSettings::new(
+            AgentListenProvider::DeepgramV2(DeepgramListenV2Provider::new("flux-general-en")),
+        ));
+        let _ = ClientMessage::force_end_turn();
     }
 
     #[test]

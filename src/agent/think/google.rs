@@ -31,11 +31,25 @@ impl GoogleThinkProvider {
     }
 }
 
-/// Version of Google's generative language REST API.
+/// Which Google API serves the request.
+///
+/// Mirrors the `version` enum in
+/// `asyncapi/schemas/agent/think-providers/google.yml`. When omitted, the
+/// server picks a default based on the Deepgram Voice Agent endpoint you
+/// connect to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum GoogleVersion {
-    /// REST API v1beta.
+    /// `ai-studio-v1beta` — the Google AI Studio API (global; broadest
+    /// model coverage).
+    #[serde(rename = "ai-studio-v1beta")]
+    AiStudioV1Beta,
+    /// `gemini-enterprise-agent-v1` — the Gemini Enterprise Agent (GEA)
+    /// API, formerly Vertex; offers regional endpoints.
+    #[serde(rename = "gemini-enterprise-agent-v1")]
+    GeminiEnterpriseAgentV1,
+    /// `v1beta` — accepted by the server as an alias for
+    /// [`GoogleVersion::AiStudioV1Beta`].
     #[serde(rename = "v1beta")]
     V1Beta,
 }
@@ -104,5 +118,34 @@ mod tests {
         let p: GoogleThinkProvider = serde_json::from_value(raw.clone()).unwrap();
         assert_eq!(p.model, GoogleModel::Gemini25Flash);
         assert_eq!(serde_json::to_value(&p).unwrap(), raw);
+    }
+
+    /// Every `version` value the spec lists serializes to its exact wire
+    /// string and round-trips.
+    #[test]
+    fn version_wire_strings_match_spec() {
+        let cases = [
+            (GoogleVersion::AiStudioV1Beta, "ai-studio-v1beta"),
+            (
+                GoogleVersion::GeminiEnterpriseAgentV1,
+                "gemini-enterprise-agent-v1",
+            ),
+            (GoogleVersion::V1Beta, "v1beta"),
+        ];
+        for (version, wire) in cases {
+            assert_eq!(
+                serde_json::to_string(&version).unwrap(),
+                format!("\"{wire}\"")
+            );
+            let back: GoogleVersion = serde_json::from_str(&format!("\"{wire}\"")).unwrap();
+            assert_eq!(back, version);
+        }
+
+        let mut p = GoogleThinkProvider::new(GoogleModel::Gemini25Flash);
+        p.version = Some(GoogleVersion::GeminiEnterpriseAgentV1);
+        assert_eq!(
+            serde_json::to_string(&p).unwrap(),
+            r#"{"version":"gemini-enterprise-agent-v1","model":"gemini-2.5-flash"}"#
+        );
     }
 }
