@@ -140,7 +140,7 @@ async fn tls_config_applies_to_the_phase_timed_path_and_is_recorded() {
 
     let first = diag_rx.try_recv().expect("one record per attempt");
     assert_eq!(first.outcome, ConnectOutcome::Completed);
-    assert_eq!(first.tls_trust, TlsTrust::Custom);
+    assert_eq!(first.tls_trust, Some(TlsTrust::Custom));
     assert_eq!(first.tls_resumed, Some(false), "first handshake is full");
     assert!(first.tls_handshake_ms.is_some());
 

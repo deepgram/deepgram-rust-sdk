@@ -1,4 +1,4 @@
-//! TLS trust for WebSocket connections.
+//! TLS trust for `wss://` WebSocket connections.
 //!
 //! Every WebSocket surface in this crate — live transcription (`/v1/listen`),
 //! Flux speech-to-text, and Flux text-to-speech — connects through one
@@ -9,7 +9,7 @@
 //! Trust roots are resolved once per [`Deepgram`](crate::Deepgram) client:
 //!
 //! 1. A config passed to [`Deepgram::tls_config`](crate::Deepgram::tls_config)
-//!    is used verbatim, for every connection that client opens.
+//!    is used verbatim, for every `wss://` connection that client opens.
 //! 2. Otherwise the bundled public roots ([`webpki-roots`](webpki_roots)),
 //!    plus — with the `rustls-tls-native-roots` cargo feature — the operating
 //!    system's certificate store merged on top. This default is built lazily
@@ -23,6 +23,19 @@
 //! own config. A connection rejected for an unknown issuer fails with
 //! [`DeepgramError::UntrustedTlsCertificate`],
 //! whose message names the applicable fix.
+//!
+//! # Plaintext `ws://` is not covered
+//!
+//! None of this applies to a client built from an `http://` (or `ws://`)
+//! base URL: its WebSocket connections are plaintext `ws://`, with no TLS
+//! handshake and no certificate verification at all, so neither the
+//! `rustls-tls-native-roots` feature nor [`Deepgram::tls_config`] has any
+//! effect on them. Credentials and audio travel unencrypted. Keep `ws://`
+//! to local testing (`http://localhost`) and use an `https://` base URL
+//! whenever an API key, a temporary token, or private traffic is involved,
+//! including self-hosted deployments.
+//!
+//! [`Deepgram::tls_config`]: crate::Deepgram::tls_config
 
 use std::sync::Arc;
 
@@ -35,8 +48,17 @@ use crate::DeepgramError;
 
 /// Which trust roots a connection verifies the server certificate against.
 ///
-/// Recorded on connect-diagnostics records so telemetry from environments
-/// with different trust setups can be told apart.
+/// This is the trust that actually resulted, not merely what was configured:
+/// with the `rustls-tls-native-roots` feature, [`WebpkiAndNative`] means the
+/// OS certificate store contributed at least one root, while
+/// [`WebpkiNativeUnavailable`] means it could not be loaded and only the
+/// bundled roots were checked. Carried by
+/// [`DeepgramError::UntrustedTlsCertificate`] so the message can name the
+/// applicable fix, and recorded on connect-diagnostics records so telemetry
+/// from environments with different trust setups can be told apart.
+///
+/// [`WebpkiAndNative`]: TlsTrust::WebpkiAndNative
+/// [`WebpkiNativeUnavailable`]: TlsTrust::WebpkiNativeUnavailable
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -46,12 +68,26 @@ pub enum TlsTrust {
     /// The bundled public roots plus the OS certificate store
     /// (`rustls-tls-native-roots` feature).
     WebpkiAndNative,
+    /// The `rustls-tls-native-roots` feature is enabled, but no native root
+    /// certificates could be loaded, so only the bundled public roots were
+    /// checked. Typical causes: an `SSL_CERT_FILE` / `SSL_CERT_DIR` override
+    /// that is missing, unreadable, or not PEM; a system with no OS
+    /// certificate store. The load errors are logged at `tracing` WARN
+    /// level when the default config is built.
+    WebpkiNativeUnavailable,
     /// A caller-supplied [`rustls::ClientConfig`] via
     /// [`Deepgram::tls_config`](crate::Deepgram::tls_config).
     Custom,
 }
 
-/// The trust in effect when no custom config is supplied.
+/// The trust the default config is configured to provide, before it has been
+/// built. Once built, the trust that actually resulted is on the
+/// [`ResolvedTls`]; the two differ only when the native roots could not be
+/// loaded.
+///
+/// Only the connect-diagnostics guard needs the trust before the config is
+/// built (to stamp a record that may be cancelled before TLS runs).
+#[cfg_attr(not(feature = "connect-diagnostics"), allow(dead_code))]
 pub(crate) const fn default_trust() -> TlsTrust {
     if cfg!(feature = "rustls-tls-native-roots") {
         TlsTrust::WebpkiAndNative
@@ -60,12 +96,28 @@ pub(crate) const fn default_trust() -> TlsTrust {
     }
 }
 
+/// The TLS a connect attempt actually uses: the config handed to the
+/// connector and the trust roots it embodies. The two are resolved together
+/// so that an error hint or a diagnostics record can never describe roots
+/// other than the ones the handshake verified against.
+#[derive(Debug, Clone)]
+pub(crate) struct ResolvedTls {
+    pub(crate) config: Arc<ClientConfig>,
+    pub(crate) trust: TlsTrust,
+}
+
+impl ResolvedTls {
+    pub(crate) fn connector(&self) -> tokio_tungstenite::Connector {
+        tokio_tungstenite::Connector::Rustls(self.config.clone())
+    }
+}
+
 /// Per-client TLS settings: either a caller-supplied config, or the lazily
 /// built default. Cheap to clone; clones share the same lazily built default.
 #[derive(Debug, Clone)]
 pub(crate) struct TlsSettings {
     custom: Option<Arc<ClientConfig>>,
-    default: Arc<OnceCell<Arc<ClientConfig>>>,
+    default: Arc<OnceCell<ResolvedTls>>,
 }
 
 impl TlsSettings {
@@ -83,67 +135,87 @@ impl TlsSettings {
         }
     }
 
+    /// The trust roots this client uses, without building anything. Until
+    /// the default has been built this is the configured trust; afterwards
+    /// it is the trust that actually resulted (see [`TlsTrust`]). For the
+    /// definitive answer alongside the config, use [`resolve`](Self::resolve).
+    #[cfg_attr(not(feature = "connect-diagnostics"), allow(dead_code))]
     pub(crate) fn trust(&self) -> TlsTrust {
         if self.custom.is_some() {
             TlsTrust::Custom
+        } else if let Some(default) = self.default.get() {
+            default.trust
         } else {
             default_trust()
         }
     }
 
-    /// The config every connection from this client uses. The default is
-    /// built on first use; reading the OS certificate store (when enabled) is
-    /// blocking I/O and runs off the async worker threads.
-    pub(crate) async fn client_config(&self) -> Arc<ClientConfig> {
+    /// The config every `wss://` connection from this client uses, with the
+    /// trust it embodies. The default is built on first use; reading the OS
+    /// certificate store (when enabled) is blocking I/O and runs off the
+    /// async worker threads.
+    pub(crate) async fn resolve(&self) -> ResolvedTls {
         if let Some(config) = &self.custom {
-            return config.clone();
+            return ResolvedTls {
+                config: config.clone(),
+                trust: TlsTrust::Custom,
+            };
         }
-        self.default
-            .get_or_init(|| async { Arc::new(build_default_config().await) })
-            .await
-            .clone()
-    }
-
-    pub(crate) async fn connector(&self) -> tokio_tungstenite::Connector {
-        tokio_tungstenite::Connector::Rustls(self.client_config().await)
+        self.default.get_or_init(build_default).await.clone()
     }
 }
 
 /// The configuration `tokio-tungstenite` builds for its `rustls-tls-webpki-roots`
 /// feature (and, with `rustls-tls-native-roots`, its native+webpki merge):
 /// no client auth, the crate-default provider.
-async fn build_default_config() -> ClientConfig {
-    ClientConfig::builder()
-        .with_root_certificates(default_root_store().await)
-        .with_no_client_auth()
+async fn build_default() -> ResolvedTls {
+    let (roots, trust) = default_root_store().await;
+    ResolvedTls {
+        config: Arc::new(
+            ClientConfig::builder()
+                .with_root_certificates(roots)
+                .with_no_client_auth(),
+        ),
+        trust,
+    }
 }
 
 /// The bundled webpki roots, with the OS store merged in first when the
-/// `rustls-tls-native-roots` feature is enabled. The webpki roots are always
-/// present, so enabling the feature never removes trust — it only adds.
-pub(crate) async fn default_root_store() -> RootCertStore {
+/// `rustls-tls-native-roots` feature is enabled, and the [`TlsTrust`] that
+/// describes the result. The webpki roots are always present, so enabling
+/// the feature never removes trust — it only adds; when the OS store yields
+/// nothing, the trust says so ([`TlsTrust::WebpkiNativeUnavailable`]) rather
+/// than claiming roots that were never loaded.
+pub(crate) async fn default_root_store() -> (RootCertStore, TlsTrust) {
     #[cfg(feature = "rustls-tls-native-roots")]
-    let mut store = match tokio::task::spawn_blocking(native_root_store).await {
-        Ok(store) => store,
+    let (mut store, trust) = match tokio::task::spawn_blocking(native_root_store).await {
+        Ok(store) if !store.is_empty() => (store, TlsTrust::WebpkiAndNative),
+        Ok(store) => (store, TlsTrust::WebpkiNativeUnavailable),
         Err(join_error) => {
             tracing::warn!(
                 "loading native root certificates panicked; continuing with the bundled \
                  webpki roots only: {join_error}"
             );
-            RootCertStore::empty()
+            (RootCertStore::empty(), TlsTrust::WebpkiNativeUnavailable)
         }
     };
     #[cfg(not(feature = "rustls-tls-native-roots"))]
-    let mut store = RootCertStore::empty();
+    let (mut store, trust) = (RootCertStore::empty(), TlsTrust::Webpki);
 
     store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    store
+    (store, trust)
 }
 
 /// Load the OS certificate store. Mirrors the merge `tokio-tungstenite` 0.28
 /// performs for its own `rustls-tls-native-roots` feature: warn and continue
 /// past per-certificate errors, keep whatever parsed. `rustls-native-certs`
 /// honors `SSL_CERT_FILE` / `SSL_CERT_DIR` in place of the platform store.
+///
+/// An empty result — load errors, an override pointing at a missing or
+/// non-PEM file, a system with no store — is reported here at WARN level and
+/// surfaces to the caller as [`TlsTrust::WebpkiNativeUnavailable`], so the
+/// remedy in an [`DeepgramError::UntrustedTlsCertificate`] message matches
+/// what was actually checked.
 #[cfg(feature = "rustls-tls-native-roots")]
 fn native_root_store() -> RootCertStore {
     let mut store = RootCertStore::empty();
@@ -211,6 +283,16 @@ pub(crate) fn untrusted_hint(trust: &TlsTrust) -> &'static str {
              store (or point `SSL_CERT_FILE` at it), or pass your own rustls config to \
              `Deepgram::tls_config`."
         }
+        TlsTrust::WebpkiNativeUnavailable => {
+            "The `rustls-tls-native-roots` feature is enabled, but no native root \
+             certificates could be loaded, so only the bundled public (webpki) roots were \
+             checked and they do not contain this certificate's issuer. The load errors \
+             were logged at `tracing` WARN level; the usual causes are an `SSL_CERT_FILE` / \
+             `SSL_CERT_DIR` override that is missing, unreadable, or not PEM, or a system \
+             with no OS certificate store. Point `SSL_CERT_FILE` at a valid PEM bundle \
+             containing the issuing CA, or pass your own rustls config to \
+             `Deepgram::tls_config`."
+        }
         TlsTrust::Custom => {
             "The rustls config passed to `Deepgram::tls_config` does not trust this \
              certificate's issuer."
@@ -227,8 +309,17 @@ mod tests {
         // With `rustls-tls-native-roots`, the OS store is additive: the store
         // can never have fewer roots than webpki alone, and it is never
         // empty even where the OS store yields nothing (a minimal container).
-        let store = default_root_store().await;
+        let (store, trust) = default_root_store().await;
         assert!(store.len() >= webpki_roots::TLS_SERVER_ROOTS.len());
+        // And the reported trust describes what the store holds: native
+        // roots are claimed only when at least one was actually merged.
+        let native_added = store.len() - webpki_roots::TLS_SERVER_ROOTS.len();
+        let expected = match (cfg!(feature = "rustls-tls-native-roots"), native_added) {
+            (false, _) => TlsTrust::Webpki,
+            (true, 0) => TlsTrust::WebpkiNativeUnavailable,
+            (true, _) => TlsTrust::WebpkiAndNative,
+        };
+        assert_eq!(trust, expected);
     }
 
     #[tokio::test]
@@ -237,7 +328,7 @@ mod tests {
         // auth, crate-default provider. Our default must be equivalent so
         // that adopting the explicit connector changes nothing for users who
         // did not opt into anything.
-        let config = build_default_config().await;
+        let config = build_default().await.config;
         assert!(!config.client_auth_cert_resolver.has_certs());
         let roots = RootCertStore {
             roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
@@ -256,10 +347,18 @@ mod tests {
     async fn default_config_is_built_once_per_client_and_shared_by_clones() {
         let settings = TlsSettings::new();
         let clone = settings.clone();
-        let a = settings.client_config().await;
-        let b = clone.client_config().await;
-        assert!(Arc::ptr_eq(&a, &b));
+        // Before the default is built, `trust()` can only report what is
+        // configured.
         assert_eq!(settings.trust(), default_trust());
+        let a = settings.resolve().await;
+        let b = clone.resolve().await;
+        assert!(Arc::ptr_eq(&a.config, &b.config));
+        assert_eq!(a.trust, b.trust);
+        assert_ne!(a.trust, TlsTrust::Custom);
+        // Once built, `trust()` reports what actually resulted, on every
+        // clone, without building again.
+        assert_eq!(settings.trust(), a.trust);
+        assert_eq!(clone.trust(), a.trust);
     }
 
     #[tokio::test]
@@ -270,7 +369,9 @@ mod tests {
                 .with_no_client_auth(),
         );
         let settings = TlsSettings::custom(custom.clone());
-        assert!(Arc::ptr_eq(&settings.client_config().await, &custom));
+        let resolved = settings.resolve().await;
+        assert!(Arc::ptr_eq(&resolved.config, &custom));
+        assert_eq!(resolved.trust, TlsTrust::Custom);
         assert_eq!(settings.trust(), TlsTrust::Custom);
     }
 
@@ -315,10 +416,58 @@ mod tests {
     }
 
     #[test]
+    fn failed_native_load_gets_its_own_hint() {
+        // A loaded OS store and a failed load must not share a remedy: the
+        // failed case says so, still points at `SSL_CERT_FILE` (as the thing
+        // to fix, not the thing already checked) and at `tls_config`.
+        let loaded = untrusted_hint(&TlsTrust::WebpkiAndNative);
+        let unavailable = untrusted_hint(&TlsTrust::WebpkiNativeUnavailable);
+        assert_ne!(loaded, unavailable);
+        assert!(loaded.contains("were both checked"), "{loaded}");
+        assert!(
+            !loaded.contains("no native root certificates could be loaded"),
+            "{loaded}"
+        );
+        assert!(
+            unavailable.contains("no native root certificates could be loaded"),
+            "{unavailable}"
+        );
+        assert!(!unavailable.contains("were both checked"), "{unavailable}");
+        assert!(unavailable.contains("SSL_CERT_FILE"), "{unavailable}");
+        assert!(
+            unavailable.contains("Deepgram::tls_config"),
+            "{unavailable}"
+        );
+
+        let rustls_err = rustls::Error::InvalidCertificate(rustls::CertificateError::UnknownIssuer);
+        let io = std::io::Error::new(std::io::ErrorKind::InvalidData, rustls_err);
+        let err = connect_error(
+            TungsteniteError::Io(io),
+            "proxy.example",
+            TlsTrust::WebpkiNativeUnavailable,
+        );
+        assert!(
+            matches!(
+                err,
+                DeepgramError::UntrustedTlsCertificate {
+                    trust: TlsTrust::WebpkiNativeUnavailable,
+                    ..
+                }
+            ),
+            "{err:?}"
+        );
+        assert!(err.to_string().ends_with(unavailable), "{err}");
+    }
+
+    #[test]
     fn trust_serializes_snake_case() {
         assert_eq!(
             serde_json::to_string(&TlsTrust::WebpkiAndNative).unwrap(),
             "\"webpki_and_native\""
+        );
+        assert_eq!(
+            serde_json::to_string(&TlsTrust::WebpkiNativeUnavailable).unwrap(),
+            "\"webpki_native_unavailable\""
         );
     }
 }

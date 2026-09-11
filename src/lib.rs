@@ -322,6 +322,13 @@ impl Deepgram {
     /// requests. If an API key is required, consider using
     /// [`Deepgram::with_base_url_and_api_key`].
     ///
+    /// The base URL's scheme decides how WebSocket connections are made:
+    /// `https://` gives `wss://`, with TLS and certificate verification (see
+    /// [`crate::tls`]); `http://` gives plaintext `ws://`, with neither, so
+    /// credentials and audio travel unencrypted. Use `http://` only for local
+    /// testing (as in the example below) and prefer `https://` whenever an
+    /// API key, a temporary token, or private traffic is involved.
+    ///
     /// [console]: https://console.deepgram.com/
     ///
     /// # Example:
@@ -356,6 +363,13 @@ impl Deepgram {
     ///
     /// Admin features, such as billing, usage, and key management will
     /// still go through the hosted site at `https://api.deepgram.com`.
+    ///
+    /// The base URL's scheme decides how WebSocket connections are made:
+    /// `https://` gives `wss://`, with TLS and certificate verification (see
+    /// [`crate::tls`]); `http://` gives plaintext `ws://`, with neither, so
+    /// credentials and audio travel unencrypted. Use `http://` only for local
+    /// testing (as in the example below) and prefer `https://` whenever an
+    /// API key, a temporary token, or private traffic is involved.
     ///
     /// [console]: https://console.deepgram.com/
     ///
@@ -423,17 +437,28 @@ impl Deepgram {
         })
     }
 
-    /// Use your own [`rustls::ClientConfig`] for every WebSocket connection
-    /// this client opens (live transcription, Flux speech-to-text, Flux
-    /// text-to-speech). It is used verbatim: trust roots, client
-    /// authentication, protocol versions, and session resumption are all
-    /// yours to decide.
+    /// Use your own [`rustls::ClientConfig`] for every `wss://` WebSocket
+    /// connection this client opens (live transcription, Flux
+    /// speech-to-text, Flux text-to-speech). It is used verbatim: trust
+    /// roots, client authentication, protocol versions, and session
+    /// resumption are all yours to decide.
     ///
     /// Reach for this when the defaults don't fit — pinning to a private CA,
     /// presenting a client certificate, a custom verifier — and the
     /// `rustls-tls-native-roots` feature (trust the OS store in addition to
     /// the bundled public roots) isn't enough. Build the config from
     /// [`deepgram::rustls`](crate::rustls) so the versions match.
+    ///
+    /// # Only `wss://` is affected
+    ///
+    /// A client built from an `http://` (or `ws://`) base URL — see
+    /// [`Deepgram::with_base_url`] — opens plaintext `ws://` WebSockets. No
+    /// TLS handshake takes place and no certificate is verified, so this
+    /// config (and the `rustls-tls-native-roots` feature) has no effect on
+    /// those connections, and credentials and audio travel unencrypted. Keep
+    /// `http://` base URLs to local testing and use `https://` whenever an
+    /// API key, a temporary token, or private traffic is involved, including
+    /// self-hosted deployments.
     ///
     /// REST requests are made with `reqwest` and are not affected.
     ///

@@ -737,22 +737,21 @@ impl WebsocketHandle {
             .as_ref()
             .map(|sink| DiagnosticsGuard::new(sink.clone(), &url, tls.trust()));
 
-        // Resolve the TLS config before any phase timer starts: on a client's
-        // first connect this may read the OS certificate store, which must
-        // not be charged to the TLS handshake timing.
-        let tls_config = tls.client_config().await;
+        // Resolve the TLS config (and the trust it embodies) before any phase
+        // timer starts: on a client's first connect this may read the OS
+        // certificate store, which must not be charged to the TLS handshake
+        // timing.
+        let tls = tls.resolve().await;
 
         #[cfg(feature = "connect-diagnostics")]
         let connected = match diagnostics_guard.as_mut() {
-            Some(guard) => {
-                crate::diagnostics::connect_with_diagnostics(request, guard, tls_config).await
-            }
+            Some(guard) => crate::diagnostics::connect_with_diagnostics(request, guard, &tls).await,
             None => {
                 tokio_tungstenite::connect_async_tls_with_config(
                     request,
                     None,
                     false,
-                    Some(tokio_tungstenite::Connector::Rustls(tls_config)),
+                    Some(tls.connector()),
                 )
                 .await
             }
@@ -762,12 +761,12 @@ impl WebsocketHandle {
             request,
             None,
             false,
-            Some(tokio_tungstenite::Connector::Rustls(tls_config)),
+            Some(tls.connector()),
         )
         .await;
 
         let (ws_stream, upgrade_response) =
-            connected.map_err(|err| crate::tls::connect_error(err, host, tls.trust()))?;
+            connected.map_err(|err| crate::tls::connect_error(err, host, tls.trust))?;
 
         let request_id = upgrade_response
             .headers()

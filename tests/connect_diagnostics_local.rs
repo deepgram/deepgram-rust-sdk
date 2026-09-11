@@ -141,6 +141,11 @@ async fn completed_connect_over_plain_ws_emits_full_record() {
         record.tls_handshake_ms.is_none(),
         "plain ws has no TLS phase"
     );
+    assert!(
+        record.tls_trust.is_none(),
+        "plain ws verifies no certificate, so no trust roots may be reported"
+    );
+    assert!(record.tls_resumed.is_none());
     assert!(record.ws_upgrade_ms.is_some());
     assert!(record.connect_duration_ms > 0.0);
     assert!(record.error.is_none());

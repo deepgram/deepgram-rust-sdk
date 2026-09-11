@@ -82,7 +82,7 @@ manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
 speak = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
 # Also trust the operating system's certificate store, on top of the bundled
-# webpki roots, for every websocket connection. For TLS-inspecting proxies
+# webpki roots, for every wss:// websocket connection. For TLS-inspecting proxies
 # (Zscaler, Netskope, ...), internal CAs, and self-hosted deployments. Named
 # after the tokio-tungstenite and reqwest features it mirrors.
 rustls-tls-native-roots = [

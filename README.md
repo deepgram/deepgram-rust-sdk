@@ -97,10 +97,18 @@ docs for the record schema and integration details.
 
 ## TLS Trust (Corporate Proxies, Private CAs)
 
-WebSocket connections verify Deepgram's certificate against the bundled
-public roots ([webpki-roots](https://crates.io/crates/webpki-roots)). That
-works everywhere, including containers with no OS certificate store, and it
-is the default.
+`wss://` WebSocket connections verify Deepgram's certificate against the
+bundled public roots ([webpki-roots](https://crates.io/crates/webpki-roots)).
+That works everywhere, including containers with no OS certificate store,
+and it is the default.
+
+> **Only `wss://` is covered.** A client built from an `http://` base URL
+> (`Deepgram::with_base_url("http://localhost:8080")`) opens plaintext
+> `ws://` WebSockets: no TLS handshake, no certificate verification, and
+> neither option below has any effect. Credentials and audio travel
+> unencrypted. Keep `http://` to local testing and use an `https://` base URL
+> whenever an API key, a temporary token, or private traffic is involved,
+> including self-hosted deployments.
 
 If your traffic goes through a TLS-inspecting proxy (Zscaler, Netskope, …),
 an internal CA, or a self-hosted deployment, the certificate the SDK sees is
@@ -118,7 +126,7 @@ cargo add deepgram --features rustls-tls-native-roots
 ```
 
 **Or supply your own `rustls` config.** Set it once on the client and every
-WebSocket it opens (live transcription, Flux speech-to-text, Flux
+`wss://` WebSocket it opens (live transcription, Flux speech-to-text, Flux
 text-to-speech) uses it verbatim: pin a private CA, present a client
 certificate, plug in a custom verifier. Build it from `deepgram::rustls` so
 the versions match.
@@ -134,6 +142,12 @@ let config = rustls::ClientConfig::builder()
 
 let dg = Deepgram::new("YOUR_DEEPGRAM_API_KEY")?.tls_config(config);
 ```
+
+If the feature is enabled but the OS store cannot be loaded (an
+`SSL_CERT_FILE` that points at a missing or non-PEM file, a container with
+no store), the client still works with the public roots, and a rejected
+certificate then says the native roots could not be loaded rather than
+claiming they were checked.
 
 See the `deepgram::tls` module docs for details. REST requests are made with
 `reqwest` and are not affected by either option.

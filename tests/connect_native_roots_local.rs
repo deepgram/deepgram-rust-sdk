@@ -140,6 +140,6 @@ async fn native_roots_apply_to_the_phase_timed_path_and_are_recorded() {
 
     let record = diag_rx.try_recv().expect("one record per attempt");
     assert_eq!(record.outcome, ConnectOutcome::Completed);
-    assert_eq!(record.tls_trust, TlsTrust::WebpkiAndNative);
+    assert_eq!(record.tls_trust, Some(TlsTrust::WebpkiAndNative));
     assert_eq!(record.tls_resumed, Some(false));
 }

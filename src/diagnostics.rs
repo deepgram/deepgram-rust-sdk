@@ -23,9 +23,10 @@
 //! Both connect paths — stock and phase-timed — use the client's one
 //! explicit rustls connector (see [`crate::tls`]), so timed and untimed
 //! connections have identical trust roots and TLS provider, and the record's
-//! [`tls_trust`](ConnectRecord::tls_trust) says which roots were in effect.
-//! The upgrade machinery and the request are the same on both paths; only
-//! the granularity of measurement differs.
+//! [`tls_trust`](ConnectRecord::tls_trust) says which roots were in effect
+//! (it is absent for a plaintext `ws://` connection, which has no TLS phase
+//! at all). The upgrade machinery and the request are the same on both
+//! paths; only the granularity of measurement differs.
 
 use std::fmt;
 use std::sync::Arc;
@@ -39,7 +40,7 @@ use tungstenite::error::UrlError;
 use tungstenite::Error as TungsteniteError;
 use uuid::Uuid;
 
-use crate::tls::TlsTrust;
+use crate::tls::{ResolvedTls, TlsTrust};
 
 /// Version of the [`ConnectRecord`] schema. Changes are additive only:
 /// consumers should ignore unknown fields.
@@ -126,9 +127,14 @@ pub struct ConnectRecord {
     /// WebSocket upgrade exchange time in milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ws_upgrade_ms: Option<f64>,
-    /// Which trust roots the server certificate was verified against. See
-    /// [`crate::tls`].
-    pub tls_trust: TlsTrust,
+    /// Which trust roots the server certificate was verified against (see
+    /// [`crate::tls`]). `None` when no TLS occurred: a plaintext `ws://`
+    /// connection, from a client built on an `http://` base URL, has no TLS
+    /// handshake and verifies no certificate. Present on every `wss://`
+    /// attempt, including ones that failed or were cancelled before the TLS
+    /// phase, where it says which roots would have been used.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tls_trust: Option<TlsTrust>,
     /// Whether the TLS handshake resumed an earlier session (`true`) or was
     /// a full handshake (`false`). Present once the TLS phase completed.
     /// Resumed handshakes are cheaper, so compare `tls_handshake_ms` within
@@ -178,7 +184,7 @@ impl ConnectRecord {
             tcp_connect_ms: Some(68.9),
             tls_handshake_ms: Some(141.7),
             ws_upgrade_ms: Some(90.6),
-            tls_trust: TlsTrust::Webpki,
+            tls_trust: Some(TlsTrust::Webpki),
             tls_resumed: Some(false),
             request_id: Some("00000000-0000-0000-0000-000000000000".to_string()),
             dg_error: None,
@@ -259,8 +265,12 @@ pub(crate) struct DiagnosticsGuard {
 }
 
 impl DiagnosticsGuard {
+    /// `tls_trust` is the trust the client is configured with; it is recorded
+    /// only when the URL is `wss://`, and refined to the trust actually in
+    /// effect once the TLS phase runs (see [`set_tls_trust`](Self::set_tls_trust)).
     pub(crate) fn new(sink: SharedSink, url: &url::Url, tls_trust: TlsTrust) -> Self {
         let now = Instant::now();
+        let tls_trust = (url.scheme() == "wss").then_some(tls_trust);
         DiagnosticsGuard {
             record: ConnectRecord {
                 schema_version: SCHEMA_VERSION,
@@ -315,6 +325,13 @@ impl DiagnosticsGuard {
 
     fn set_tls_resumed(&mut self, resumed: bool) {
         self.record.tls_resumed = Some(resumed);
+    }
+
+    /// Record the trust roots the TLS handshake actually verifies against.
+    /// Called on the TLS path only, so a plaintext connection never gains a
+    /// trust value.
+    fn set_tls_trust(&mut self, trust: TlsTrust) {
+        self.record.tls_trust = Some(trust);
     }
 
     pub(crate) fn set_request_id(&mut self, request_id: &str) {
@@ -390,15 +407,14 @@ fn header_str(headers: &http::HeaderMap, name: &str) -> Option<String> {
 /// `tokio_tungstenite::client_async_with_config` — the same function the
 /// stock path bottoms out in.
 ///
-/// The caller resolves `tls_config` before calling, so building it (which
-/// may read the OS certificate store on a client's first connect) is never
-/// charged to a phase timing. Errors are returned raw for the caller to
-/// classify (see [`crate::tls::connect_error`]); the failure is recorded on
-/// the guard here.
+/// The caller resolves `tls` before calling, so building it (which may read
+/// the OS certificate store on a client's first connect) is never charged to
+/// a phase timing. Errors are returned raw for the caller to classify (see
+/// [`crate::tls::connect_error`]); the failure is recorded on the guard here.
 pub(crate) async fn connect_with_diagnostics(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
-    tls_config: Arc<rustls::ClientConfig>,
+    tls: &ResolvedTls,
 ) -> std::result::Result<
     (
         WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -406,7 +422,7 @@ pub(crate) async fn connect_with_diagnostics(
     ),
     TungsteniteError,
 > {
-    match connect_phases(request, guard, tls_config).await {
+    match connect_phases(request, guard, tls).await {
         Ok(ok) => Ok(ok),
         Err(err) => {
             guard.fail(&err);
@@ -418,7 +434,7 @@ pub(crate) async fn connect_with_diagnostics(
 async fn connect_phases(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
-    tls_config: Arc<rustls::ClientConfig>,
+    tls: &ResolvedTls,
 ) -> std::result::Result<
     (
         WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -427,7 +443,7 @@ async fn connect_phases(
     TungsteniteError,
 > {
     let domain = domain(&request)?;
-    let tls = match request.uri().scheme_str() {
+    let secure = match request.uri().scheme_str() {
         Some("wss") => true,
         Some("ws") => false,
         _ => return Err(TungsteniteError::Url(UrlError::UnsupportedUrlScheme)),
@@ -435,7 +451,7 @@ async fn connect_phases(
     let port = request
         .uri()
         .port_u16()
-        .unwrap_or(if tls { 443 } else { 80 });
+        .unwrap_or(if secure { 443 } else { 80 });
 
     guard.enter_phase(ConnectPhase::Dns);
     let addrs: Vec<_> = tokio::net::lookup_host((domain.as_str(), port))
@@ -469,12 +485,13 @@ async fn connect_phases(
     guard.set_addrs(&tcp);
     guard.finish_phase();
 
-    let stream = if tls {
+    let stream = if secure {
+        guard.set_tls_trust(tls.trust);
         guard.enter_phase(ConnectPhase::TlsHandshake);
         let server_name = rustls_pki_types::ServerName::try_from(domain.as_str())
             .map_err(|_| TungsteniteError::Tls(tungstenite::error::TlsError::InvalidDnsName))?
             .to_owned();
-        let connector = tokio_rustls::TlsConnector::from(tls_config);
+        let connector = tokio_rustls::TlsConnector::from(tls.config.clone());
         let tls_stream = connector
             .connect(server_name, tcp)
             .await
@@ -602,6 +619,30 @@ mod tests {
                 "{absent} should be omitted when absent"
             );
         }
+    }
+
+    #[test]
+    fn plaintext_ws_record_has_no_tls_trust() {
+        // A `ws://` attempt has no TLS phase and verifies no certificate, so
+        // the record must not claim any trust roots — not even as a
+        // "configured" value — and the field must be omitted from JSON.
+        let url = url::Url::parse("ws://localhost:8080/v1/listen").unwrap();
+        let (sink, mut rx) = channel_sink();
+        drop(DiagnosticsGuard::new(sink, &url, TlsTrust::Webpki));
+        let record = rx.try_recv().expect("record emitted on drop");
+
+        assert_eq!(record.tls_trust, None);
+        let json: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&record).unwrap()).unwrap();
+        assert!(json.get("tls_trust").is_none(), "{json}");
+
+        // The same guard for `wss://` carries the configured trust from the
+        // start, so an attempt cancelled before TLS still says which roots
+        // would have been used.
+        let (sink, mut rx) = channel_sink();
+        drop(DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki));
+        let record = rx.try_recv().expect("record emitted on drop");
+        assert_eq!(record.tls_trust, Some(TlsTrust::Webpki));
     }
 
     #[test]
