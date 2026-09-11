@@ -23,8 +23,7 @@ Conversation (Assistant): It's 72 and sunny in New York.
 //! Run with:
 //!
 //! ```bash
-//! DEEPGRAM_API_KEY=<your-key> \
-//!     cargo run --features agent --example agent_function_calling
+//! DEEPGRAM_API_KEY=<your-key> cargo run --example function_calling --features agent
 //! ```
 
 use std::env;
@@ -45,6 +44,7 @@ use deepgram::agent::{
 use deepgram::{Deepgram, DeepgramError};
 
 static SESSION_DURATION: Duration = Duration::from_secs(60);
+static KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(8);
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
@@ -108,11 +108,20 @@ async fn main() -> Result<(), DeepgramError> {
     let timeout = tokio::time::sleep(SESSION_DURATION);
     tokio::pin!(timeout);
 
+    // The server closes idle sessions with CLIENT_MESSAGE_TIMEOUT unless it
+    // hears from the client. While not streaming audio, send KeepAlive every
+    // 8 seconds (the cadence the Voice Agent docs specify).
+    let mut keep_alive = tokio::time::interval(KEEP_ALIVE_INTERVAL);
+    keep_alive.tick().await; // the first tick fires immediately; skip it
+
     loop {
         tokio::select! {
             _ = &mut timeout => {
                 println!("\nSession duration reached, closing.");
                 break;
+            }
+            _ = keep_alive.tick() => {
+                handle.keep_alive().await?;
             }
             event = events.next() => {
                 match event {
@@ -163,10 +172,23 @@ async fn main() -> Result<(), DeepgramError> {
                                 }
                             }
                         }
+                        AgentResponse::FunctionCallCancelled(cancelled) => {
+                            // The user started speaking again, so the server
+                            // revoked these calls. Do NOT send a
+                            // FunctionCallResponse for them; abandon any
+                            // in-flight work keyed by these ids instead.
+                            for call in &cancelled.functions {
+                                println!(
+                                    "FunctionCallCancelled: {} (id={}) — abandoning",
+                                    call.name, call.id
+                                );
+                            }
+                        }
                         AgentResponse::AgentAudioDone(_) => {
-                            // After the agent finishes its audio response we
-                            // could end the demo. For brevity we just log.
-                            println!("Agent audio done");
+                            // The agent has finished answering; the demo is
+                            // complete, so end the session cleanly.
+                            println!("Agent audio done, closing.");
+                            break;
                         }
                         AgentResponse::Error(e) => {
                             eprintln!("Error [{}]: {}", e.code, e.description);

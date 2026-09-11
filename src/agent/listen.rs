@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
 /// `agent.listen` block — wraps a single provider configuration.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct AgentListenSettings {
     /// STT provider.
@@ -27,7 +27,7 @@ impl AgentListenSettings {
 
 /// Speech-to-text provider for the Voice Agent. Currently only Deepgram is
 /// supported, with two API versions (V1 and V2/Flux).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum AgentListenProvider {
     /// V1 Deepgram STT (Nova/Nova-2/Nova-3).
@@ -175,7 +175,13 @@ impl Default for DeepgramListenV1Provider {
 }
 
 /// Deepgram V2 (Flux) STT provider. `model` is required per spec.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// Mirrors `DeepgramListenProviderV2` in
+/// `asyncapi/schemas/agent/listen-providers/deepgram-v2.yml`. The
+/// end-of-turn fields (`eot_threshold`, `eager_eot_threshold`,
+/// `eot_timeout_ms`) tune Flux's built-in turn detection and can also be
+/// changed mid-session with `UpdateListen`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct DeepgramListenV2Provider {
     /// Always [`DeepgramProviderType::Deepgram`].
@@ -188,16 +194,39 @@ pub struct DeepgramListenV2Provider {
     /// Flux model identifier (e.g. `flux-general-en`, `flux-general-multi`).
     pub model: String,
 
-    /// Language hints for `flux-general-multi`. Single string or array on
-    /// the wire; modeled here as `Vec<String>` with custom serde so a
-    /// single-element list deserializes from either form.
+    /// BCP-47 language codes that bias `flux-general-multi` toward specific
+    /// languages. Always serialized as a JSON array under `language_hints`,
+    /// even for a single hint. Without hints the model auto-detects the
+    /// spoken language; single-language models ignore the field.
     #[serde(
         default,
         skip_serializing_if = "Vec::is_empty",
-        serialize_with = "serialize_string_one_or_many",
         deserialize_with = "deserialize_string_one_or_many"
     )]
-    pub language_hint: Vec<String>,
+    pub language_hints: Vec<String>,
+
+    /// End-of-turn confidence required to finish a turn. Valid range
+    /// `0.5`–`1.0`; server default `0.7`. Set to `1.0` to fully suppress
+    /// natural end-of-turn detection and end turns only with
+    /// `ForceEndTurn` (see `AgentHandle::force_end_turn`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eot_threshold: Option<f64>,
+
+    /// End-of-turn confidence required to fire an eager end-of-turn event.
+    /// When set, enables eager end-of-turn / turn-resumed behavior. Valid
+    /// range `0.3`–`0.9`.
+    ///
+    /// Note: Flux sessions can also emit an `EndOfTurn` server message
+    /// (`{"type":"EndOfTurn","trigger":"model"|"timeout"}`) that is not in
+    /// the published AsyncAPI spec yet; it currently surfaces as
+    /// `AgentResponse::Unknown`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eager_eot_threshold: Option<f64>,
+
+    /// A turn is finished once this many milliseconds have elapsed after
+    /// speech, regardless of end-of-turn confidence. Server default `5000`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub eot_timeout_ms: Option<u32>,
 
     /// Keyterms to boost recognition for specialized terminology.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -211,18 +240,48 @@ impl DeepgramListenV2Provider {
             provider_type: DeepgramProviderType::Deepgram,
             version: DeepgramListenV2Version::V2,
             model: model.into(),
-            language_hint: Vec::new(),
+            language_hints: Vec::new(),
+            eot_threshold: None,
+            eager_eot_threshold: None,
+            eot_timeout_ms: None,
             keyterms: Vec::new(),
         }
     }
 
-    #[allow(missing_docs)]
-    pub fn with_language_hint<I, S>(mut self, hints: I) -> Self
+    /// Replace the language hints (`language_hints`). Serializes as a JSON
+    /// array even when a single hint is given.
+    pub fn with_language_hints<I, S>(mut self, hints: I) -> Self
     where
         I: IntoIterator<Item = S>,
         S: Into<String>,
     {
-        self.language_hint = hints.into_iter().map(Into::into).collect();
+        self.language_hints = hints.into_iter().map(Into::into).collect();
+        self
+    }
+
+    /// Append a single language hint. Convenience over
+    /// [`Self::with_language_hints`]; the field still serializes as a JSON
+    /// array.
+    pub fn with_language_hint(mut self, hint: impl Into<String>) -> Self {
+        self.language_hints.push(hint.into());
+        self
+    }
+
+    /// Set `eot_threshold` (valid range `0.5`–`1.0`; server default `0.7`).
+    pub fn with_eot_threshold(mut self, threshold: f64) -> Self {
+        self.eot_threshold = Some(threshold);
+        self
+    }
+
+    /// Set `eager_eot_threshold` (valid range `0.3`–`0.9`).
+    pub fn with_eager_eot_threshold(mut self, threshold: f64) -> Self {
+        self.eager_eot_threshold = Some(threshold);
+        self
+    }
+
+    /// Set `eot_timeout_ms` (server default `5000`).
+    pub fn with_eot_timeout_ms(mut self, timeout_ms: u32) -> Self {
+        self.eot_timeout_ms = Some(timeout_ms);
         self
     }
 
@@ -237,19 +296,11 @@ impl DeepgramListenV2Provider {
     }
 }
 
-/// Serialize a `Vec<String>` as a single string when length is 1, otherwise as an array.
-fn serialize_string_one_or_many<S>(values: &[String], ser: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    if values.len() == 1 {
-        ser.serialize_str(&values[0])
-    } else {
-        values.serialize(ser)
-    }
-}
-
 /// Deserialize either a single string or an array of strings into `Vec<String>`.
+///
+/// The spec defines `language_hints` as an array; accepting a bare string
+/// on input is a leniency for hand-written configs. Output is always an
+/// array.
 fn deserialize_string_one_or_many<'de, D>(de: D) -> Result<Vec<String>, D::Error>
 where
     D: Deserializer<'de>,
@@ -319,7 +370,10 @@ mod tests {
         match &provider {
             AgentListenProvider::DeepgramV2(p) => {
                 assert_eq!(p.model, "flux-general-en");
-                assert!(p.language_hint.is_empty());
+                assert!(p.language_hints.is_empty());
+                assert!(p.eot_threshold.is_none());
+                assert!(p.eager_eot_threshold.is_none());
+                assert!(p.eot_timeout_ms.is_none());
                 assert!(p.keyterms.is_empty());
             }
             _ => panic!("expected V2"),
@@ -328,17 +382,17 @@ mod tests {
     }
 
     #[test]
-    fn v2_with_language_hint_array_round_trip() {
+    fn v2_with_language_hints_array_round_trip() {
         let raw = json!({
             "type": "deepgram",
             "version": "v2",
             "model": "flux-general-multi",
-            "language_hint": ["en", "es", "fr"]
+            "language_hints": ["en", "es", "fr"]
         });
         let provider: AgentListenProvider = serde_json::from_value(raw.clone()).unwrap();
         match &provider {
             AgentListenProvider::DeepgramV2(p) => {
-                assert_eq!(p.language_hint, vec!["en", "es", "fr"]);
+                assert_eq!(p.language_hints, vec!["en", "es", "fr"]);
             }
             _ => panic!("expected V2"),
         }
@@ -346,21 +400,116 @@ mod tests {
     }
 
     #[test]
-    fn v2_language_hint_single_string_deserializes_to_vec() {
+    fn v2_single_language_hint_exact_json_is_array() {
+        // Exact wire JSON: key is `language_hints`, value is always an
+        // array — even with one hint.
+        let provider = AgentListenProvider::DeepgramV2(
+            DeepgramListenV2Provider::new("flux-general-multi").with_language_hints(["es"]),
+        );
+        assert_eq!(
+            serde_json::to_string(&provider).unwrap(),
+            r#"{"type":"deepgram","version":"v2","model":"flux-general-multi","language_hints":["es"]}"#
+        );
+
+        // The single-hint convenience builder appends and still emits an array.
+        let provider = AgentListenProvider::DeepgramV2(
+            DeepgramListenV2Provider::new("flux-general-multi").with_language_hint("es"),
+        );
+        assert_eq!(
+            serde_json::to_string(&provider).unwrap(),
+            r#"{"type":"deepgram","version":"v2","model":"flux-general-multi","language_hints":["es"]}"#
+        );
+    }
+
+    #[test]
+    fn v2_multiple_language_hints_exact_json() {
+        let provider = AgentListenProvider::DeepgramV2(
+            DeepgramListenV2Provider::new("flux-general-multi")
+                .with_language_hint("en")
+                .with_language_hint("es")
+                .with_language_hint("fr"),
+        );
+        assert_eq!(
+            serde_json::to_string(&provider).unwrap(),
+            r#"{"type":"deepgram","version":"v2","model":"flux-general-multi","language_hints":["en","es","fr"]}"#
+        );
+    }
+
+    #[test]
+    fn v2_language_hints_bare_string_input_is_accepted() {
+        // Leniency on input only: a bare string deserializes to a one-element
+        // vec and re-serializes as an array.
+        let raw = json!({
+            "type": "deepgram",
+            "version": "v2",
+            "model": "flux-general-multi",
+            "language_hints": "es"
+        });
+        let provider: AgentListenProvider = serde_json::from_value(raw).unwrap();
+        match &provider {
+            AgentListenProvider::DeepgramV2(p) => assert_eq!(p.language_hints, vec!["es"]),
+            _ => panic!("expected V2"),
+        }
+        assert_eq!(
+            serde_json::to_value(&provider).unwrap()["language_hints"],
+            json!(["es"])
+        );
+    }
+
+    #[test]
+    fn v2_legacy_scalar_language_hint_key_is_not_emitted() {
+        // The old (incorrect) scalar `language_hint` key is not the wire
+        // field; the SDK neither reads nor writes it.
         let raw = json!({
             "type": "deepgram",
             "version": "v2",
             "model": "flux-general-multi",
             "language_hint": "es"
         });
+        let provider: AgentListenProvider = serde_json::from_value(raw).unwrap();
+        match &provider {
+            AgentListenProvider::DeepgramV2(p) => assert!(p.language_hints.is_empty()),
+            _ => panic!("expected V2"),
+        }
+        let out = serde_json::to_value(&provider).unwrap();
+        assert!(out.get("language_hint").is_none());
+        assert!(out.get("language_hints").is_none());
+    }
+
+    #[test]
+    fn v2_eot_fields_exact_json() {
+        let provider = AgentListenProvider::DeepgramV2(
+            DeepgramListenV2Provider::new("flux-general-en")
+                .with_eot_threshold(0.8)
+                .with_eager_eot_threshold(0.5)
+                .with_eot_timeout_ms(3000),
+        );
+        assert_eq!(
+            serde_json::to_string(&provider).unwrap(),
+            r#"{"type":"deepgram","version":"v2","model":"flux-general-en","eot_threshold":0.8,"eager_eot_threshold":0.5,"eot_timeout_ms":3000}"#
+        );
+    }
+
+    #[test]
+    fn v2_eot_fields_round_trip() {
+        // `eot_threshold: 1.0` is the documented way to suppress natural
+        // end-of-turn detection in favor of `ForceEndTurn`.
+        let raw = json!({
+            "type": "deepgram",
+            "version": "v2",
+            "model": "flux-general-en",
+            "eot_threshold": 1.0,
+            "eot_timeout_ms": 5000
+        });
         let provider: AgentListenProvider = serde_json::from_value(raw.clone()).unwrap();
         match &provider {
             AgentListenProvider::DeepgramV2(p) => {
-                assert_eq!(p.language_hint, vec!["es"]);
+                assert_eq!(p.eot_threshold, Some(1.0));
+                assert!(p.eager_eot_threshold.is_none());
+                assert_eq!(p.eot_timeout_ms, Some(5000));
             }
             _ => panic!("expected V2"),
         }
-        // Single-element vec serializes back as a scalar string for symmetry with the spec.
         assert_eq!(serde_json::to_value(&provider).unwrap(), raw);
     }
 
@@ -387,7 +536,7 @@ mod tests {
                 "type": "deepgram",
                 "version": "v2",
                 "model": "flux-general-multi",
-                "language_hint": ["en", "fr"]
+                "language_hints": ["en", "fr"]
             }
         });
         let settings: AgentListenSettings = serde_json::from_value(raw.clone()).unwrap();
