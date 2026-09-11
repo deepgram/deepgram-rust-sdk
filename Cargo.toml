@@ -78,10 +78,11 @@ tokio-rustls = "0.26"
 all-features = true
 
 [features]
-default = ["manage", "listen", "speak"]
+default = ["manage", "listen", "speak", "read"]
 manage = []
 listen = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
 speak = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
+read = []
 # Also trust the operating system's certificate store, on top of the bundled
 # webpki roots, for every wss:// websocket connection. For TLS-inspecting proxies
 # (Zscaler, Netskope, ...), internal CAs, and self-hosted deployments. Named
@@ -153,7 +154,7 @@ required-features = ["listen"]
 [[example]]
 name = "analyze_text"
 path = "examples/read/analyze_text.rs"
-required-features = ["listen"]
+required-features = ["read"]
 
 [[example]]
 name = "models"

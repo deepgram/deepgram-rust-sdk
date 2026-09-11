@@ -6,6 +6,9 @@
 //!
 //! Construct a [`Read`] with [`Deepgram::text_intelligence`].
 //!
+//! The API supports English only; the request builder sends `language=en`
+//! automatically because the endpoint requires it.
+//!
 //! See the [Deepgram Text Intelligence docs][docs] for more info.
 //!
 //! [docs]: https://developers.deepgram.com/docs/text-intelligence

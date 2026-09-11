@@ -1,6 +1,6 @@
 //! Idiomatic `futures::Stream` consumption of live transcription results.
 //!
-//! [`TranscriptionStream`](deepgram::listen::websocket::TranscriptionStream)
+//! [`TranscriptionStream`](deepgram::TranscriptionStream)
 //! implements [`futures::Stream`], so live results compose with the async
 //! ecosystem via [`StreamExt`] combinators (`filter_map`, `take_while`, `map`,
 //! …) exactly like any other stream — no callbacks required.

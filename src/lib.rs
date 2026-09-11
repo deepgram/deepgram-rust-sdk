@@ -38,7 +38,7 @@ use thiserror::Error;
 use url::Url;
 
 pub mod auth;
-#[cfg(feature = "listen")]
+#[cfg(any(feature = "listen", feature = "read"))]
 pub mod common;
 #[cfg(feature = "connect-diagnostics")]
 pub mod diagnostics;
@@ -46,7 +46,7 @@ pub mod diagnostics;
 pub mod listen;
 #[cfg(feature = "manage")]
 pub mod manage;
-#[cfg(feature = "listen")]
+#[cfg(feature = "read")]
 pub mod read;
 #[cfg(feature = "speak")]
 pub mod speak;
@@ -63,6 +63,8 @@ pub mod tls;
 pub use rustls;
 
 #[cfg(feature = "listen")]
+pub use listen::websocket::TranscriptionStream;
+#[cfg(feature = "read")]
 pub use read::Read;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
