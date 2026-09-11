@@ -7,4 +7,6 @@ pub mod rest;
 pub mod websocket;
 
 pub use response::SpeakMetadata;
-pub use websocket::{SpeakResponse, SpeakStreamBuilder, SpeakStreamHandle};
+pub use websocket::{
+    SpeakResponse, SpeakStreamBuilder, SpeakStreamEvents, SpeakStreamHandle, SpeakStreamSender,
+};
