@@ -3,10 +3,12 @@
 //! Mirrors `asyncapi/schemas/agent/think-settings.v1.yml` and the five
 //! provider sub-schemas under `asyncapi/schemas/agent/think-providers/`.
 
+use core::fmt;
 use std::collections::HashMap;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::agent::endpoint::RedactedHeaders;
 use crate::agent::Endpoint;
 
 pub mod anthropic;
@@ -131,6 +133,19 @@ pub struct ThinkFunction {
     /// When omitted, the function is executed client-side.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub endpoint: Option<FunctionEndpoint>,
+
+    /// Hold this function call until speech-to-text confirms the end of
+    /// the user's turn. Server default `false`.
+    ///
+    /// By default the agent may dispatch function calls during the
+    /// speculative window between an eager end-of-turn signal and the
+    /// confirmed one; if the user keeps talking, an already-sent
+    /// client-side call is revoked with a `FunctionCallCancelled` event.
+    /// Set this to `true` for irreversible actions (hanging up, charging a
+    /// card) so the call is only sent once the turn is confirmed — a
+    /// deferred call whose turn resumes is dropped silently.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub defer_until_eot: Option<bool>,
 }
 
 impl ThinkFunction {
@@ -147,6 +162,7 @@ impl ThinkFunction {
             description: description.into(),
             parameters,
             endpoint: None,
+            defer_until_eot: None,
         }
     }
 
@@ -155,10 +171,20 @@ impl ThinkFunction {
         self.endpoint = Some(endpoint);
         self
     }
+
+    /// Set `defer_until_eot` — hold the call until the user's turn is
+    /// confirmed. See the field docs for when to use this.
+    pub fn with_defer_until_eot(mut self, defer: bool) -> Self {
+        self.defer_until_eot = Some(defer);
+        self
+    }
 }
 
 /// HTTP endpoint for server-side function execution.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// The `Debug` output redacts header values (header names are kept) so
+/// that logging a `ThinkSettings` never leaks an `Authorization` header.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct FunctionEndpoint {
     /// Endpoint URL.
@@ -170,6 +196,33 @@ pub struct FunctionEndpoint {
     /// Custom headers.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub headers: HashMap<String, String>,
+}
+
+impl FunctionEndpoint {
+    /// Construct with the given URL and method and no extra headers.
+    pub fn new(url: impl Into<String>, method: impl Into<String>) -> Self {
+        Self {
+            url: url.into(),
+            method: method.into(),
+            headers: HashMap::new(),
+        }
+    }
+
+    /// Add a single header. Useful for fluent construction.
+    pub fn with_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+        self.headers.insert(name.into(), value.into());
+        self
+    }
+}
+
+impl fmt::Debug for FunctionEndpoint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FunctionEndpoint")
+            .field("url", &self.url)
+            .field("method", &self.method)
+            .field("headers", &RedactedHeaders(&self.headers))
+            .finish()
+    }
 }
 
 /// Context retention setting for `agent.think.context_length`.
@@ -380,6 +433,72 @@ mod tests {
         let fe: FunctionEndpoint = serde_json::from_value(raw.clone()).unwrap();
         assert_eq!(fe.method, "POST");
         assert_eq!(serde_json::to_value(&fe).unwrap(), raw);
+    }
+
+    #[test]
+    fn function_defer_until_eot_serialization() {
+        // An irreversible action deferred until the user's turn is confirmed.
+        // (Single-key schema so the exact-string assertion is independent
+        // of `serde_json::Value`'s sorted map ordering.)
+        let end_call =
+            ThinkFunction::new("end_call", "Hang up the call.", json!({ "type": "object" }))
+                .with_defer_until_eot(true);
+        assert_eq!(
+            serde_json::to_string(&end_call).unwrap(),
+            r#"{"name":"end_call","description":"Hang up the call.","parameters":{"type":"object"},"defer_until_eot":true}"#
+        );
+
+        // Unset → key omitted (server default is false).
+        let plain = ThinkFunction::new("lookup", "Read-only lookup.", json!({}));
+        assert!(serde_json::to_value(&plain)
+            .unwrap()
+            .get("defer_until_eot")
+            .is_none());
+
+        // Explicit false is preserved on the wire.
+        let explicit = plain.clone().with_defer_until_eot(false);
+        assert_eq!(
+            serde_json::to_value(&explicit).unwrap()["defer_until_eot"],
+            json!(false)
+        );
+
+        // Round trip through ThinkSettings.
+        let raw = json!({
+            "provider": { "type": "open_ai", "model": "gpt-4o-mini" },
+            "functions": [{
+                "name": "end_call",
+                "description": "Hang up the call.",
+                "parameters": { "type": "object" },
+                "defer_until_eot": true
+            }]
+        });
+        let settings: ThinkSettings = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(settings.functions[0].defer_until_eot, Some(true));
+        assert_eq!(serde_json::to_value(&settings).unwrap(), raw);
+    }
+
+    #[test]
+    fn function_endpoint_debug_redacts_header_values() {
+        let fe = FunctionEndpoint::new("https://hooks.internal/fn", "POST")
+            .with_header("Authorization", "Bearer super-secret-token")
+            .with_header("X-Tenant", "acme");
+        let debug = format!("{fe:?}");
+        assert!(!debug.contains("super-secret-token"), "got: {debug}");
+        assert!(!debug.contains("acme"), "got: {debug}");
+        assert!(debug.contains("Authorization"), "got: {debug}");
+        assert!(debug.contains("X-Tenant"), "got: {debug}");
+        assert!(debug.contains("<redacted>"), "got: {debug}");
+        assert!(debug.contains("https://hooks.internal/fn"), "got: {debug}");
+
+        // Also redacted when nested in a ThinkSettings.
+        let settings = ThinkSettings::new(ThinkProvider::OpenAi(OpenAiThinkProvider::new(
+            OpenAiModel::Gpt4oMini,
+        )))
+        .with_function(ThinkFunction::new("fn", "d", json!({})).with_endpoint(fe))
+        .with_endpoint(Endpoint::new("https://llm.internal").with_header("api-key", "llm-secret"));
+        let debug = format!("{settings:?}");
+        assert!(!debug.contains("super-secret-token"), "got: {debug}");
+        assert!(!debug.contains("llm-secret"), "got: {debug}");
     }
 
     #[test]

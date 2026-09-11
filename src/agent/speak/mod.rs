@@ -15,7 +15,9 @@ pub mod open_ai;
 
 pub use aws_polly::{AwsPollyEngine, AwsPollySpeakProvider, AwsPollyVoice};
 pub use cartesia::{CartesiaModelId, CartesiaSpeakProvider, CartesiaVersion, CartesiaVoice};
-pub use deepgram::{DeepgramSpeakModel, DeepgramSpeakProvider, DeepgramSpeakVersion};
+pub use deepgram::{
+    DeepgramSpeakExpressivity, DeepgramSpeakModel, DeepgramSpeakProvider, DeepgramSpeakVersion,
+};
 pub use eleven_labs::{ElevenLabsModelId, ElevenLabsSpeakProvider, ElevenLabsVersion};
 pub use open_ai::{OpenAiSpeakModel, OpenAiSpeakProvider, OpenAiSpeakVersion, OpenAiVoice};
 

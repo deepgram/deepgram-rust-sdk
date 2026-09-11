@@ -48,6 +48,9 @@ pub enum AgentResponse {
     AgentThinking(AgentThinkingEvent),
     /// Server requests one or more function calls.
     FunctionCallRequest(FunctionCallRequestEvent),
+    /// Server cancelled client-side function calls it already sent
+    /// (the user started speaking again). Do not respond to these IDs.
+    FunctionCallCancelled(FunctionCallCancelledEvent),
     /// Server has begun streaming the agent's audio response (only with
     /// `experimental` flag enabled).
     AgentStartedSpeaking(AgentStartedSpeakingEvent),
@@ -60,6 +63,10 @@ pub enum AgentResponse {
     /// Replay of conversation history. Reuses [`HistoryMessage`] since
     /// the wire shape is identical to `agent.context.messages[]`.
     History(HistoryMessage),
+    /// Per-turn latency breakdown across STT, LLM, and TTS.
+    LatencyReport(LatencyReportEvent),
+    /// Confirms an `UpdateListen` was applied.
+    ListenUpdated(ListenUpdatedEvent),
     /// Confirms an `UpdatePrompt` was applied.
     PromptUpdated(PromptUpdatedEvent),
     /// Confirms an `UpdateSpeak` was applied.
@@ -245,6 +252,56 @@ pub struct AgentFunctionCall {
     pub thought_signature: Option<String>,
 }
 
+// ---------- FunctionCallCancelled ----------
+
+/// Marker for the `"FunctionCallCancelled"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum FunctionCallCancelledType {
+    /// Always serializes as `"FunctionCallCancelled"`.
+    #[default]
+    FunctionCallCancelled,
+}
+
+/// Mirrors `AgentV1FunctionCallCancelledEvent` — the server cancelled
+/// one or more client-side function calls it had already sent in a
+/// `FunctionCallRequest`, because the user started speaking again
+/// (either during the speculative window before the turn was confirmed,
+/// or on barge-in after it). The client must abandon these calls and
+/// must **not** send a `FunctionCallResponse` for them.
+///
+/// Only calls the client already received are announced; calls still
+/// held by `defer_until_eot` are dropped silently.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct FunctionCallCancelledEvent {
+    #[serde(rename = "type", default)]
+    #[allow(missing_docs)]
+    pub message_type: FunctionCallCancelledType,
+
+    /// The cancelled calls.
+    pub functions: Vec<CancelledFunctionCall>,
+}
+
+impl FunctionCallCancelledEvent {
+    /// IDs of every cancelled call — convenient for pruning a map of
+    /// in-flight function executions keyed by `FunctionCallRequest` id.
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        self.functions.iter().map(|f| f.id.as_str())
+    }
+}
+
+/// Single entry in a `FunctionCallCancelled` event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct CancelledFunctionCall {
+    /// Identifier from the cancelled `FunctionCallRequest`.
+    pub id: String,
+
+    /// Function name.
+    pub name: String,
+}
+
 // ---------- AgentStartedSpeaking ----------
 
 /// Marker for the `"AgentStartedSpeaking"` discriminator value.
@@ -348,7 +405,78 @@ pub struct WarningEvent {
     pub code: String,
 }
 
-// ---------- PromptUpdated / SpeakUpdated / ThinkUpdated ----------
+// ---------- LatencyReport ----------
+
+/// Marker for the `"LatencyReport"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum LatencyReportType {
+    /// Always serializes as `"LatencyReport"`.
+    #[default]
+    LatencyReport,
+}
+
+/// Mirrors `AgentV1LatencyReportEvent` — detailed latency breakdown
+/// across the STT, LLM, and TTS pipeline, emitted after a turn.
+///
+/// All latency fields are seconds and optional; the server omits any that
+/// don't apply to the turn (e.g. `ttt_tool_latency` when no tool was
+/// called).
+#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct LatencyReportEvent {
+    #[serde(rename = "type", default)]
+    #[allow(missing_docs)]
+    pub message_type: LatencyReportType,
+
+    /// Speech-to-text: audio received → transcript produced.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stt_latency: Option<f64>,
+
+    /// Time to first token of any type (text, tool call, or thinking).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttt_token_latency: Option<f64>,
+
+    /// Time to first text token from the LLM.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttt_text_latency: Option<f64>,
+
+    /// Time to first tool-call token from the LLM.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttt_tool_latency: Option<f64>,
+
+    /// Time to first thinking token from the LLM.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttt_thinking_latency: Option<f64>,
+
+    /// Text-to-speech: first text token → first audio byte.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tts_latency: Option<f64>,
+
+    /// End-to-end: user utterance end → first audio byte.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_latency: Option<f64>,
+}
+
+// ---------- ListenUpdated / PromptUpdated / SpeakUpdated / ThinkUpdated ----------
+
+/// Marker for the `"ListenUpdated"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum ListenUpdatedType {
+    /// Always serializes as `"ListenUpdated"`.
+    #[default]
+    ListenUpdated,
+}
+
+/// Mirrors `AgentV1ListenUpdatedEvent` — confirms `UpdateListen` applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ListenUpdatedEvent {
+    #[serde(rename = "type", default)]
+    #[allow(missing_docs)]
+    pub message_type: ListenUpdatedType,
+}
 
 /// Marker for the `"PromptUpdated"` discriminator value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -558,6 +686,127 @@ mod tests {
             _ => panic!("expected FunctionCallRequest"),
         }
         assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+    }
+
+    #[test]
+    fn function_call_cancelled_round_trip() {
+        // Shape from the Voice Agent reference: `functions[]` of `{id, name}`.
+        let raw = json!({
+            "type": "FunctionCallCancelled",
+            "functions": [
+                { "id": "fc_12345678-90ab-cdef-1234-567890abcdef", "name": "book_appointment" },
+                { "id": "fc_2", "name": "end_call" }
+            ]
+        });
+        let event: AgentResponse = serde_json::from_value(raw.clone()).unwrap();
+        match &event {
+            AgentResponse::FunctionCallCancelled(e) => {
+                assert_eq!(e.functions.len(), 2);
+                assert_eq!(e.functions[0].id, "fc_12345678-90ab-cdef-1234-567890abcdef");
+                assert_eq!(e.functions[0].name, "book_appointment");
+                assert_eq!(
+                    e.ids().collect::<Vec<_>>(),
+                    vec!["fc_12345678-90ab-cdef-1234-567890abcdef", "fc_2"]
+                );
+            }
+            other => panic!("expected FunctionCallCancelled, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+    }
+
+    #[test]
+    fn function_call_cancelled_is_not_confused_with_request() {
+        // Same `functions` key as FunctionCallRequest but a different
+        // `type`; the marker enums keep the two apart in both directions.
+        let cancelled = json!({
+            "type": "FunctionCallCancelled",
+            "functions": [{ "id": "fc_1", "name": "get_weather" }]
+        });
+        assert!(matches!(
+            serde_json::from_value::<AgentResponse>(cancelled).unwrap(),
+            AgentResponse::FunctionCallCancelled(_)
+        ));
+        let request = json!({
+            "type": "FunctionCallRequest",
+            "functions": [{
+                "id": "fc_1",
+                "name": "get_weather",
+                "arguments": "{}",
+                "client_side": true
+            }]
+        });
+        assert!(matches!(
+            serde_json::from_value::<AgentResponse>(request).unwrap(),
+            AgentResponse::FunctionCallRequest(_)
+        ));
+    }
+
+    #[test]
+    fn latency_report_full_round_trip() {
+        let raw = json!({
+            "type": "LatencyReport",
+            "stt_latency": 0.21,
+            "ttt_token_latency": 0.35,
+            "ttt_text_latency": 0.4,
+            "ttt_tool_latency": 0.38,
+            "ttt_thinking_latency": 0.36,
+            "tts_latency": 0.12,
+            "total_latency": 0.9
+        });
+        let event: AgentResponse = serde_json::from_value(raw.clone()).unwrap();
+        match &event {
+            AgentResponse::LatencyReport(e) => {
+                assert_eq!(e.stt_latency, Some(0.21));
+                assert_eq!(e.ttt_token_latency, Some(0.35));
+                assert_eq!(e.ttt_text_latency, Some(0.4));
+                assert_eq!(e.ttt_tool_latency, Some(0.38));
+                assert_eq!(e.ttt_thinking_latency, Some(0.36));
+                assert_eq!(e.tts_latency, Some(0.12));
+                assert_eq!(e.total_latency, Some(0.9));
+            }
+            other => panic!("expected LatencyReport, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+    }
+
+    #[test]
+    fn latency_report_partial_fields_round_trip() {
+        // Every latency is optional; a turn with no tool call omits the
+        // tool/thinking fields and they must not be emitted as null.
+        let raw = json!({
+            "type": "LatencyReport",
+            "stt_latency": 0.2,
+            "ttt_text_latency": 0.5,
+            "tts_latency": 0.1,
+            "total_latency": 0.8
+        });
+        let event: AgentResponse = serde_json::from_value(raw.clone()).unwrap();
+        match &event {
+            AgentResponse::LatencyReport(e) => {
+                assert!(e.ttt_tool_latency.is_none());
+                assert!(e.ttt_thinking_latency.is_none());
+                assert!(e.ttt_token_latency.is_none());
+            }
+            other => panic!("expected LatencyReport, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+        assert_eq!(
+            serde_json::to_string(&AgentResponse::LatencyReport(LatencyReportEvent::default()))
+                .unwrap(),
+            r#"{"type":"LatencyReport"}"#
+        );
+    }
+
+    #[test]
+    fn listen_updated_round_trip() {
+        let raw = json!({ "type": "ListenUpdated" });
+        let event: AgentResponse = serde_json::from_value(raw.clone()).unwrap();
+        assert!(matches!(event, AgentResponse::ListenUpdated(_)));
+        assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+        assert_eq!(
+            serde_json::to_string(&ListenUpdatedEvent::default()).unwrap(),
+            r#"{"type":"ListenUpdated"}"#
+        );
     }
 
     #[test]

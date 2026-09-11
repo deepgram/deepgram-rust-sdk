@@ -1,6 +1,6 @@
 //! Voice Agent (`/v1/agent/converse`) types.
 //!
-//! This module is being built out incrementally. So far it contains:
+//! It contains:
 //!
 //! - [`endpoint::Endpoint`] — custom LLM/TTS endpoint URL + headers.
 //! - [`aws_credentials::AwsCredentials`] — credential block shared by AWS Bedrock (Think) and AWS Polly (Speak).
@@ -17,24 +17,30 @@
 //! - [`settings`] — top-level `SettingsMessage` and the `AgentConfig`
 //!   oneOf (`Inline(InlineAgentConfig)` vs. `Saved(Uuid)`).
 //! - [`messages`] — the remaining client-to-server messages
-//!   (`UpdateSpeak`, `UpdateThink`, `UpdatePrompt`, `InjectUserMessage`,
-//!   `InjectAgentMessage`, `FunctionCallResponse`, `KeepAlive`) plus the
-//!   `ClientMessage` discriminated union over all eight.
+//!   (`UpdateListen`, `UpdateSpeak`, `UpdateThink`, `UpdatePrompt`,
+//!   `InjectUserMessage`, `InjectAgentMessage`, `FunctionCallResponse`,
+//!   `KeepAlive`, `ForceEndTurn`) plus the `ClientMessage` discriminated
+//!   union over all ten.
 //! - [`response`] — every server-emitted JSON event (`Welcome`,
 //!   `SettingsApplied`, `ConversationText`, `UserStartedSpeaking`,
-//!   `AgentThinking`, `FunctionCallRequest`, `AgentStartedSpeaking`,
-//!   `AgentAudioDone`, `Error`, `Warning`, `History`, `PromptUpdated`,
+//!   `AgentThinking`, `FunctionCallRequest`, `FunctionCallCancelled`,
+//!   `AgentStartedSpeaking`, `AgentAudioDone`, `Error`, `Warning`,
+//!   `History`, `LatencyReport`, `ListenUpdated`, `PromptUpdated`,
 //!   `SpeakUpdated`, `ThinkUpdated`, `InjectionRefused`,
 //!   `FunctionCallResponse`) plus an `Unknown` catch-all for forward
 //!   compatibility, all unified under the [`response::AgentResponse`] enum.
 //! - [`websocket`] — the [`Agent`] sub-client and live-session
 //!   primitives ([`AgentHandle`], [`AgentEventStream`], [`AgentEvent`])
 //!   that connect to `wss://agent.deepgram.com/v1/agent/converse`.
+//!   `start_at_url` requires TLS (`wss://`) except for loopback hosts.
+//!
+//! `Debug` output for [`AwsCredentials`], [`Endpoint`], and
+//! [`FunctionEndpoint`] redacts secrets (AWS keys/tokens and header
+//! values), so a `Settings` value can be logged safely.
 //!
 //! Wire format matches the AsyncAPI schemas in `deepgram-docs` under
-//! `api/specs/asyncapi/schemas/agent/`. Examples and additional
-//! convenience layers (e.g. file-based audio input) follow in
-//! subsequent commits.
+//! `api/specs/asyncapi/schemas/agent/`. See the `simple_agent` and
+//! `function_calling` examples for end-to-end usage.
 
 pub mod audio;
 pub mod aws_credentials;
@@ -62,16 +68,19 @@ pub use listen::{
     DeepgramListenV2Provider, DeepgramListenV2Version, DeepgramProviderType,
 };
 pub use messages::{
-    ClientMessage, FunctionCallResponseMessage, FunctionCallResponseType, InjectAgentBehavior,
-    InjectAgentMessageMessage, InjectAgentMessageType, InjectUserMessageMessage,
-    InjectUserMessageType, KeepAliveMessage, KeepAliveType, UpdatePromptMessage, UpdatePromptType,
+    ClientMessage, ForceEndTurnMessage, ForceEndTurnType, FunctionCallResponseMessage,
+    FunctionCallResponseType, InjectAgentBehavior, InjectAgentMessageMessage,
+    InjectAgentMessageType, InjectUserMessageMessage, InjectUserMessageType, KeepAliveMessage,
+    KeepAliveType, UpdateListenMessage, UpdateListenType, UpdatePromptMessage, UpdatePromptType,
     UpdateSpeakMessage, UpdateSpeakType, UpdateThinkMessage, UpdateThinkType,
 };
 pub use response::{
     AgentAudioDoneEvent, AgentAudioDoneType, AgentFunctionCall, AgentResponse,
     AgentStartedSpeakingEvent, AgentStartedSpeakingType, AgentThinkingEvent, AgentThinkingType,
-    ConversationTextEvent, ConversationTextType, ErrorEvent, ErrorType, FunctionCallRequestEvent,
-    FunctionCallRequestType, InjectionRefusedEvent, InjectionRefusedType, PromptUpdatedEvent,
+    CancelledFunctionCall, ConversationTextEvent, ConversationTextType, ErrorEvent, ErrorType,
+    FunctionCallCancelledEvent, FunctionCallCancelledType, FunctionCallRequestEvent,
+    FunctionCallRequestType, InjectionRefusedEvent, InjectionRefusedType, LatencyReportEvent,
+    LatencyReportType, ListenUpdatedEvent, ListenUpdatedType, PromptUpdatedEvent,
     PromptUpdatedType, SettingsAppliedEvent, SettingsAppliedType, SpeakUpdatedEvent,
     SpeakUpdatedType, ThinkUpdatedEvent, ThinkUpdatedType, UserStartedSpeakingEvent,
     UserStartedSpeakingType, WarningEvent, WarningType, WelcomeEvent, WelcomeType,
@@ -82,4 +91,4 @@ pub use settings::{
 };
 pub use speak::{SpeakProvider, SpeakSettings};
 pub use think::{ContextLength, FunctionEndpoint, ThinkFunction, ThinkProvider, ThinkSettings};
-pub use websocket::{Agent, AgentEvent, AgentEventStream, AgentHandle};
+pub use websocket::{Agent, AgentEvent, AgentEventStream, AgentHandle, InsecureAgentUrl};

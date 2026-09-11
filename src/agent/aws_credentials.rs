@@ -3,14 +3,24 @@
 //! Two flavors supported by the Voice Agent: short-lived STS credentials
 //! (require `session_token`) and long-lived IAM credentials.
 
+use core::fmt;
+
 use serde::{Deserialize, Serialize};
+
+use crate::agent::endpoint::REDACTED;
 
 /// AWS credentials block.
 ///
 /// All fields are required when used with AWS Polly. AWS Bedrock accepts
 /// any subset, so consumers building Bedrock configs may want to wrap the
 /// whole struct in `Option<>` rather than supplying partial credentials.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// The `Debug` output redacts `access_key_id`, `secret_access_key`, and
+/// `session_token` (printing `"<redacted>"` when set) so that logging a
+/// `Settings`, `ThinkSettings`, or `SpeakSettings` never leaks AWS
+/// credentials. `region` and the credential type are shown. Serialization
+/// is unaffected.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct AwsCredentials {
     /// Credential type — STS (short-lived) or IAM (long-lived).
@@ -32,6 +42,23 @@ pub struct AwsCredentials {
     /// AWS session token. Required for STS credentials.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_token: Option<String>,
+}
+
+impl fmt::Debug for AwsCredentials {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AwsCredentials")
+            .field("credentials_type", &self.credentials_type)
+            .field("region", &self.region)
+            .field("access_key_id", &redacted(&self.access_key_id))
+            .field("secret_access_key", &redacted(&self.secret_access_key))
+            .field("session_token", &redacted(&self.session_token))
+            .finish()
+    }
+}
+
+/// `None` stays `None`; `Some(secret)` becomes `Some("<redacted>")`.
+fn redacted(value: &Option<String>) -> Option<&'static str> {
+    value.as_ref().map(|_| REDACTED)
 }
 
 /// Distinguishes short-lived STS credentials from long-lived IAM credentials.
@@ -90,5 +117,53 @@ mod tests {
         assert!(creds.region.is_none());
         let back = serde_json::to_value(&creds).unwrap();
         assert_eq!(back, raw);
+    }
+
+    #[test]
+    fn debug_redacts_secrets_but_keeps_region_and_type() {
+        let creds: AwsCredentials = serde_json::from_value(json!({
+            "type": "sts",
+            "region": "us-west-2",
+            "access_key_id": "AKIAIOSFODNN7EXAMPLE",
+            "secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            "session_token": "FwoGZXIvYXdzEBYaDExampleSessionToken",
+        }))
+        .unwrap();
+        let debug = format!("{creds:?}");
+        assert!(!debug.contains("AKIAIOSFODNN7EXAMPLE"), "got: {debug}");
+        assert!(
+            !debug.contains("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+            "got: {debug}"
+        );
+        assert!(
+            !debug.contains("FwoGZXIvYXdzEBYaDExampleSessionToken"),
+            "got: {debug}"
+        );
+        assert!(debug.contains("<redacted>"), "got: {debug}");
+        assert!(debug.contains("us-west-2"), "got: {debug}");
+        assert!(debug.contains("Sts"), "got: {debug}");
+        // Field names remain visible so a log line is still diagnosable.
+        assert!(debug.contains("secret_access_key"), "got: {debug}");
+    }
+
+    #[test]
+    fn debug_shows_none_for_absent_secrets() {
+        let creds: AwsCredentials = serde_json::from_value(json!({ "type": "iam" })).unwrap();
+        let debug = format!("{creds:?}");
+        assert!(!debug.contains("<redacted>"), "got: {debug}");
+        assert!(debug.contains("access_key_id: None"), "got: {debug}");
+    }
+
+    #[test]
+    fn debug_redaction_does_not_affect_serialization() {
+        let creds: AwsCredentials = serde_json::from_value(json!({
+            "type": "iam",
+            "access_key_id": "AKIA000",
+            "secret_access_key": "secret",
+        }))
+        .unwrap();
+        let json = serde_json::to_value(&creds).unwrap();
+        assert_eq!(json["access_key_id"], "AKIA000");
+        assert_eq!(json["secret_access_key"], "secret");
     }
 }

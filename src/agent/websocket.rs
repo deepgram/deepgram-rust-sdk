@@ -22,7 +22,7 @@
 //! use futures::StreamExt;
 //!
 //! # async fn run() -> Result<(), deepgram::DeepgramError> {
-//! let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default())?;
+//! let dg = Deepgram::new(std::env::var("DEEPGRAM_API_KEY").unwrap_or_default())?;
 //! let (mut handle, mut events) = dg.agent().start().await?;
 //!
 //! handle
@@ -60,9 +60,10 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::Bytes;
+use core::fmt;
 use futures::channel::mpsc::{self, Receiver, Sender};
 use futures::stream::StreamExt;
-use futures::{select_biased, SinkExt, Stream};
+use futures::{select, SinkExt, Stream};
 use http::Request;
 use pin_project::pin_project;
 use serde::Serialize;
@@ -71,8 +72,9 @@ use tungstenite::handshake::client;
 use uuid::Uuid;
 
 use crate::agent::messages::{
-    FunctionCallResponseMessage, InjectAgentMessageMessage, InjectUserMessageMessage,
-    KeepAliveMessage, UpdatePromptMessage, UpdateSpeakMessage, UpdateThinkMessage,
+    ForceEndTurnMessage, FunctionCallResponseMessage, InjectAgentMessageMessage,
+    InjectUserMessageMessage, KeepAliveMessage, UpdateListenMessage, UpdatePromptMessage,
+    UpdateSpeakMessage, UpdateThinkMessage,
 };
 use crate::agent::response::AgentResponse;
 use crate::agent::settings::SettingsMessage;
@@ -123,17 +125,34 @@ impl Agent<'_> {
 
     /// Open a session at a custom WebSocket URL.
     ///
+    /// # TLS is required
+    ///
+    /// The Deepgram credential (API key or temporary token) is sent in the
+    /// handshake's `Authorization` header, so the URL **must use TLS**
+    /// (`wss://`). The single exception is a **loopback host** —
+    /// `localhost`, `127.0.0.0/8`, or `[::1]` — where plain `ws://` is
+    /// accepted so integration tests can target a local mock server. Any
+    /// other `ws://` URL is rejected *before* a connection is attempted
+    /// with [`DeepgramError::InternalClientError`] wrapping an
+    /// [`InsecureAgentUrl`], so the credential is never transmitted in
+    /// cleartext. Schemes other than `ws`/`wss` return
+    /// [`DeepgramError::InvalidUrl`].
+    ///
     /// Use cases:
     /// - **Self-hosted agent deployments** — point at your own
     ///   `wss://agent.your-domain.example/...` host.
     /// - **Integration tests** — point at a local mock server (e.g.
     ///   `ws://127.0.0.1:NNNN/...`).
     ///
-    /// All other behavior matches [`Agent::start`]: same auth headers,
-    /// same handshake, same returned types.
+    /// The `Host` header is built from the URL's full authority: host plus
+    /// any non-default port, with IPv6 literals bracketed (e.g.
+    /// `127.0.0.1:NNNN`, `[::1]:NNNN`, `agent.deepgram.com`). All other
+    /// behavior matches [`Agent::start`]: same auth headers, same
+    /// handshake, same returned types.
     pub async fn start_at_url(&self, url: &str) -> Result<(AgentHandle, AgentEventStream)> {
         let url: url::Url = url.parse().map_err(|_| DeepgramError::InvalidUrl)?;
-        let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
+        validate_agent_url(&url)?;
+        let host = host_header_value(&url).ok_or(DeepgramError::InvalidUrl)?;
 
         let request = {
             let http_builder = Request::builder()
@@ -184,6 +203,82 @@ impl Agent<'_> {
     }
 }
 
+/// Error returned by [`Agent::start_at_url`] when asked to open a
+/// cleartext (`ws://`) session to a host that is not loopback.
+///
+/// The Deepgram credential travels in the handshake's `Authorization`
+/// header; sending it over `ws://` would expose it to anyone on the
+/// network path. Surfaced as [`DeepgramError::InternalClientError`] —
+/// downcast the inner `anyhow::Error` to this type to match on it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct InsecureAgentUrl {
+    /// Origin of the rejected URL as `scheme://host[:port]`. The path,
+    /// query, and any `user:pass@` userinfo are deliberately omitted so
+    /// the error can be logged without echoing a credential.
+    pub url: String,
+}
+
+impl fmt::Display for InsecureAgentUrl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "refusing to open a Voice Agent session at `{}`: the Deepgram credential is sent in \
+             the Authorization header and `ws://` would transmit it in cleartext. Use `wss://`; \
+             plain `ws://` is only accepted for loopback hosts (localhost, 127.0.0.0/8, ::1) in \
+             local tests",
+            self.url
+        )
+    }
+}
+
+impl std::error::Error for InsecureAgentUrl {}
+
+impl From<InsecureAgentUrl> for DeepgramError {
+    fn from(err: InsecureAgentUrl) -> Self {
+        DeepgramError::InternalClientError(anyhow::Error::new(err))
+    }
+}
+
+/// Enforce the TLS rule documented on [`Agent::start_at_url`].
+fn validate_agent_url(url: &url::Url) -> Result<()> {
+    match url.scheme() {
+        "wss" => Ok(()),
+        "ws" if is_loopback_host(url) => Ok(()),
+        "ws" => Err(InsecureAgentUrl {
+            url: format!(
+                "{}://{}",
+                url.scheme(),
+                host_header_value(url).unwrap_or_default()
+            ),
+        }
+        .into()),
+        _ => Err(DeepgramError::InvalidUrl),
+    }
+}
+
+/// `true` for `localhost`, any `127.0.0.0/8` address, or `::1`.
+fn is_loopback_host(url: &url::Url) -> bool {
+    match url.host() {
+        Some(url::Host::Domain(domain)) => domain.eq_ignore_ascii_case("localhost"),
+        Some(url::Host::Ipv4(addr)) => addr.is_loopback(),
+        Some(url::Host::Ipv6(addr)) => addr.is_loopback(),
+        None => false,
+    }
+}
+
+/// `Host` header value: the URL authority without userinfo — host plus
+/// the port when it is not the scheme default. `url::Url::host_str`
+/// already brackets IPv6 literals, and `url::Url::port` is `None` for a
+/// default port (80 for `ws`, 443 for `wss`).
+fn host_header_value(url: &url::Url) -> Option<String> {
+    let host = url.host_str()?;
+    Some(match url.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host.to_owned(),
+    })
+}
+
 /// A single event received from the Voice Agent server.
 ///
 /// JSON events and binary audio frames are interleaved on the same
@@ -220,6 +315,15 @@ pub enum AgentEvent {
 /// channels. For a long session, keep draining the event stream while you
 /// send (typically from separate tasks) rather than queueing an unbounded
 /// amount of outgoing audio without reading incoming events.
+///
+/// Once the session has ended — the server closed the connection or the
+/// transport failed — every `send_*` method on a retained handle returns
+/// an error rather than silently accepting a message that can no longer
+/// be delivered. If the consumer drops the [`AgentEventStream`] instead,
+/// the worker only notices when it next has something to deliver (the
+/// next inbound frame or close), so on a silent connection sends keep
+/// succeeding until then; from that point they fail the same way.
+/// [`AgentHandle::close`] on an already-ended session is a no-op.
 #[derive(Debug)]
 pub struct AgentHandle {
     message_tx: Sender<WsMessage>,
@@ -236,6 +340,13 @@ impl AgentHandle {
 
     /// Send a `Settings` message (typically the first JSON message of a session).
     pub async fn send_settings(&mut self, message: SettingsMessage) -> Result<()> {
+        self.send_json(&message).await
+    }
+
+    /// Send an `UpdateListen` message (change the STT model, language
+    /// hints, Flux end-of-turn thresholds, or keyterms mid-session). The
+    /// server confirms with `ListenUpdated`.
+    pub async fn send_update_listen(&mut self, message: UpdateListenMessage) -> Result<()> {
         self.send_json(&message).await
     }
 
@@ -291,8 +402,28 @@ impl AgentHandle {
     }
 
     /// Send a `KeepAlive` message.
+    ///
+    /// Only needed while the client is not sending audio: the server
+    /// closes connections that go silent, so during an idle period send
+    /// one `KeepAlive` every 8 seconds. Sessions that stream microphone
+    /// audio continuously do not need it. `KeepAlive` does not extend the
+    /// 2-hour maximum session length; the server closes every session at
+    /// that mark (preceded by a `MAXIMUM_SESSION_LENGTH_APPROACHING`
+    /// warning five minutes earlier).
     pub async fn keep_alive(&mut self) -> Result<()> {
         self.send_json(&KeepAliveMessage::default()).await
+    }
+
+    /// Send a `ForceEndTurn` message — end the current user turn now,
+    /// without waiting for end-of-turn detection.
+    ///
+    /// Requires a Deepgram V2 (Flux) listen provider; with any other
+    /// provider the server replies with a `FORCE_END_TURN_UNSUPPORTED`
+    /// `Warning` and the turn does not end. Typically paired with
+    /// `eot_threshold: 1.0` on the listen provider, which suppresses
+    /// natural endpointing so the application controls turn boundaries.
+    pub async fn force_end_turn(&mut self) -> Result<()> {
+        self.send_json(&ForceEndTurnMessage::default()).await
     }
 
     /// Close the WebSocket. After this returns, `send_*` methods will fail.
@@ -308,6 +439,25 @@ impl AgentHandle {
             self.message_tx.close_channel();
         }
         Ok(())
+    }
+
+    /// Send an arbitrary JSON value as a client message.
+    ///
+    /// This is the escape hatch for client messages the SDK has not typed
+    /// yet: a think or speak provider the API accepts but this release
+    /// does not model (for example a `Settings` message whose
+    /// `agent.think.provider` is `{"type":"nvidia", ...}`), a field added
+    /// to an existing message after this release, or an entirely new
+    /// message `type`. Prefer the typed `send_*` methods whenever one
+    /// exists.
+    ///
+    /// The value is serialized with `serde_json` exactly as given — no
+    /// fields are added, renamed, or validated client-side — and travels
+    /// through the same bounded channel as the typed messages, so it is
+    /// delivered in order relative to them. The server answers a
+    /// malformed or unsupported message with an `Error` event.
+    pub async fn send_raw_json(&mut self, value: serde_json::Value) -> Result<()> {
+        self.send_json(&value).await
     }
 
     async fn send_json<T: Serialize>(&mut self, value: &T) -> Result<()> {
@@ -373,7 +523,13 @@ async fn run_agent_worker(
 
     loop {
         if is_open {
-            select_biased! {
+            // Unbiased `select!`: when both the inbound WebSocket and the
+            // outbound command channel are ready, the branch is chosen at
+            // random, so a server streaming audio continuously cannot
+            // starve outgoing audio, function responses, KeepAlives, or
+            // the Close request. (`select_biased!` preferring `ws_recv`
+            // did exactly that under sustained inbound load.)
+            select! {
                 inbound = ws_recv.next() => {
                     if handle_agent_inbound(inbound, &mut ws_send, &mut response_tx).await.is_break() {
                         break;
@@ -416,16 +572,25 @@ async fn run_agent_worker(
         }
     }
 
-    // If we stopped while the connection was still open (e.g. the consumer
-    // dropped the event stream), close it cleanly.
+    // Terminal cleanup — reached on peer close, transport error, or when the
+    // consumer dropped the event stream. Order matters:
+    //
+    // 1. Close the command channel *first* so every retained `AgentHandle`
+    //    send fails promptly instead of being accepted and silently dropped.
+    //    (`Receiver::close` rejects new sends while letting us drain what is
+    //    already buffered.)
+    message_rx.close();
+    // 2. Discard anything buffered. Non-blocking: `try_recv` returns `Err`
+    //    once the (closed) channel is empty rather than waiting on senders.
+    while message_rx.try_recv().is_ok() {}
+    // 3. If we stopped while the connection was still open (e.g. the
+    //    consumer dropped the event stream), tell the peer we're going away.
     if is_open {
         let _ = ws_send.send(Message::Close(None)).await;
     }
+    // 4. Signal end-of-stream to the consumer and return immediately — the
+    //    worker must not linger until every handle is dropped.
     response_tx.close_channel();
-    // Drain any remaining outbound messages so the sender side closes cleanly.
-    while message_rx.next().await.is_some() {
-        // Discard.
-    }
     Ok(())
 }
 
@@ -467,11 +632,18 @@ where
         }
         Some(Ok(Message::Close(None))) => return ControlFlow::Break(()),
         Some(Ok(Message::Close(Some(frame)))) => {
-            let err = DeepgramError::WebsocketClose {
-                code: frame.code.into(),
-                reason: frame.reason.to_string(),
-            };
-            let _ = response_tx.send(Err(err)).await;
+            // A normal (1000) close is not an error: the server ends every
+            // session this way (after a client-initiated close and at the
+            // 2-hour session cap). Only abnormal close codes reach the
+            // consumer, matching the streaming TTS worker.
+            if u16::from(frame.code) != 1000 {
+                let _ = response_tx
+                    .send(Err(DeepgramError::WebsocketClose {
+                        code: frame.code.into(),
+                        reason: frame.reason.to_string(),
+                    }))
+                    .await;
+            }
             return ControlFlow::Break(());
         }
         Some(Ok(Message::Frame(_))) => {
@@ -558,6 +730,154 @@ mod tests {
         serde_json::to_string(&FunctionCallResponseMessage::with_id("f1", "fn", "{}"))
             .expect("function_call_response serializes");
         serde_json::to_string(&KeepAliveMessage::default()).expect("keep_alive serializes");
+        serde_json::to_string(&UpdateListenMessage::new(AgentListenSettings::new(
+            AgentListenProvider::DeepgramV2(DeepgramListenV2Provider::new("flux-general-en")),
+        )))
+        .expect("update_listen serializes");
+        serde_json::to_string(&ForceEndTurnMessage::default()).expect("force_end_turn serializes");
+    }
+
+    fn parse(url: &str) -> url::Url {
+        url.parse().expect("valid URL")
+    }
+
+    #[test]
+    fn tls_rule_allows_wss_anywhere() {
+        assert!(validate_agent_url(&parse("wss://agent.deepgram.com/v1/agent/converse")).is_ok());
+        assert!(validate_agent_url(&parse("wss://agent.internal.example:8443/agent")).is_ok());
+        assert!(validate_agent_url(&parse(AGENT_WS_URL)).is_ok());
+    }
+
+    #[test]
+    fn tls_rule_allows_cleartext_only_for_loopback() {
+        for ok in [
+            "ws://127.0.0.1:9000/v1/agent/converse",
+            "ws://127.0.0.1/v1/agent/converse",
+            "ws://127.42.0.7:1234/",
+            "ws://localhost:9000/",
+            "ws://LOCALHOST:9000/",
+            "ws://[::1]:9000/",
+        ] {
+            assert!(
+                validate_agent_url(&parse(ok)).is_ok(),
+                "{ok} should be allowed"
+            );
+        }
+    }
+
+    #[test]
+    fn tls_rule_rejects_remote_cleartext_with_clear_error() {
+        for bad in [
+            "ws://agent.deepgram.com/v1/agent/converse",
+            "ws://10.0.0.5:9000/agent",
+            "ws://192.168.1.20/agent",
+            "ws://[2001:db8::1]:9000/agent",
+            "ws://localhost.example.com/agent",
+            "ws://evil-localhost/agent",
+        ] {
+            let err = validate_agent_url(&parse(bad)).expect_err(bad);
+            let inner = match &err {
+                DeepgramError::InternalClientError(inner) => inner,
+                other => panic!("{bad}: expected InternalClientError, got {other:?}"),
+            };
+            let insecure = inner
+                .downcast_ref::<InsecureAgentUrl>()
+                .expect("downcasts to InsecureAgentUrl");
+            let parsed = parse(bad);
+            let expected_origin = format!(
+                "ws://{}",
+                host_header_value(&parsed).expect("bad URLs here all have hosts")
+            );
+            assert_eq!(insecure.url, expected_origin, "{bad}");
+            let text = err.to_string();
+            assert!(text.contains("cleartext"), "{bad}: {text}");
+            assert!(text.contains("wss://"), "{bad}: {text}");
+            assert!(text.contains("Authorization"), "{bad}: {text}");
+        }
+    }
+
+    /// The rejection error is likely to be logged, so it must not echo
+    /// userinfo, path, or query from the URL that was passed in.
+    #[test]
+    fn insecure_url_error_omits_userinfo_path_and_query() {
+        let bad = "ws://alice:s3cret@agent.example.com:8080/v1/agent/converse?token=abc";
+        let err = validate_agent_url(&parse(bad)).expect_err(bad);
+        let DeepgramError::InternalClientError(inner) = &err else {
+            panic!("expected InternalClientError, got {err:?}");
+        };
+        let insecure = inner
+            .downcast_ref::<InsecureAgentUrl>()
+            .expect("downcasts to InsecureAgentUrl");
+        assert_eq!(insecure.url, "ws://agent.example.com:8080");
+        let text = err.to_string();
+        for secret in ["alice", "s3cret", "token=abc", "/v1/agent/converse"] {
+            assert!(
+                !text.contains(secret),
+                "error text leaked {secret:?}: {text}"
+            );
+        }
+        assert!(text.contains("ws://agent.example.com:8080"), "{text}");
+    }
+
+    #[test]
+    fn tls_rule_rejects_non_websocket_schemes_as_invalid_url() {
+        for bad in [
+            "http://127.0.0.1:9000/",
+            "https://agent.deepgram.com/",
+            "ftp://x/",
+        ] {
+            assert!(
+                matches!(
+                    validate_agent_url(&parse(bad)),
+                    Err(DeepgramError::InvalidUrl)
+                ),
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn host_header_includes_non_default_port() {
+        assert_eq!(
+            host_header_value(&parse("ws://127.0.0.1:54321/v1/agent/converse")).as_deref(),
+            Some("127.0.0.1:54321")
+        );
+        assert_eq!(
+            host_header_value(&parse("wss://agent.internal.example:8443/agent")).as_deref(),
+            Some("agent.internal.example:8443")
+        );
+    }
+
+    #[test]
+    fn host_header_omits_default_port() {
+        assert_eq!(
+            host_header_value(&parse(AGENT_WS_URL)).as_deref(),
+            Some("agent.deepgram.com")
+        );
+        assert_eq!(
+            host_header_value(&parse("wss://agent.deepgram.com:443/x")).as_deref(),
+            Some("agent.deepgram.com")
+        );
+        assert_eq!(
+            host_header_value(&parse("ws://127.0.0.1:80/x")).as_deref(),
+            Some("127.0.0.1")
+        );
+    }
+
+    #[test]
+    fn host_header_brackets_ipv6_literals() {
+        assert_eq!(
+            host_header_value(&parse("ws://[::1]:9000/agent")).as_deref(),
+            Some("[::1]:9000")
+        );
+        assert_eq!(
+            host_header_value(&parse("wss://[2001:db8::1]/agent")).as_deref(),
+            Some("[2001:db8::1]")
+        );
+        assert_eq!(
+            host_header_value(&parse("wss://[2001:db8::1]:8443/agent")).as_deref(),
+            Some("[2001:db8::1]:8443")
+        );
     }
 
     #[test]
