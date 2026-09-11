@@ -671,7 +671,7 @@ pub enum Redact {
     /// the entity types in the `numbers` redaction group.
     AggressiveNumbers,
 
-    #[allow(missing_docs)]
+    /// Redacts Social Security Numbers and international equivalents (`ssn`).
     Ssn,
 
     /// Avoid using the `Other` variant where possible.
@@ -2823,6 +2823,47 @@ mod from_string_tests {
     }
 
     #[test]
+    fn whisper_models_round_trip() {
+        let cases = [
+            (Model::Whisper, "whisper"),
+            (Model::WhisperTiny, "whisper-tiny"),
+            (Model::WhisperBase, "whisper-base"),
+            (Model::WhisperSmall, "whisper-small"),
+            (Model::WhisperMedium, "whisper-medium"),
+            (Model::WhisperLarge, "whisper-large"),
+        ];
+
+        for (model, wire) in cases {
+            assert_eq!(model.as_ref(), wire, "{model:?} wire value");
+            assert_eq!(Model::from(wire.to_string()), model, "`{wire}` parses");
+            assert_ne!(
+                Model::from(wire.to_string()),
+                Model::CustomId(wire.to_string()),
+                "`{wire}` must resolve to a named variant, not CustomId"
+            );
+        }
+    }
+
+    #[test]
+    fn redact_entities_round_trip() {
+        let cases = [
+            (Redact::Pii, "pii"),
+            (Redact::Phi, "phi"),
+            (Redact::AggressiveNumbers, "aggressive_numbers"),
+        ];
+
+        for (redact, wire) in cases {
+            assert_eq!(redact.as_ref(), wire, "{redact:?} wire value");
+            assert_eq!(Redact::from(wire.to_string()), redact, "`{wire}` parses");
+            assert_ne!(
+                Redact::from(wire.to_string()),
+                Redact::Other(wire.to_string()),
+                "`{wire}` must resolve to a named variant, not Other"
+            );
+        }
+    }
+
+    #[test]
     fn redact_from_string() {
         assert_eq!(Redact::from("pci".to_string()), Redact::Pci);
         assert_eq!(
@@ -3069,6 +3110,66 @@ mod serialize_options_tests {
                 ])
                 .build(),
             "redact=numbers&redact=ssn&redact=pci&redact=ssn&redact=numbers&redact=pci",
+        );
+    }
+
+    #[test]
+    fn redact_entities() {
+        check_serialization(
+            &Options::builder().redact([Redact::Pii]).build(),
+            "redact=pii",
+        );
+
+        check_serialization(
+            &Options::builder().redact([Redact::Phi]).build(),
+            "redact=phi",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .redact([Redact::AggressiveNumbers])
+                .build(),
+            "redact=aggressive_numbers",
+        );
+
+        check_serialization(
+            &Options::builder()
+                .redact([Redact::Pii, Redact::Phi, Redact::AggressiveNumbers])
+                .build(),
+            "redact=pii&redact=phi&redact=aggressive_numbers",
+        );
+    }
+
+    #[test]
+    fn whisper_models() {
+        check_serialization(
+            &Options::builder().model(Model::Whisper).build(),
+            "model=whisper",
+        );
+
+        check_serialization(
+            &Options::builder().model(Model::WhisperTiny).build(),
+            "model=whisper-tiny",
+        );
+
+        check_serialization(
+            &Options::builder().model(Model::WhisperBase).build(),
+            "model=whisper-base",
+        );
+
+        check_serialization(
+            &Options::builder().model(Model::WhisperSmall).build(),
+            "model=whisper-small",
+        );
+
+        check_serialization(
+            &Options::builder().model(Model::WhisperMedium).build(),
+            "model=whisper-medium",
+        );
+
+        check_serialization(
+            &Options::builder().model(Model::WhisperLarge).build(),
+            "model=whisper-large",
         );
     }
 

@@ -41,8 +41,13 @@ async fn main() -> Result<(), DeepgramError> {
         Some(request_id) => println!("dg-request-id: {request_id}"),
         None => println!("No dg-request-id header returned"),
     }
-    println!("model: {:?}", metadata.model_name);
-    println!("characters billed: {:?}", metadata.char_count);
+    println!("model: {}", metadata.model_name.as_deref().unwrap_or("-"));
+    println!(
+        "characters billed: {}",
+        metadata
+            .char_count
+            .map_or_else(|| "-".to_string(), |count| count.to_string())
+    );
 
     Ok(())
 }
