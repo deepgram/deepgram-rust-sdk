@@ -1,14 +1,3 @@
-<!-- 
-############################################# NOTICE #############################################
-
-For the majority of situations, please use the dev branch as the base for your pull request.
-We only update the main branch when we release a new version of the package.
-
-More info: https://github.com/deepgram-devs/deepgram-rust-sdk/wiki/Branches
-
-##################################################################################################
--->
-
 ## Proposed changes
 
 <!-- Describe the big picture of your changes here to communicate to the maintainers why we should accept this pull request. If it fixes a bug or resolves a feature request, be sure to link to that issue. -->

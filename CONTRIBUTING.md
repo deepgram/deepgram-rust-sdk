@@ -1,7 +1,3 @@
-**NOTICE**: *For the majority of situations, please use the dev branch as the base for your pull request.
-We only update the main branch when we release a new version of the package.
-[More info](https://github.com/deepgram/deepgram-rust-sdk/wiki/Branches).*
-
 # Contributing Guidelines
 
 Want to contribute to this project? We ❤️ it!
@@ -46,4 +42,6 @@ continue to add more commits to the branch you have sent the Pull Request from.
 3. Create a new branch and check it out.
 4. Make your changes and commit them. (Did the tests pass? No linting errors?)
 5. Push your new branch to your fork.
-6. Open a Pull Request from your new branch to the [`deepgram/deepgram-rust-sdk`](https://github.com/deepgram/deepgram-rust-sdk)'s `dev` branch.
+6. Open a Pull Request from your new branch to the [`deepgram/deepgram-rust-sdk`](https://github.com/deepgram/deepgram-rust-sdk) `main` branch.
+
+For build, test, and lint commands, the crate's feature flags, and the release process, see [AGENTS.md](./AGENTS.md).
