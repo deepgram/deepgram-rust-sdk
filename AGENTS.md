@@ -19,7 +19,7 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 | `src/auth/` | `grant` for temporary tokens |
 | `src/common/` | Shared `Options` builder, `Model` enum, audio sources, and the batch, stream, and Flux STT response types |
 | `src/diagnostics.rs` | Opt-in per-phase connect timing for `/v1/listen` (feature `connect-diagnostics`) |
-| `examples/` | Runnable programs registered as `[[example]]` targets in `Cargo.toml`; sample audio under `examples/audio/` |
+| `examples/` | Runnable example programs; registered targets are `[[example]]` entries in `Cargo.toml`, and sample audio is under `examples/audio/` |
 | `tests/` | Integration tests: `*_local.rs` run against in-process servers, `*_e2e.rs` are `#[ignore]` and need the live API |
 | `.github/workflows/ci.yaml` | The CI matrix (nine jobs, listed below); `context7.yml` refreshes the Context7 index on release |
 | `.agents/skills/` | Agent-agnostic skills for using this SDK (speech-to-text, conversational STT, text-to-speech, voice agent, audio intelligence, text intelligence, management API) |
@@ -93,7 +93,7 @@ rustup run nightly cargo build --all-features -Z minimal-versions
 
 ## Run an example against the live API
 
-Example names are the `[[example]]` entries in `Cargo.toml`, and each one lists its `required-features`. Both commands below were run on 2026-09-13 in the same `rust:latest` container with the key passed through the environment; the first printed the transcript, the second wrote `flux-tts-batch.mp3` (39168 bytes) with `flux-haley-en`.
+Registered example names are the `[[example]]` entries in `Cargo.toml`; entries list `required-features` where needed. Both commands below were run on 2026-09-13 in the same `rust:latest` container with the key passed through the environment; the first printed the transcript, the second wrote `flux-tts-batch.mp3` (39168 bytes) with `flux-haley-en`.
 
 ```bash
 # Every example reads DEEPGRAM_API_KEY from the environment.
@@ -160,7 +160,7 @@ Pull requests target `main`. Older copies of `CONTRIBUTING.md` and the pull requ
 ## Do not
 
 - Do not commit generated audio (`*.mp3`, `*.wav` outside `examples/audio/`), keys, or `.env` files.
-- Do not remove the `[[example]]` entries or their `required-features`; `--all-targets` in CI compiles every example.
+- Do not remove registered `[[example]]` entries or their `required-features`; `--all-targets` in CI compiles every registered example target.
 - Do not add `unsafe` code; `#![forbid(unsafe_code)]` rejects it.
 - Do not change a public signature without a version bump and a `CHANGELOG.md` entry.
 - Do not run `cargo hack --remove-dev-deps` in your working checkout; it rewrites `Cargo.toml`.
