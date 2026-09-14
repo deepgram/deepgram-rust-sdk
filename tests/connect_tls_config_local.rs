@@ -6,8 +6,8 @@
 //! bundled webpki roots will never trust. Without `Deepgram::tls_config`
 //! every surface must refuse it with `DeepgramError::UntrustedTlsCertificate`;
 //! with a config that trusts it, live transcription, Flux speech-to-text,
-//! Flux text-to-speech, and the phase-timed diagnostics path must all
-//! connect.
+//! Flux text-to-speech, streaming text-to-speech, and the phase-timed
+//! diagnostics path must all connect.
 
 #![cfg(feature = "listen")]
 
@@ -98,6 +98,21 @@ async fn tls_config_applies_to_flux_text_to_speech() {
         .handle()
         .await
         .expect("flux TTS connect with a config that trusts the server");
+}
+
+#[cfg(feature = "speak")]
+#[tokio::test]
+async fn tls_config_applies_to_streaming_text_to_speech() {
+    let cert = self_signed();
+    let port = spawn_tls_server(cert.cert_der.clone(), cert.key_der).await;
+
+    client(port)
+        .tls_config(config_trusting(&cert.cert_der))
+        .text_to_speech()
+        .speak_stream()
+        .handle()
+        .await
+        .expect("streaming TTS connect with a config that trusts the server");
 }
 
 #[tokio::test]
