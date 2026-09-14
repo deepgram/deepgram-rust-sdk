@@ -11,6 +11,7 @@
 //! - `listen` (default): speech-to-text, REST and WebSocket, including Flux.
 //! - `speak` (default): text-to-speech, REST and WebSocket, including Flux.
 //! - `manage` (default): project, key, and usage management.
+//! - `read` (default): Text Intelligence over `/v1/read`; see [`read`].
 //! - `connect-diagnostics`: per-phase connect timings for `/v1/listen`
 //!   WebSocket connections; see the `diagnostics` module.
 //! - `rustls-tls-native-roots`: also trust the operating system's certificate
