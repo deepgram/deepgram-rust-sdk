@@ -92,6 +92,24 @@ async fn flux_speech_to_text_sends_host_with_port() {
 
 #[cfg(feature = "speak")]
 #[tokio::test]
+async fn streaming_text_to_speech_sends_host_with_port() {
+    let (port, host_rx) = spawn_host_capturing_server().await;
+
+    client(port)
+        .text_to_speech()
+        .speak_stream()
+        .handle()
+        .await
+        .expect("connect");
+
+    assert_eq!(
+        host_rx.await.expect("host captured"),
+        format!("127.0.0.1:{port}")
+    );
+}
+
+#[cfg(feature = "speak")]
+#[tokio::test]
 async fn flux_text_to_speech_sends_host_with_port() {
     use deepgram::speak::flux::options::{Model, Options};
 
