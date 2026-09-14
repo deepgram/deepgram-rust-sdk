@@ -40,23 +40,30 @@ tokio-tungstenite = { version = "^0.28.0", features = [
 ], optional = true }
 tokio-util = { version = "^0.7", features = ["codec", "io"] }
 tungstenite = { version = "^0.28.0", optional = true }
-# TLS crates for the connect-diagnostics phase-timed connect path. Versions
-# must stay in lockstep with what tokio-tungstenite's rustls-tls-webpki-roots
-# feature resolves to, so both connect paths compile against the same crates.
-# default-features = false: these deps must not enable any rustls feature
-# (provider, logging, prefer-post-quantum, ...) beyond what tokio-tungstenite
-# already enables, or turning on `connect-diagnostics` would change the TLS
-# configuration of the stock connect path via feature unification.
-rustls = { version = "^0.23", optional = true, default-features = false }
+# TLS crates for the explicit rustls connector every websocket connect path
+# uses (see src/tls.rs). Versions must stay in lockstep with what
+# tokio-tungstenite's rustls-tls-webpki-roots feature resolves to, so both
+# crates compile against the same rustls. default-features = false: these
+# deps must not enable any rustls feature (provider, logging,
+# prefer-post-quantum, ...) beyond what tokio-tungstenite already enables.
+# The rustls floor is above tokio-tungstenite's own (0.23.0) because
+# src/diagnostics.rs reads `handshake_kind()`, added later in the 0.23 line.
+rustls = { version = "^0.23.27", optional = true, default-features = false }
 rustls-pki-types = { version = "^1", optional = true }
 tokio-rustls = { version = "^0.26", optional = true, default-features = false }
 webpki-roots = { version = "^0.26", optional = true }
+# Backs the `rustls-tls-native-roots` feature. Same version tokio-tungstenite
+# 0.28 uses for its feature of the same name; keep them matching on bumps.
+rustls-native-certs = { version = "^0.8", optional = true }
 url = "2"
 uuid = { version = "1", features = ["serde"] }
+# Diagnostic events from the TLS trust path (src/tls.rs); no subscriber is
+# installed, so the consumer's logging setup is untouched. Optional: only the
+# websocket features (via `__tls`) declare it.
+tracing = { version = ">=0.1.41, <0.2", optional = true }
 # Dependencies below are specified only to satisfy minimal-versions.
 sha256 = "^1.6.0"
 anyhow = "^1.0.98"
-tracing = ">=0.1.41"
 
 [dev-dependencies]
 cpal = "^0.16"
@@ -73,15 +80,25 @@ all-features = true
 [features]
 default = ["manage", "listen", "speak"]
 manage = []
-listen = ["dep:tungstenite", "dep:tokio-tungstenite"]
-speak = ["dep:tungstenite", "dep:tokio-tungstenite"]
-connect-diagnostics = [
-  "listen",
+listen = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
+speak = ["dep:tungstenite", "dep:tokio-tungstenite", "__tls"]
+# Also trust the operating system's certificate store, on top of the bundled
+# webpki roots, for every wss:// websocket connection. For TLS-inspecting proxies
+# (Zscaler, Netskope, ...), internal CAs, and self-hosted deployments. Named
+# after the tokio-tungstenite and reqwest features it mirrors.
+rustls-tls-native-roots = [
+  "tokio-tungstenite?/rustls-tls-native-roots",
+  "dep:rustls-native-certs",
+]
+connect-diagnostics = ["listen", "uuid/v4"]
+# Internal: the rustls stack shared by every websocket surface. Not a public
+# feature; enabled through `listen` and `speak`.
+__tls = [
   "dep:rustls",
   "dep:rustls-pki-types",
   "dep:tokio-rustls",
   "dep:webpki-roots",
-  "uuid/v4",
+  "dep:tracing",
 ]
 
 [[example]]

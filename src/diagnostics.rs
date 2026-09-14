@@ -20,15 +20,13 @@
 //! (`tokio_tungstenite::connect_async_tls_with_config`) and no phases are
 //! timed or recorded.
 //!
-//! With this feature enabled, both connect paths — stock and phase-timed —
-//! are handed the same explicit rustls connector (the crate-internal
-//! `tls_connector`): webpki
-//! trust roots, no client auth, the crate-default provider. That keeps timed
-//! and untimed connections on identical TLS provider and trust configuration
-//! even when downstream feature unification enables another TLS backend
-//! (e.g. `tokio-tungstenite/native-tls`) in the dependency graph. The
-//! upgrade machinery and the request are the same on both paths; only the
-//! granularity of measurement differs.
+//! Both connect paths — stock and phase-timed — use the client's one
+//! explicit rustls connector (see [`crate::tls`]), so timed and untimed
+//! connections have identical trust roots and TLS provider, and the record's
+//! [`tls_trust`](ConnectRecord::tls_trust) says which roots were in effect
+//! (it is absent for a plaintext `ws://` connection, which has no TLS phase
+//! at all). The upgrade machinery and the request are the same on both
+//! paths; only the granularity of measurement differs.
 
 use std::fmt;
 use std::sync::Arc;
@@ -42,7 +40,7 @@ use tungstenite::error::UrlError;
 use tungstenite::Error as TungsteniteError;
 use uuid::Uuid;
 
-use crate::{DeepgramError, Result};
+use crate::tls::{ConnectTls, TlsTrust};
 
 /// Version of the [`ConnectRecord`] schema. Changes are additive only:
 /// consumers should ignore unknown fields.
@@ -107,7 +105,11 @@ pub struct ConnectRecord {
     /// header and never appears here either.
     pub url: String,
     /// Total duration from the start of the attempt until completion,
-    /// failure, or cancellation, in milliseconds.
+    /// failure, or cancellation, in milliseconds. On a client's first
+    /// `wss://` connect this can include the one-time load of the trust
+    /// roots (the OS certificate store, with `rustls-tls-native-roots`),
+    /// which is attributed to no phase, so the total can exceed the sum of
+    /// the phase timings.
     pub connect_duration_ms: f64,
     /// Local (source) socket address, available once the TCP connection is
     /// established.
@@ -129,6 +131,21 @@ pub struct ConnectRecord {
     /// WebSocket upgrade exchange time in milliseconds.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ws_upgrade_ms: Option<f64>,
+    /// Which trust roots the server certificate was verified against (see
+    /// [`crate::tls`]). `None` when no TLS occurred: a plaintext `ws://`
+    /// connection, from a client built on an `http://` base URL, has no TLS
+    /// handshake and verifies no certificate. Present on every `wss://`
+    /// attempt, including ones that failed or were cancelled before the TLS
+    /// phase: the configured trust until the client's TLS config has
+    /// resolved, then the trust actually in effect.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tls_trust: Option<TlsTrust>,
+    /// Whether the TLS handshake resumed an earlier session (`true`) or was
+    /// a full handshake (`false`). Present once the TLS phase completed.
+    /// Resumed handshakes are cheaper, so compare `tls_handshake_ms` within
+    /// one value of this, not across both.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tls_resumed: Option<bool>,
     /// The `dg-request-id` response header. Present whenever the server
     /// responded to the upgrade request — on success and on rejected
     /// upgrades. Absent when the attempt was cancelled or failed before a
@@ -172,6 +189,8 @@ impl ConnectRecord {
             tcp_connect_ms: Some(68.9),
             tls_handshake_ms: Some(141.7),
             ws_upgrade_ms: Some(90.6),
+            tls_trust: Some(TlsTrust::Webpki),
+            tls_resumed: Some(false),
             request_id: Some("00000000-0000-0000-0000-000000000000".to_string()),
             dg_error: None,
             error: None,
@@ -251,8 +270,12 @@ pub(crate) struct DiagnosticsGuard {
 }
 
 impl DiagnosticsGuard {
-    pub(crate) fn new(sink: SharedSink, url: &url::Url) -> Self {
+    /// `tls_trust` is the trust the client is configured with; it is recorded
+    /// only when the URL is `wss://`, and refined to the trust actually in
+    /// effect once the TLS phase runs (see [`set_tls_trust`](Self::set_tls_trust)).
+    pub(crate) fn new(sink: SharedSink, url: &url::Url, tls_trust: TlsTrust) -> Self {
         let now = Instant::now();
+        let tls_trust = (url.scheme() == "wss").then_some(tls_trust);
         DiagnosticsGuard {
             record: ConnectRecord {
                 schema_version: SCHEMA_VERSION,
@@ -268,6 +291,8 @@ impl DiagnosticsGuard {
                 tcp_connect_ms: None,
                 tls_handshake_ms: None,
                 ws_upgrade_ms: None,
+                tls_trust,
+                tls_resumed: None,
                 request_id: None,
                 dg_error: None,
                 error: None,
@@ -301,6 +326,21 @@ impl DiagnosticsGuard {
     fn set_addrs(&mut self, stream: &TcpStream) {
         self.record.local_addr = stream.local_addr().ok().map(|a| a.to_string());
         self.record.peer_addr = stream.peer_addr().ok().map(|a| a.to_string());
+    }
+
+    fn set_tls_resumed(&mut self, resumed: bool) {
+        self.record.tls_resumed = Some(resumed);
+    }
+
+    /// Record the trust roots the TLS handshake actually verifies against.
+    /// Only refines a record that already carries a trust (a `wss://` URL),
+    /// so a plaintext connection never gains a trust value. Called once the
+    /// client's TLS config is resolved, so an attempt that dies in DNS or TCP
+    /// still reports the effective trust rather than the configured one.
+    pub(crate) fn set_tls_trust(&mut self, trust: TlsTrust) {
+        if self.record.tls_trust.is_some() {
+            self.record.tls_trust = Some(trust);
+        }
     }
 
     pub(crate) fn set_request_id(&mut self, request_id: &str) {
@@ -371,22 +411,31 @@ fn header_str(headers: &http::HeaderMap, name: &str) -> Option<String> {
 /// Mirrors `tokio_tungstenite::connect_async` phase by phase: hostname
 /// resolution (which `TcpStream::connect` performs internally on the stock
 /// path), sequential TCP connect attempts across the resolved addresses, a
-/// TLS handshake with the same `rustls` configuration `tokio-tungstenite`
-/// builds for its `rustls-tls-webpki-roots` feature, and the upgrade via
+/// TLS handshake with the client's `rustls` configuration (the same one the
+/// stock path is handed), and the upgrade via
 /// `tokio_tungstenite::client_async_with_config` — the same function the
 /// stock path bottoms out in.
+///
+/// The caller resolves `tls` before calling, so building it (which may read
+/// the OS certificate store on a client's first connect) is never charged to
+/// a phase timing. Errors are returned raw for the caller to classify (see
+/// [`crate::tls::connect_error`]); the failure is recorded on the guard here.
 pub(crate) async fn connect_with_diagnostics(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
-) -> Result<(
-    WebSocketStream<MaybeTlsStream<TcpStream>>,
-    tungstenite::handshake::client::Response,
-)> {
-    match connect_phases(request, guard).await {
+    tls: &ConnectTls,
+) -> std::result::Result<
+    (
+        WebSocketStream<MaybeTlsStream<TcpStream>>,
+        tungstenite::handshake::client::Response,
+    ),
+    TungsteniteError,
+> {
+    match connect_phases(request, guard, tls).await {
         Ok(ok) => Ok(ok),
         Err(err) => {
             guard.fail(&err);
-            Err(DeepgramError::from(Box::new(err)))
+            Err(err)
         }
     }
 }
@@ -394,6 +443,7 @@ pub(crate) async fn connect_with_diagnostics(
 async fn connect_phases(
     request: Request<()>,
     guard: &mut DiagnosticsGuard,
+    tls: &ConnectTls,
 ) -> std::result::Result<
     (
         WebSocketStream<MaybeTlsStream<TcpStream>>,
@@ -402,7 +452,7 @@ async fn connect_phases(
     TungsteniteError,
 > {
     let domain = domain(&request)?;
-    let tls = match request.uri().scheme_str() {
+    let secure = match request.uri().scheme_str() {
         Some("wss") => true,
         Some("ws") => false,
         _ => return Err(TungsteniteError::Url(UrlError::UnsupportedUrlScheme)),
@@ -410,7 +460,7 @@ async fn connect_phases(
     let port = request
         .uri()
         .port_u16()
-        .unwrap_or(if tls { 443 } else { 80 });
+        .unwrap_or(if secure { 443 } else { 80 });
 
     guard.enter_phase(ConnectPhase::Dns);
     let addrs: Vec<_> = tokio::net::lookup_host((domain.as_str(), port))
@@ -444,17 +494,27 @@ async fn connect_phases(
     guard.set_addrs(&tcp);
     guard.finish_phase();
 
-    let stream = if tls {
+    let stream = if secure {
+        // The caller resolves TLS from the same URL, so a `wss://` request
+        // always arrives with a config; mirror tokio-tungstenite's own error
+        // for a TLS URL with a plain connector should that ever not hold.
+        let ConnectTls::Tls(tls) = tls else {
+            return Err(TungsteniteError::Url(UrlError::TlsFeatureNotEnabled));
+        };
+        guard.set_tls_trust(tls.trust);
         guard.enter_phase(ConnectPhase::TlsHandshake);
         let server_name = rustls_pki_types::ServerName::try_from(domain.as_str())
             .map_err(|_| TungsteniteError::Tls(tungstenite::error::TlsError::InvalidDnsName))?
             .to_owned();
-        let connector = tokio_rustls::TlsConnector::from(tls_client_config());
+        let connector = tokio_rustls::TlsConnector::from(tls.config.clone());
         let tls_stream = connector
             .connect(server_name, tcp)
             .await
             .map_err(TungsteniteError::Io)?;
         guard.finish_phase();
+        guard.set_tls_resumed(
+            tls_stream.get_ref().1.handshake_kind() == Some(rustls::HandshakeKind::Resumed),
+        );
         MaybeTlsStream::Rustls(tls_stream)
     } else {
         MaybeTlsStream::Plain(tcp)
@@ -466,30 +526,6 @@ async fn connect_phases(
     guard.finish_phase();
 
     Ok((ws_stream, response))
-}
-
-/// The TLS configuration `tokio-tungstenite` builds when no connector is
-/// supplied and its `rustls-tls-webpki-roots` feature is enabled: webpki
-/// trust roots, no client auth, and the crate-default provider. Built per
-/// attempt, like the stock path, so TLS session resumption behavior matches.
-fn tls_client_config() -> Arc<rustls::ClientConfig> {
-    let mut root_store = rustls::RootCertStore::empty();
-    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    Arc::new(
-        rustls::ClientConfig::builder()
-            .with_root_certificates(root_store)
-            .with_no_client_auth(),
-    )
-}
-
-/// The one TLS connector every `/v1/listen` connection uses while the
-/// `connect-diagnostics` feature is enabled — passed explicitly to both the
-/// stock (`tokio_tungstenite::connect_async_tls_with_config`) and the
-/// phase-timed connect paths, so downstream feature unification (e.g. a
-/// consumer also enabling `tokio-tungstenite/native-tls`) cannot make the
-/// two paths select different TLS providers or trust configurations.
-pub(crate) fn tls_connector() -> tokio_tungstenite::Connector {
-    tokio_tungstenite::Connector::Rustls(tls_client_config())
 }
 
 /// Hostname from the request URI, with IPv6 brackets stripped as `rustls`
@@ -571,7 +607,7 @@ mod tests {
     #[test]
     fn record_serialization_skips_absent_fields() {
         let (sink, mut rx) = channel_sink();
-        drop(DiagnosticsGuard::new(sink, &test_url()));
+        drop(DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki));
         let record = rx.try_recv().expect("record emitted on drop");
 
         let json: serde_json::Value =
@@ -580,7 +616,9 @@ mod tests {
         assert_eq!(json["outcome"], "cancelled");
         assert_eq!(json["last_phase"], "dns");
         assert_eq!(json["url"], "wss://api.deepgram.com/v1/listen");
+        assert_eq!(json["tls_trust"], "webpki");
         for absent in [
+            "tls_resumed",
             "local_addr",
             "peer_addr",
             "dns_ms",
@@ -599,6 +637,30 @@ mod tests {
     }
 
     #[test]
+    fn plaintext_ws_record_has_no_tls_trust() {
+        // A `ws://` attempt has no TLS phase and verifies no certificate, so
+        // the record must not claim any trust roots — not even as a
+        // "configured" value — and the field must be omitted from JSON.
+        let url = url::Url::parse("ws://localhost:8080/v1/listen").unwrap();
+        let (sink, mut rx) = channel_sink();
+        drop(DiagnosticsGuard::new(sink, &url, TlsTrust::Webpki));
+        let record = rx.try_recv().expect("record emitted on drop");
+
+        assert_eq!(record.tls_trust, None);
+        let json: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&record).unwrap()).unwrap();
+        assert!(json.get("tls_trust").is_none(), "{json}");
+
+        // The same guard for `wss://` carries the configured trust from the
+        // start, so an attempt cancelled before TLS still says which roots
+        // would have been used.
+        let (sink, mut rx) = channel_sink();
+        drop(DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki));
+        let record = rx.try_recv().expect("record emitted on drop");
+        assert_eq!(record.tls_trust, Some(TlsTrust::Webpki));
+    }
+
+    #[test]
     fn recorded_url_omits_userinfo_and_query_values() {
         // Query values can carry secrets: signed callback URLs, keyterms,
         // arbitrary `query_params` values. None of it may reach the sink.
@@ -611,7 +673,7 @@ mod tests {
         .unwrap();
 
         let (sink, mut rx) = channel_sink();
-        drop(DiagnosticsGuard::new(sink, &url));
+        drop(DiagnosticsGuard::new(sink, &url, TlsTrust::Webpki));
         let record = rx.try_recv().expect("record emitted on drop");
 
         assert_eq!(record.url, "wss://api.deepgram.com/v1/listen");
@@ -627,7 +689,7 @@ mod tests {
     #[test]
     fn cancelled_guard_keeps_finished_phase_timings() {
         let (sink, mut rx) = channel_sink();
-        let mut guard = DiagnosticsGuard::new(sink, &test_url());
+        let mut guard = DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki);
         guard.enter_phase(ConnectPhase::Dns);
         guard.finish_phase();
         guard.enter_phase(ConnectPhase::TcpConnect);
@@ -649,7 +711,7 @@ mod tests {
     async fn record_survives_tokio_timeout() {
         let (sink, mut rx) = channel_sink();
         let connect = async {
-            let mut guard = DiagnosticsGuard::new(sink, &test_url());
+            let mut guard = DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki);
             guard.enter_phase(ConnectPhase::Dns);
             guard.finish_phase();
             guard.enter_phase(ConnectPhase::TcpConnect);
@@ -667,7 +729,7 @@ mod tests {
     #[test]
     fn failed_upgrade_captures_deepgram_headers() {
         let (sink, mut rx) = channel_sink();
-        let mut guard = DiagnosticsGuard::new(sink, &test_url());
+        let mut guard = DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki);
         guard.enter_phase(ConnectPhase::WsUpgrade);
 
         let response = http::Response::builder()
@@ -695,29 +757,9 @@ mod tests {
         let sink = SharedSink(Arc::new(sink_fn(move |record: ConnectRecord| {
             let _ = tx.send(record.outcome);
         })));
-        let mut guard = DiagnosticsGuard::new(sink, &test_url());
+        let mut guard = DiagnosticsGuard::new(sink, &test_url(), TlsTrust::Webpki);
         guard.complete();
         drop(guard);
         assert_eq!(rx.try_recv().unwrap(), ConnectOutcome::Completed);
-    }
-
-    #[test]
-    fn tls_config_matches_tokio_tungstenite_defaults() {
-        // The stock path (tokio-tungstenite, rustls-tls-webpki-roots) builds
-        // its trust store from webpki_roots::TLS_SERVER_ROOTS with no client
-        // auth. Assert our replica loads the identical root set.
-        let config = tls_client_config();
-        assert!(!config.client_auth_cert_resolver.has_certs());
-        let roots = rustls::RootCertStore {
-            roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
-        };
-        assert_eq!(
-            tls_client_config().crypto_provider().cipher_suites,
-            rustls::ClientConfig::builder()
-                .with_root_certificates(roots)
-                .with_no_client_auth()
-                .crypto_provider()
-                .cipher_suites,
-        );
     }
 }

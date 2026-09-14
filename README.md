@@ -95,6 +95,72 @@ let builder = dg
 See the `connect_diagnostics` example and the `deepgram::diagnostics` module
 docs for the record schema and integration details.
 
+## TLS Trust (Corporate Proxies, Private CAs)
+
+`wss://` WebSocket connections verify Deepgram's certificate against the
+bundled public roots ([webpki-roots](https://crates.io/crates/webpki-roots)).
+That is the default, and it needs no OS certificate store. The REST client
+(`reqwest`) already trusts the operating system's store, so behind a
+TLS-inspecting proxy the REST calls typically work while `wss://` connections
+fail with `UntrustedTlsCertificate` until you enable one of the options below.
+
+> **Only `wss://` is covered.** A client built from an `http://` base URL
+> (`Deepgram::with_base_url("http://localhost:8080")`) opens plaintext
+> `ws://` WebSockets: no TLS handshake, no certificate verification, and
+> neither option below has any effect. Credentials and audio travel
+> unencrypted. Keep `http://` to local testing and use an `https://` base URL
+> whenever an API key, a temporary token, or private traffic is involved,
+> including self-hosted deployments.
+
+If your traffic goes through a TLS-inspecting proxy (Zscaler, Netskope, …),
+an internal CA, or a self-hosted deployment, the certificate the SDK sees is
+signed by a CA the public bundle does not know, and the connection fails
+with `DeepgramError::UntrustedTlsCertificate`. Its message names the fix.
+There are two:
+
+**Also trust the operating system's certificate store.** One cargo feature,
+no code change. The OS roots are added on top of the public roots, never
+instead of them. Named after the `tokio-tungstenite` and `reqwest` features
+it mirrors.
+
+```sh
+cargo add deepgram --features rustls-tls-native-roots
+```
+
+Install the proxy's or internal CA in the OS store the way your platform
+does it. If you use `SSL_CERT_FILE` / `SSL_CERT_DIR` instead, point them at
+a PEM bundle that holds the CA *together with* the public roots you rely on:
+once set, the variables replace the OS store for these WebSockets and, on
+Linux, for the REST client too, so a file containing only the CA breaks
+requests to hosts that CA did not sign.
+
+**Or supply your own `rustls` config.** Set it once on the client and every
+`wss://` WebSocket it opens (live transcription, Flux speech-to-text, Flux
+text-to-speech) uses it verbatim: pin a private CA, present a client
+certificate, plug in a custom verifier. Build it from `deepgram::rustls` so
+the versions match.
+
+```rust
+use deepgram::{rustls, Deepgram};
+
+let mut roots = rustls::RootCertStore::empty();
+roots.add(rustls::pki_types::CertificateDer::from(my_private_ca_der))?; // DER bytes of your CA certificate
+let config = rustls::ClientConfig::builder()
+    .with_root_certificates(roots)
+    .with_no_client_auth();
+
+let dg = Deepgram::new("YOUR_DEEPGRAM_API_KEY")?.tls_config(config);
+```
+
+If the feature is enabled but the OS store cannot be loaded (an
+`SSL_CERT_FILE` that points at a missing or non-PEM file, a container with
+no store), the client still works with the public roots, and a rejected
+certificate then says the native roots could not be loaded rather than
+claiming they were checked.
+
+See the `deepgram::tls` module docs for details. REST requests are made with
+`reqwest` and are not affected by either option.
+
 ## Development and Contributing
 
 Interested in contributing? We ❤️ pull requests!
