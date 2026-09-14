@@ -1,10 +1,12 @@
 ## Running Examples
 
-### Setting Env Vars
+### Configuration
 
 ```sh
-export FILENAME=./examples/audio/bueller.wav
+export DEEPGRAM_API_KEY="<your key>"
 ```
+
+Examples that read local audio use a path defined in the example source. For Flux STT, change `PATH_TO_FILE` in `transcription/flux/simple_flux.rs`.
 
 ### Running the examples
 

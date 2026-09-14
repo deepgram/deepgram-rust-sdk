@@ -160,13 +160,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     handle.close().await?;
 
     // Binary audio frames and JSON control events arrive on receive().
+    let mut saw_session_metadata = false;
     while let Some(response) = handle.receive().await {
         match response? {
             FluxSpeakResponse::Audio(_bytes) => { /* play or buffer the audio */ }
             FluxSpeakResponse::SpeechMetadata(_) => { /* end-of-turn signal */ }
-            FluxSpeakResponse::SessionMetadata { .. } => break,
+            FluxSpeakResponse::FatalError { code, description, .. } => {
+                return Err(format!("fatal Flux TTS error {code}: {description}").into());
+            }
+            FluxSpeakResponse::SessionMetadata { .. } => {
+                saw_session_metadata = true;
+                break;
+            }
             _ => {}
         }
+    }
+
+    if !saw_session_metadata {
+        return Err("session ended before its terminal SessionMetadata event".into());
     }
 
     Ok(())
@@ -182,7 +193,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - Model enum lives in `deepgram::speak::options::Model` and includes voices such as `AuraAsteriaEn`, `AuraLunaEn`, `AuraOrionEn`, plus `CustomId(String)`.
 - `speak_to_stream(...)` returns `impl Stream<Item = bytes::Bytes>`.
 - Flux TTS entrypoints: `Speak::flux_speak_to_file(text, &options, path)`, `Speak::flux_speak_to_stream(text, &options)`, `Speak::flux_request(options).handle()` returning `FluxSpeakHandle`.
-- Flux TTS `Options::builder(Model)` fields: `encoding`, `sample_rate`, `speed`, `expressivity`, `mip_opt_out`, `tag`, and the REST-only `container`, `bit_rate`, `callback`, `callback_method`, `priority`. Models are `flux-{voice}-{language}`, for example `Model::FluxHaleyEn`; the WebSocket rejects REST-only options and the compressed encodings (`mp3`, `opus`, `flac`, `aac`) with `DeepgramError::InvalidOptions`.
+- Flux TTS `Options::builder(Model)` methods: `encoding`, `sample_rate`, `speed`, `expressivity`, `mip_opt_out`, `tag`, and the REST-only `container`, `bit_rate`, `callback`, `callback_method`, `priority_low`. `priority_low()` serializes as `priority=low`. Models are `flux-{voice}-{language}`, for example `Model::FluxHaleyEn`; the WebSocket rejects REST-only options and the compressed encodings (`mp3`, `opus`, `flac`, `aac`) with `DeepgramError::InvalidOptions`.
 
 ## API reference (layered)
 

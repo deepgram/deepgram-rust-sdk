@@ -15,7 +15,7 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 | `src/lib.rs` | The `Deepgram` client, `DeepgramError`, the `Transcription` and `Speak` handles, base URL, and `User-Agent` |
 | `src/listen/` | `rest.rs` (pre-recorded), `websocket.rs` (Nova streaming over `/v1/listen`), `flux.rs` (Flux STT over `/v2/listen`) |
 | `src/speak/` | `rest.rs` (Aura over `/v1/speak`), `flux/` (Flux TTS over `/v2/speak`: `rest.rs`, `websocket.rs`, `options.rs`, `response.rs`) |
-| `src/manage/` | Management API: `billing`, `invitations`, `keys`, `members`, `projects`, `scopes`, `usage`, each with `options.rs` and `response.rs` |
+| `src/manage/` | Management API: `billing`, `invitations`, `keys`, `members`, `projects`, `scopes`, `usage`. Each has response types; `keys` and `projects` have `options.rs`, and `usage` has operation-specific option modules. |
 | `src/auth/` | `grant` for temporary tokens |
 | `src/common/` | Shared `Options` builder, `Model` enum, audio sources, and the batch, stream, and Flux STT response types |
 | `src/diagnostics.rs` | Opt-in per-phase connect timing for `/v1/listen` (feature `connect-diagnostics`) |
@@ -66,7 +66,7 @@ CI runs every job on every push and pull request with `RUSTFLAGS=-D warnings` an
 | Test | `cargo test --all --all-features` | At 0.10.1: 105 unit tests pass, 2 are ignored, the `*_local.rs` integration tests pass, and the `*_e2e.rs` tests are ignored. No network access needed |
 | Documentation | `cargo doc --workspace --all-features` | `missing_docs` is a warning and warnings are errors, so every public item needs a doc comment |
 | Audit | `cargo install --locked cargo-audit cargo-hack && cargo hack --remove-dev-deps && cargo generate-lockfile && cargo audit` | Run in a throwaway checkout; it rewrites `Cargo.toml` and `Cargo.lock`. Not run for this file |
-| Minimal-Versions | `rustup run nightly cargo build --all-targets --all-features -Z minimal-versions` and `rustup run nightly cargo test --all --all-features -Z minimal-versions` | Lower bounds in `Cargo.toml` must be real; the crates under "specified only to satisfy minimal-versions" exist for this job. Not run for this file |
+| Minimal-Versions | Run the full sequence below | Lower bounds in `Cargo.toml` must be real; the crates under "specified only to satisfy minimal-versions" exist for this job. Not run for this file |
 | SemVer | `cargo install --locked cargo-semver-checks && cargo semver-checks check-release --verbose` | Fails a pull request that breaks the public API without a version bump. Not run for this file |
 
 ## Manual live verification
@@ -76,6 +76,19 @@ These ignored end-to-end tests require `DEEPGRAM_API_KEY` and are not run by CI:
 ```bash
 DEEPGRAM_API_KEY=<key> cargo test --all-features --test flux_e2e -- --ignored
 DEEPGRAM_API_KEY=<key> cargo test --all-features --test connect_diagnostics_e2e -- --ignored
+```
+
+## Minimal-Versions verification
+
+Run this full CI sequence in a throwaway checkout because `cargo hack --remove-dev-deps` rewrites `Cargo.toml` and `Cargo.lock`:
+
+```bash
+rustup run nightly cargo build --all-targets --all-features -Z minimal-versions
+rustup run nightly cargo test --all --all-features -Z minimal-versions
+cargo install --locked cargo-hack
+cargo hack --remove-dev-deps
+rustup run nightly cargo generate-lockfile -Z minimal-versions
+rustup run nightly cargo build --all-features -Z minimal-versions
 ```
 
 ## Run an example against the live API
@@ -92,11 +105,12 @@ cargo run --example prerecorded_from_url
 # Synthesize a block of text with Flux TTS over REST and write flux-tts-batch.mp3.
 cargo run --features speak --example flux_tts_batch
 
-# Stream a Flux STT session from a local WAV file and print TurnInfo events.
-FILENAME=./examples/audio/bueller-mono.wav cargo run --example simple_flux
+# Stream a Flux STT session and print TurnInfo events. To use another file,
+# change PATH_TO_FILE in examples/transcription/flux/simple_flux.rs.
+cargo run --example simple_flux
 ```
 
-The file-based examples read the path from `FILENAME`. The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`, so they need an audio device and do not run in a container. Examples write output files into the current directory; delete them before you commit.
+The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`, so they need an audio device and do not run in a container. Examples write output files into the current directory; delete them before you commit.
 
 ## Implementation conventions
 
