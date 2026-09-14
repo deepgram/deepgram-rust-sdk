@@ -12,6 +12,7 @@
 //! - `speak` (default): text-to-speech, REST and WebSocket, including Flux.
 //! - `manage` (default): project, key, and usage management.
 //! - `read` (default): Text Intelligence over `/v1/read`; see the `read` module.
+//! - `agent` (default): the Voice Agent WebSocket client; see the `agent` module.
 //! - `connect-diagnostics`: per-phase connect timings for `/v1/listen`
 //!   WebSocket connections; see the `diagnostics` module.
 //! - `rustls-tls-native-roots`: also trust the operating system's certificate
@@ -53,7 +54,7 @@ pub mod manage;
 pub mod read;
 #[cfg(feature = "speak")]
 pub mod speak;
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub mod tls;
 
 /// The `rustls` crate this SDK's WebSocket connections are built on,
@@ -62,7 +63,7 @@ pub mod tls;
 ///
 /// This ties the SDK's public API to rustls 0.23: a future rustls major
 /// bump will be a breaking change for this crate as well.
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub use rustls;
 
 #[cfg(feature = "listen")]
@@ -259,7 +260,7 @@ pub struct Deepgram {
     base_url: Url,
     #[cfg_attr(not(feature = "listen"), allow(unused))]
     client: reqwest::Client,
-    #[cfg(any(feature = "listen", feature = "speak"))]
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     tls: tls::TlsSettings,
 }
 
@@ -303,7 +304,7 @@ pub enum DeepgramError {
     /// ends with the remedy that applies to the trust roots in effect: the
     /// `rustls-tls-native-roots` cargo feature, or [`Deepgram::tls_config`].
     /// See [`tls`] for the full picture.
-    #[cfg(any(feature = "listen", feature = "speak"))]
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     #[error("TLS certificate presented by {host} is not trusted ({source}). {}", tls::untrusted_hint(.trust))]
     UntrustedTlsCertificate {
         /// The host the connection was made to.
@@ -550,7 +551,7 @@ impl Deepgram {
                 .user_agent(USER_AGENT)
                 .default_headers(authorization_header)
                 .build()?,
-            #[cfg(any(feature = "listen", feature = "speak"))]
+            #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
             tls: tls::TlsSettings::new(),
         })
     }
@@ -595,7 +596,7 @@ impl Deepgram {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg(any(feature = "listen", feature = "speak"))]
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     pub fn tls_config(mut self, config: impl Into<std::sync::Arc<rustls::ClientConfig>>) -> Self {
         self.tls = tls::TlsSettings::custom(config.into());
         self

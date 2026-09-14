@@ -21,7 +21,7 @@ pub struct ElevenLabsSpeakProvider {
 
     /// Deprecated alias for `language`. Prefer `language` for new code.
     #[deprecated(
-        since = "0.11.0",
+        since = "0.12.0",
         note = "Use the `language` field instead. Mirrors deprecation in the AsyncAPI spec."
     )]
     #[serde(default, skip_serializing_if = "Option::is_none")]

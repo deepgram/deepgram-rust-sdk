@@ -187,7 +187,7 @@ impl<'de> Deserialize<'de> for AgentConfig {
 pub struct InlineAgentConfig {
     /// Deprecated — set `language` on `listen.provider` and `speak.provider` instead.
     #[deprecated(
-        since = "0.11.0",
+        since = "0.12.0",
         note = "Set `language` on listen.provider and speak.provider instead. Mirrors deprecation in the AsyncAPI spec."
     )]
     #[serde(default, skip_serializing_if = "Option::is_none")]
