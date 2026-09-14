@@ -36,8 +36,19 @@ async fn default_trust_rejects_an_unknown_issuer_with_an_actionable_error() {
     assert!(message.contains("UnknownIssuer"), "{message}");
     assert!(message.contains("Deepgram::tls_config"), "{message}");
     if cfg!(feature = "rustls-tls-native-roots") {
-        assert_eq!(*trust, TlsTrust::WebpkiAndNative);
-        assert!(message.contains("SSL_CERT_FILE"), "{message}");
+        match trust {
+            TlsTrust::WebpkiAndNative => {
+                assert!(message.contains("SSL_CERT_FILE"), "{message}");
+            }
+            TlsTrust::WebpkiNativeUnavailable => {
+                assert!(
+                    message.contains("no native root certificates could be loaded"),
+                    "{message}"
+                );
+                assert!(message.contains("SSL_CERT_FILE"), "{message}");
+            }
+            other => panic!("unexpected native-roots trust: {other:?}"),
+        }
     } else {
         assert_eq!(*trust, TlsTrust::Webpki);
         assert!(message.contains("rustls-tls-native-roots"), "{message}");
