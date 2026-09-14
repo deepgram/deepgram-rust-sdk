@@ -9,7 +9,7 @@
 //! `Encoding::CustomEncoding`) a wire-level guard rather than only the
 //! `as_url()` unit assertions.
 
-#![cfg(any(feature = "listen", feature = "speak"))]
+#![cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 
 use deepgram::Deepgram;
 use tokio::net::TcpListener;
@@ -157,4 +157,19 @@ async fn streaming_text_to_speech_sends_the_escape_hatches_on_the_wire() {
 
     let (_host, target) = capture_rx.await.expect("upgrade captured");
     assert_eq!(target, "/v1/speak?encoding=future-codec&future_param=on");
+}
+
+#[cfg(feature = "agent")]
+#[tokio::test]
+async fn voice_agent_sends_host_with_port() {
+    let (port, host_rx) = spawn_host_capturing_server().await;
+
+    client(port)
+        .agent()
+        .start_at_url(&format!("ws://127.0.0.1:{port}/v1/agent/converse"))
+        .await
+        .expect("connect");
+
+    let (host, _target) = host_rx.await.expect("host captured");
+    assert_eq!(host, format!("127.0.0.1:{port}"));
 }
