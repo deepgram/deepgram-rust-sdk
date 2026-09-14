@@ -82,7 +82,7 @@ static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 /// `127.0.0.1:54321`. Every WebSocket surface uses this so a self-hosted
 /// or proxied deployment on a non-default port is routed by its full
 /// authority.
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub(crate) fn websocket_host_header(url: &Url) -> Option<String> {
     let host = url.host_str()?;
     Some(match url.port() {
@@ -91,7 +91,7 @@ pub(crate) fn websocket_host_header(url: &Url) -> Option<String> {
     })
 }
 
-#[cfg(all(test, any(feature = "listen", feature = "speak")))]
+#[cfg(all(test, any(feature = "listen", feature = "speak", feature = "agent")))]
 mod websocket_host_header_tests {
     use super::websocket_host_header;
     use url::Url;

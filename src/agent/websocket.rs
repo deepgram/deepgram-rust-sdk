@@ -152,7 +152,7 @@ impl Agent<'_> {
     pub async fn start_at_url(&self, url: &str) -> Result<(AgentHandle, AgentEventStream)> {
         let url: url::Url = url.parse().map_err(|_| DeepgramError::InvalidUrl)?;
         validate_agent_url(&url)?;
-        let host = host_header_value(&url).ok_or(DeepgramError::InvalidUrl)?;
+        let host = crate::websocket_host_header(&url).ok_or(DeepgramError::InvalidUrl)?;
 
         let request = {
             let http_builder = Request::builder()
@@ -262,7 +262,7 @@ fn validate_agent_url(url: &url::Url) -> Result<()> {
             url: format!(
                 "{}://{}",
                 url.scheme(),
-                host_header_value(url).unwrap_or_default()
+                crate::websocket_host_header(url).unwrap_or_default()
             ),
         }
         .into()),
@@ -278,18 +278,6 @@ fn is_loopback_host(url: &url::Url) -> bool {
         Some(url::Host::Ipv6(addr)) => addr.is_loopback(),
         None => false,
     }
-}
-
-/// `Host` header value: the URL authority without userinfo — host plus
-/// the port when it is not the scheme default. `url::Url::host_str`
-/// already brackets IPv6 literals, and `url::Url::port` is `None` for a
-/// default port (80 for `ws`, 443 for `wss`).
-fn host_header_value(url: &url::Url) -> Option<String> {
-    let host = url.host_str()?;
-    Some(match url.port() {
-        Some(port) => format!("{host}:{port}"),
-        None => host.to_owned(),
-    })
 }
 
 /// A single event received from the Voice Agent server.
@@ -799,7 +787,7 @@ mod tests {
             let parsed = parse(bad);
             let expected_origin = format!(
                 "ws://{}",
-                host_header_value(&parsed).expect("bad URLs here all have hosts")
+                crate::websocket_host_header(&parsed).expect("bad URLs here all have hosts")
             );
             assert_eq!(insecure.url, expected_origin, "{bad}");
             let text = err.to_string();
@@ -847,50 +835,6 @@ mod tests {
                 "{bad}"
             );
         }
-    }
-
-    #[test]
-    fn host_header_includes_non_default_port() {
-        assert_eq!(
-            host_header_value(&parse("ws://127.0.0.1:54321/v1/agent/converse")).as_deref(),
-            Some("127.0.0.1:54321")
-        );
-        assert_eq!(
-            host_header_value(&parse("wss://agent.internal.example:8443/agent")).as_deref(),
-            Some("agent.internal.example:8443")
-        );
-    }
-
-    #[test]
-    fn host_header_omits_default_port() {
-        assert_eq!(
-            host_header_value(&parse(AGENT_WS_URL)).as_deref(),
-            Some("agent.deepgram.com")
-        );
-        assert_eq!(
-            host_header_value(&parse("wss://agent.deepgram.com:443/x")).as_deref(),
-            Some("agent.deepgram.com")
-        );
-        assert_eq!(
-            host_header_value(&parse("ws://127.0.0.1:80/x")).as_deref(),
-            Some("127.0.0.1")
-        );
-    }
-
-    #[test]
-    fn host_header_brackets_ipv6_literals() {
-        assert_eq!(
-            host_header_value(&parse("ws://[::1]:9000/agent")).as_deref(),
-            Some("[::1]:9000")
-        );
-        assert_eq!(
-            host_header_value(&parse("wss://[2001:db8::1]/agent")).as_deref(),
-            Some("[2001:db8::1]")
-        );
-        assert_eq!(
-            host_header_value(&parse("wss://[2001:db8::1]:8443/agent")).as_deref(),
-            Some("[2001:db8::1]:8443")
-        );
     }
 
     #[test]
