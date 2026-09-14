@@ -50,12 +50,12 @@ Every row below was checked against `src/` on 2026-09-13.
 ## Prerequisites
 
 - Stable Rust. CI installs the current stable toolchain with `actions-rust-lang/setup-rust-toolchain@v1` plus the `rustfmt` component; `Cargo.toml` sets no `rust-version`. The Minimal-Versions job also installs nightly.
-- ALSA development headers on Linux (`apt-get install -y pkg-config libasound2-dev`). The `cpal` and `rodio` dev-dependencies behind the microphone examples need them, and `--all-targets` compiles the examples, so `cargo build`, `cargo clippy`, and `cargo test` fail without them.
+- ALSA development headers on Linux (`apt-get install -y pkg-config libasound2-dev`). The `cpal` dev-dependency powers the microphone examples and `rodio` powers the TTS streaming example; `--all-targets` compiles every example, so `cargo build`, `cargo clippy`, and `cargo test` fail without them.
 - `cargo-audit`, `cargo-hack`, and `cargo-semver-checks` for the three CI jobs that use them (`cargo install --locked <tool>`).
 
 ## Build, test, lint, format
 
-CI runs every job on every push and pull request with `RUSTFLAGS=-D warnings` and `RUSTDOCFLAGS=-D warnings`, so a single warning fails the build. Export both before running the commands. The first seven rows were run on 2026-09-13 inside a `rust:latest` container (Rust 1.98.0) with the repository mounted at `/work` and the ALSA headers installed; the exit codes are recorded in the pull request that added this file.
+CI runs every job on every push and pull request with `RUSTFLAGS=-D warnings` and `RUSTDOCFLAGS=-D warnings`, so a single warning fails the build. Export both before running the commands. The first six rows were run on 2026-09-13 inside a `rust:latest` container (Rust 1.98.0) with the repository mounted at `/work` and the ALSA headers installed; the exit codes are recorded in the pull request that added this file.
 
 | CI job | Command | Notes |
 | --- | --- | --- |
@@ -65,10 +65,18 @@ CI runs every job on every push and pull request with `RUSTFLAGS=-D warnings` an
 | Clippy | `cargo clippy --all-targets --all-features` | Zero warnings at 0.10.1; `#![warn(clippy::cargo)]` is on in `lib.rs` |
 | Test | `cargo test --all --all-features` | At 0.10.1: 105 unit tests pass, 2 are ignored, the `*_local.rs` integration tests pass, and the `*_e2e.rs` tests are ignored. No network access needed |
 | Documentation | `cargo doc --workspace --all-features` | `missing_docs` is a warning and warnings are errors, so every public item needs a doc comment |
-| Live tests | `DEEPGRAM_API_KEY=<key> cargo test --all-features --test flux_e2e -- --ignored` | Also `--test connect_diagnostics_e2e`; each `#[ignore]` reason names the requirement |
 | Audit | `cargo install --locked cargo-audit cargo-hack && cargo hack --remove-dev-deps && cargo generate-lockfile && cargo audit` | Run in a throwaway checkout; it rewrites `Cargo.toml` and `Cargo.lock`. Not run for this file |
 | Minimal-Versions | `rustup run nightly cargo build --all-targets --all-features -Z minimal-versions` and `rustup run nightly cargo test --all --all-features -Z minimal-versions` | Lower bounds in `Cargo.toml` must be real; the crates under "specified only to satisfy minimal-versions" exist for this job. Not run for this file |
 | SemVer | `cargo install --locked cargo-semver-checks && cargo semver-checks check-release --verbose` | Fails a pull request that breaks the public API without a version bump. Not run for this file |
+
+## Manual live verification
+
+These ignored end-to-end tests require `DEEPGRAM_API_KEY` and are not run by CI:
+
+```bash
+DEEPGRAM_API_KEY=<key> cargo test --all-features --test flux_e2e -- --ignored
+DEEPGRAM_API_KEY=<key> cargo test --all-features --test connect_diagnostics_e2e -- --ignored
+```
 
 ## Run an example against the live API
 
