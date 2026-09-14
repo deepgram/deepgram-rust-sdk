@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.1...HEAD)
+## [0.11.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.1...0.11.0)
 
 ### Added
 
@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Every `wss://` WebSocket surface (live transcription, Flux speech-to-text, Flux text-to-speech) now connects through one explicit rustls connector owned by the `Deepgram` client. Trust roots and TLS provider are therefore identical across surfaces and no longer depend on which TLS features other crates in the dependency graph enable on `tokio-tungstenite`. None of this applies to plaintext `ws://` connections (an `http://` base URL): they perform no TLS handshake and verify no certificate, so neither the feature nor `tls_config` affects them; keep `http://` to local testing and use `https://` whenever credentials or private traffic are involved. Previously only `/v1/listen` with `connect-diagnostics` used an explicit connector, and the Flux surfaces took whatever feature unification produced. If a Flux connection behind a TLS-inspecting proxy or private CA worked on 0.10.1 only because another crate enabled `tokio-tungstenite/rustls-tls-native-roots` or `native-tls`, it now fails with `UntrustedTlsCertificate` until you enable `rustls-tls-native-roots` on `deepgram` (or pass `Deepgram::tls_config`).
+- **BREAKING**: A Flux speech-to-text or Flux text-to-speech `wss://` connection behind a TLS-inspecting proxy or private CA that worked on 0.10.1 only because another crate in your dependency graph enabled `tokio-tungstenite/rustls-tls-native-roots` or `native-tls` now fails with `UntrustedTlsCertificate` until you enable `rustls-tls-native-roots` on `deepgram` (or pass `Deepgram::tls_config`). No public signature changed. Cause: every `wss://` WebSocket surface (live transcription, Flux speech-to-text, Flux text-to-speech) now connects through one explicit rustls connector owned by the `Deepgram` client, so trust roots and TLS provider are identical across surfaces and no longer depend on which TLS features other crates enable on `tokio-tungstenite`. Previously only `/v1/listen` with `connect-diagnostics` used an explicit connector, and the Flux surfaces took whatever feature unification produced. None of this applies to plaintext `ws://` connections (an `http://` base URL): they perform no TLS handshake and verify no certificate, so neither the feature nor `tls_config` affects them; keep `http://` to local testing and use `https://` whenever credentials or private traffic are involved.
 - The default TLS configuration is built once per `Deepgram` client (on its first WebSocket connect) and reused, so TLS sessions can be resumed across connections from the same client. Before, a fresh configuration was built per attempt and no session was ever resumed.
 - The TLS dependencies (`rustls`, `tokio-rustls`, `rustls-pki-types`, `webpki-roots`) are now enabled by the `listen` and `speak` features rather than only by `connect-diagnostics`. They were already present in the dependency graph through `tokio-tungstenite`; nothing new is downloaded.
 
