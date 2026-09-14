@@ -357,7 +357,7 @@ impl AgentHandle {
     }
 
     /// Send an `UpdateListen` message (change the STT model, language
-    /// hints, Flux end-of-turn thresholds, or keyterms mid-session). The
+    /// hints, Flux STT end-of-turn thresholds, or keyterms mid-session). The
     /// server confirms with `ListenUpdated`.
     pub async fn send_update_listen(&mut self, message: UpdateListenMessage) -> Result<()> {
         self.send_json(&message).await
@@ -430,7 +430,7 @@ impl AgentHandle {
     /// Send a `ForceEndTurn` message — end the current user turn now,
     /// without waiting for end-of-turn detection.
     ///
-    /// Requires a Deepgram V2 (Flux) listen provider; with any other
+    /// Requires a Deepgram V2 (Flux STT) listen provider; with any other
     /// provider the server replies with a `FORCE_END_TURN_UNSUPPORTED`
     /// `Warning` and the turn does not end. Typically paired with
     /// `eot_threshold: 1.0` on the listen provider, which suppresses

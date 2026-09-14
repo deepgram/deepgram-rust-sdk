@@ -63,7 +63,7 @@ pub enum ClientMessage {
     FunctionCallResponse(FunctionCallResponseMessage),
     /// Keep the WebSocket alive between user turns.
     KeepAlive(KeepAliveMessage),
-    /// End the current user turn immediately (Flux listen providers only).
+    /// End the current user turn immediately (Flux STT listen providers only).
     ForceEndTurn(ForceEndTurnMessage),
 }
 
@@ -146,7 +146,7 @@ pub enum UpdateListenType {
 /// The payload uses the same shape as `agent.listen` in `Settings`: a
 /// `provider` object. Model and language can be changed for any provider;
 /// keyterms and the end-of-turn thresholds can only be updated mid-session
-/// for Flux (V2) models. The server confirms with `ListenUpdated`.
+/// for Flux STT (V2) models. The server confirms with `ListenUpdated`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct UpdateListenMessage {
@@ -504,7 +504,7 @@ pub enum ForceEndTurnType {
 /// Mirrors `AgentV1ForceEndTurnMessage` — end the current user turn
 /// immediately, without waiting for end-of-turn detection.
 ///
-/// Requires a Deepgram V2 (Flux) listen provider. With any other listen
+/// Requires a Deepgram V2 (Flux STT) listen provider. With any other listen
 /// provider the server replies with a `FORCE_END_TURN_UNSUPPORTED`
 /// `Warning` and the turn does not end. Pair with
 /// `eot_threshold: 1.0` on the listen provider to take full control of

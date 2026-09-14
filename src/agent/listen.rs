@@ -3,7 +3,7 @@
 //! Mirrors the `agent.listen` block on `AgentV1SettingsMessage` in
 //! `asyncapi/schemas/schemas.agent.v1.yml`. The provider is a `oneOf`
 //! between two Deepgram-typed shapes that share `type: "deepgram"` but
-//! differ on `version` (`v1` vs `v2`/Flux). Discrimination here is on
+//! differ on `version` (`v1` vs `v2`/Flux STT). Discrimination here is on
 //! the `version` field via a custom [`Deserialize`] impl.
 
 use serde::de::Error as DeError;
@@ -26,13 +26,13 @@ impl AgentListenSettings {
 }
 
 /// Speech-to-text provider for the Voice Agent. Currently only Deepgram is
-/// supported, with two API versions (V1 and V2/Flux).
+/// supported, with two API versions (V1 and V2/Flux STT).
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum AgentListenProvider {
     /// V1 Deepgram STT (Nova/Nova-2/Nova-3).
     DeepgramV1(DeepgramListenV1Provider),
-    /// V2 Deepgram STT (Flux). `model` is required.
+    /// V2 Deepgram STT (Flux STT). `model` is required.
     DeepgramV2(DeepgramListenV2Provider),
 }
 
@@ -86,7 +86,7 @@ pub enum DeepgramListenV1Version {
     V1,
 }
 
-/// Wire-level discriminator for V2 (Flux) of the Deepgram STT API.
+/// Wire-level discriminator for V2 (Flux STT) of the Deepgram STT API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum DeepgramListenV2Version {
@@ -174,12 +174,12 @@ impl Default for DeepgramListenV1Provider {
     }
 }
 
-/// Deepgram V2 (Flux) STT provider. `model` is required per spec.
+/// Deepgram V2 (Flux STT) provider. `model` is required per spec.
 ///
 /// Mirrors `DeepgramListenProviderV2` in
 /// `asyncapi/schemas/agent/listen-providers/deepgram-v2.yml`. The
 /// end-of-turn fields (`eot_threshold`, `eager_eot_threshold`,
-/// `eot_timeout_ms`) tune Flux's built-in turn detection and can also be
+/// `eot_timeout_ms`) tune Flux STT's built-in turn detection and can also be
 /// changed mid-session with `UpdateListen`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -188,7 +188,7 @@ pub struct DeepgramListenV2Provider {
     #[serde(rename = "type", default)]
     pub provider_type: DeepgramProviderType,
 
-    /// API version — V2 (Flux).
+    /// API version — V2 (Flux STT).
     pub version: DeepgramListenV2Version,
 
     /// Flux model identifier (e.g. `flux-general-en`, `flux-general-multi`).
@@ -216,7 +216,7 @@ pub struct DeepgramListenV2Provider {
     /// When set, enables eager end-of-turn / turn-resumed behavior. Valid
     /// range `0.3`–`0.9`.
     ///
-    /// Note: Flux sessions can also emit an `EndOfTurn` server message
+    /// Note: Flux STT sessions can also emit an `EndOfTurn` server message
     /// (`{"type":"EndOfTurn","trigger":"model"|"timeout"}`) that is not in
     /// the published AsyncAPI spec yet; it currently surfaces as
     /// `AgentResponse::Unknown`.

@@ -68,8 +68,8 @@ cargo add tokio --features full
 
 ### Cargo features
 
-The product features (`listen`, `speak`, `read`, `manage`) are enabled by
-default; `connect-diagnostics` and `rustls-tls-native-roots` are opt-in. To
+The product features (`listen`, `speak`, `read`, `manage`, `agent`) are enabled
+by default; `connect-diagnostics` and `rustls-tls-native-roots` are opt-in. To
 trim dependencies, disable the defaults and pick only what you need:
 
 ```sh

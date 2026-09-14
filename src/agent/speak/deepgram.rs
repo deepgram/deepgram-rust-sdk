@@ -171,7 +171,7 @@ impl<'de> Deserialize<'de> for DeepgramSpeakExpressivity {
 /// Includes the Aura-1 English voices, the Aura-2 English/Spanish voices,
 /// and the Flux TTS English voices listed in the AsyncAPI spec at the time
 /// this SDK was built. Aura voices require [`DeepgramSpeakVersion::V1`]
-/// (or no `version`); Flux voices require [`DeepgramSpeakVersion::V2`].
+/// (or no `version`); Flux TTS voices require [`DeepgramSpeakVersion::V2`].
 /// Use [`DeepgramSpeakModel::Other`] to pass any value not yet enumerated.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
