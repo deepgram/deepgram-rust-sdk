@@ -6,8 +6,8 @@
 //! bundled webpki roots will never trust. Without `Deepgram::tls_config`
 //! every surface must refuse it with `DeepgramError::UntrustedTlsCertificate`;
 //! with a config that trusts it, live transcription, Flux speech-to-text,
-//! Flux text-to-speech, streaming text-to-speech, and the phase-timed
-//! diagnostics path must all connect.
+//! Flux text-to-speech, streaming text-to-speech, the Voice Agent, and the
+//! phase-timed diagnostics path must all connect.
 //!
 //! The `speak` surfaces are covered under `speak` alone, so the gate below
 //! is not `listen`-only; the `listen`-only cases carry their own `cfg`.
@@ -123,6 +123,37 @@ async fn tls_config_applies_to_streaming_text_to_speech() {
         .handle()
         .await
         .expect("streaming TTS connect with a config that trusts the server");
+}
+
+#[cfg(feature = "agent")]
+#[tokio::test]
+async fn tls_config_applies_to_the_voice_agent() {
+    let cert = self_signed();
+    let port = spawn_tls_server(cert.cert_der.clone(), cert.key_der).await;
+
+    client(port)
+        .tls_config(config_trusting(&cert.cert_der))
+        .agent()
+        .start_at_url(&format!("wss://localhost:{port}/v1/agent/converse"))
+        .await
+        .expect("voice agent connect with a config that trusts the server");
+}
+
+#[cfg(feature = "agent")]
+#[tokio::test]
+async fn default_trust_rejects_an_unknown_issuer_for_the_voice_agent() {
+    let cert = self_signed();
+    let port = spawn_tls_server(cert.cert_der, cert.key_der).await;
+
+    let err = client(port)
+        .agent()
+        .start_at_url(&format!("wss://localhost:{port}/v1/agent/converse"))
+        .await
+        .expect_err("self-signed certificate must be rejected by default");
+    assert!(
+        matches!(err, DeepgramError::UntrustedTlsCertificate { .. }),
+        "expected UntrustedTlsCertificate, got {err:?}"
+    );
 }
 
 #[cfg(feature = "listen")]
