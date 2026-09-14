@@ -4,7 +4,7 @@ Instructions for AI coding agents (Claude Code, Cursor, Codex, Copilot) and for 
 
 ## Repository purpose
 
-This is the Rust SDK for the Deepgram API, published to crates.io as `deepgram`. `Cargo.toml` is at version `0.10.1`, which is also the latest release tag, and `Cargo.lock` is committed. The crate is hand-written: there is no code generator, no `fern/` folder, and no `.fernignore`. Edit the source directly.
+This is the Rust SDK for the Deepgram API, published to crates.io as `deepgram`. `Cargo.toml` is at version `0.11.0`, which is also the latest release tag, and `Cargo.lock` is committed. The crate is hand-written: there is no code generator, no `fern/` folder, and no `.fernignore`. Edit the source directly.
 
 Never hardcode API keys or access tokens. Examples and the ignored end-to-end tests read `DEEPGRAM_API_KEY` from the environment and construct the client with `Deepgram::new(key)`; `Deepgram::with_temp_token` takes a short-lived token from `POST /v1/auth/grant`.
 
@@ -19,6 +19,7 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 | `src/auth/` | `grant` for temporary tokens |
 | `src/common/` | Shared `Options` builder, `Model` enum, audio sources, and the batch, stream, and Flux STT response types |
 | `src/diagnostics.rs` | Opt-in per-phase connect timing for `/v1/listen` (feature `connect-diagnostics`) |
+| `src/tls.rs` | The rustls connector every `wss://` WebSocket surface uses, `TlsTrust`, the `rustls-tls-native-roots` merge, and `Deepgram::tls_config` resolution |
 | `examples/` | Runnable example programs; registered targets are `[[example]]` entries in `Cargo.toml`, and sample audio is under `examples/audio/` |
 | `tests/` | Integration tests: `*_local.rs` run against in-process servers, `*_e2e.rs` are `#[ignore]` and need the live API |
 | `.github/workflows/ci.yaml` | The CI matrix (nine jobs, listed below); `context7.yml` refreshes the Context7 index on release |
@@ -26,7 +27,7 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 
 ## Cargo features
 
-`default = ["manage", "listen", "speak"]`. `listen` and `speak` each pull in `tungstenite` and `tokio-tungstenite`; `connect-diagnostics` implies `listen` and adds `rustls`, `rustls-pki-types`, `tokio-rustls`, `webpki-roots`, and `uuid/v4`. `auth` is always compiled. Gate a new module with `#[cfg(feature = "...")]` in `src/lib.rs` and add a `cargo check --no-default-features --features=<name>` line to `ci.yaml` if you add a feature.
+`default = ["manage", "listen", "speak"]`. `listen` and `speak` each pull in `tungstenite` and `tokio-tungstenite` plus the internal `__tls` feature (`rustls`, `rustls-pki-types`, `tokio-rustls`, `webpki-roots`, `tracing`), so every `wss://` surface shares one rustls connector; `rustls-tls-native-roots` adds `rustls-native-certs` and enables the same-named `tokio-tungstenite` feature to trust the OS certificate store on top of the bundled roots; `connect-diagnostics` implies `listen` and adds `uuid/v4`. `auth` is always compiled. Gate a new module with `#[cfg(feature = "...")]` in `src/lib.rs` and add a `cargo check --no-default-features --features=<name>` line to `ci.yaml` if you add a feature.
 
 ## Client surfaces
 
@@ -60,7 +61,7 @@ CI runs every job on every push and pull request with `RUSTFLAGS=-D warnings` an
 | CI job | Command | Notes |
 | --- | --- | --- |
 | Format | `cargo fmt --check --all` | Run `cargo fmt --all` to fix |
-| Features | `cargo check --all-targets --no-default-features`, then the same with `--features=listen`, `--features=speak`, `--features=manage`, `--features=connect-diagnostics` | Each feature must compile alone |
+| Features | `cargo check --all-targets --no-default-features`, then the same with `--features=listen`, `--features=speak`, `--features=manage`, `--features=connect-diagnostics`, `--features=listen,rustls-tls-native-roots`, `--features=speak,rustls-tls-native-roots`, `--features=connect-diagnostics,rustls-tls-native-roots`, then `cargo test --tests` with default features | Each feature must compile alone, and the native-roots feature with each surface it applies to |
 | Build | `cargo build --all-targets --all-features` | About 3 minutes from a cold cache |
 | Clippy | `cargo clippy --all-targets --all-features` | Zero warnings at 0.10.1; `#![warn(clippy::cargo)]` is on in `lib.rs` |
 | Test | `cargo test --all --all-features` | At 0.10.1: 105 unit tests pass, 2 are ignored, the `*_local.rs` integration tests pass, and the `*_e2e.rs` tests are ignored. No network access needed |
@@ -120,7 +121,7 @@ The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`
 - Errors are `DeepgramError` variants (`thiserror`). Validate what the server would reject anyway only when the failure would otherwise be confusing (the Flux TTS WebSocket rejects REST-only options up front with `DeepgramError::InvalidOptions`); leave everything else to the server.
 - WebSocket clients run a worker task and hand the caller a handle. Sends after the session has ended return an error instead of silently dropping the message, and the worker forwards a terminal transport error exactly once. Keep that contract in any new streaming surface (`tests/flux_backpressure_local.rs` and `tests/flux_speak_backpressure_local.rs` show the pattern).
 - Keep dependency lower bounds honest. If you call an API that a newer version of a dependency introduced, raise that dependency's minimum in `Cargo.toml`, or the Minimal-Versions job fails.
-- A change to a public signature is a semver event. In `0.x`, a breaking change needs a minor bump and a `**BREAKING**` line in `CHANGELOG.md` (the 0.10.0 entry is the model); an additive change needs a patch or minor bump. `cargo-semver-checks` enforces this in CI.
+- A change to a public signature is a semver event, and so is a behavior change that makes code working on the last release fail until the consumer changes something (a Cargo feature, a config call, an environment variable). In `0.x`, either kind of breaking change needs a minor bump and a `**BREAKING**` line in `CHANGELOG.md` that leads with what breaks and what to do (the 0.10.0 and 0.11.0 entries are the model); an additive change needs a patch or minor bump. `cargo-semver-checks` enforces the signature half in CI; it cannot see behavior, so read every `Changed` and `Fixed` entry for a consequence before labeling a release a patch.
 - `CHANGELOG.md` follows Keep a Changelog with `Added`, `Changed`, and `Fixed` sections. Add your entry under the version being prepared in the same pull request as the code.
 - Write "Flux STT" or "Flux TTS" in prose and doc comments; never bare "Flux". Identifiers such as `FluxHandle`, `flux_request`, and the `flux-general-en` model name stay as they are.
 
