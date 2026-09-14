@@ -510,7 +510,20 @@ impl SpeakStreamHandle {
             http_builder.body(())?
         };
 
-        let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async(request).await?;
+        // The client's explicit rustls connector (see `crate::tls`), shared
+        // with every other WebSocket surface, so trust roots cannot differ
+        // between surfaces or be changed by downstream feature unification.
+        // A plaintext `ws://` URL resolves nothing and never reads the OS
+        // certificate store.
+        let tls = builder.deepgram.tls.resolve_for(&url).await;
+        let (ws_stream, upgrade_response) = tokio_tungstenite::connect_async_tls_with_config(
+            request,
+            None,
+            false,
+            Some(tls.connector()),
+        )
+        .await
+        .map_err(|err| tls.connect_error(err, host))?;
 
         let request_id = upgrade_response
             .headers()
