@@ -51,6 +51,9 @@ pub enum Model {
     AuraZeusEn,
 
     #[allow(missing_docs)]
+    Aura2ThaliaEn,
+
+    #[allow(missing_docs)]
     CustomId(String),
 }
 
@@ -69,6 +72,7 @@ impl AsRef<str> for Model {
             Self::AuraOrpheusEn => "aura-orpheus-en",
             Self::AuraHeliosEn => "aura-helios-en",
             Self::AuraZeusEn => "aura-zeus-en",
+            Self::Aura2ThaliaEn => "aura-2-thalia-en",
             Self::CustomId(id) => id,
         }
     }
