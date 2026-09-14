@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Returned by [`Transcription::prerecorded`](crate::Transcription::prerecorded).
+/// Returned by `Transcription::prerecorded`.
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -24,7 +24,7 @@ pub struct Response {
     pub results: ListenResults,
 }
 
-/// Returned by [`Transcription::prerecorded_callback`](crate::Transcription::prerecorded_callback).
+/// Returned by `Transcription::prerecorded_callback`.
 ///
 /// See the [Deepgram Callback feature docs][docs] for more info.
 ///

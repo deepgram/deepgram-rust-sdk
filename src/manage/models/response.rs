@@ -22,14 +22,12 @@ pub struct ModelsResponse {
 /// Metadata describing a single Deepgram model.
 ///
 /// This is the management-API model record returned by the `/v1/models`
-/// endpoints. It is distinct from [`common::options::Model`], the request-time
+/// endpoints. It is distinct from `common::options::Model`, the request-time
 /// model selector you pass when transcribing.
 ///
 /// The same shape is returned for STT and TTS models; STT models populate
 /// `batch` / `streaming` / `formatted_output`, while TTS models populate
 /// `metadata`.
-///
-/// [`common::options::Model`]: crate::common::options::Model
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Model {
