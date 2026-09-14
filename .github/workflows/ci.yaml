@@ -30,12 +30,16 @@ jobs:
       run: cargo check --all-targets --no-default-features --features=manage
     - name: Check read feature
       run: cargo check --all-targets --no-default-features --features=read
+    - name: Check agent feature
+      run: cargo check --all-targets --no-default-features --features=agent
     - name: Check connect-diagnostics feature
       run: cargo check --all-targets --no-default-features --features=connect-diagnostics
     - name: Check rustls-tls-native-roots with listen
       run: cargo check --all-targets --no-default-features --features=listen,rustls-tls-native-roots
     - name: Check rustls-tls-native-roots with speak
       run: cargo check --all-targets --no-default-features --features=speak,rustls-tls-native-roots
+    - name: Check rustls-tls-native-roots with agent
+      run: cargo check --all-targets --no-default-features --features=agent,rustls-tls-native-roots
     - name: Check rustls-tls-native-roots with connect-diagnostics
       run: cargo check --all-targets --no-default-features --features=connect-diagnostics,rustls-tls-native-roots
     - name: Test default features (webpki-only trust path)
