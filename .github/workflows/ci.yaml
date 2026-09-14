@@ -95,7 +95,7 @@ jobs:
       run: cargo doc --workspace --all-features
     - name: Cargo Doc, each feature alone
       run: |
-        for feature in listen speak manage connect-diagnostics; do
+        for feature in listen speak manage read connect-diagnostics; do
           cargo doc --no-deps --no-default-features --features "$feature"
         done
   Audit:
