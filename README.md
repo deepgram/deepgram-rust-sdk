@@ -76,12 +76,12 @@ defaults and pick only what you need:
 cargo add deepgram --no-default-features --features read
 ```
 
-| Feature  | Enables                                                             |
-| -------- | ------------------------------------------------------------------- |
-| `listen` | Speech-to-text: pre-recorded REST, live WebSocket streaming, Flux   |
-| `speak`  | Text-to-speech REST and streaming WebSocket (Aura, Flux)            |
-| `read`   | Text Intelligence (`/v1/read`): sentiment, summary, topics, intents |
-| `manage` | Management API: projects, keys, members, usage, billing, models     |
+| Feature  | Enables                                                               |
+| -------- | --------------------------------------------------------------------- |
+| `listen` | Speech-to-text: pre-recorded REST, live WebSocket streaming, Flux STT |
+| `speak`  | Text-to-speech REST and streaming WebSocket (Aura, Flux TTS)          |
+| `read`   | Text Intelligence (`/v1/read`): sentiment, summary, topics, intents   |
+| `manage` | Management API: projects, keys, members, usage, billing, models       |
 
 Token-based authentication (`auth`) is always available. The `listen` and
 `speak` features pull in WebSocket dependencies; `read` and `manage` are
