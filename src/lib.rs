@@ -12,12 +12,12 @@
 //! - `speak` (default): text-to-speech, REST and WebSocket, including Flux.
 //! - `manage` (default): project, key, and usage management.
 //! - `connect-diagnostics`: per-phase connect timings for `/v1/listen`
-//!   WebSocket connections; see [`diagnostics`].
+//!   WebSocket connections; see the `diagnostics` module.
 //! - `rustls-tls-native-roots`: also trust the operating system's certificate
 //!   store for `wss://` WebSocket connections, on top of the bundled public
 //!   roots. For
 //!   TLS-inspecting proxies, internal CAs, and self-hosted deployments; see
-//!   [`tls`].
+//!   the `tls` module.
 
 use core::fmt;
 pub use http::Error as HttpError;
@@ -61,6 +61,82 @@ pub mod tls;
 pub use rustls;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
+
+/// The `Host` header for a WebSocket handshake to `url`: the authority
+/// without userinfo, so the host plus the port whenever the port is not
+/// the scheme default. `url::Url::host_str` already brackets IPv6
+/// literals, and `url::Url::port` is `None` for a default port (80 for
+/// `ws`, 443 for `wss`), so `wss://api.deepgram.com/v1/listen` gives
+/// `api.deepgram.com` and `ws://127.0.0.1:54321/v1/listen` gives
+/// `127.0.0.1:54321`. Every WebSocket surface uses this so a self-hosted
+/// or proxied deployment on a non-default port is routed by its full
+/// authority.
+#[cfg(any(feature = "listen", feature = "speak"))]
+pub(crate) fn websocket_host_header(url: &Url) -> Option<String> {
+    let host = url.host_str()?;
+    Some(match url.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host.to_owned(),
+    })
+}
+
+#[cfg(all(test, any(feature = "listen", feature = "speak")))]
+mod websocket_host_header_tests {
+    use super::websocket_host_header;
+    use url::Url;
+
+    fn parse(s: &str) -> Url {
+        s.parse().expect("valid URL")
+    }
+
+    #[test]
+    fn includes_a_non_default_port() {
+        assert_eq!(
+            websocket_host_header(&parse("ws://127.0.0.1:54321/v1/listen")).as_deref(),
+            Some("127.0.0.1:54321")
+        );
+        assert_eq!(
+            websocket_host_header(&parse("wss://dg.internal.example:8443/v1/listen")).as_deref(),
+            Some("dg.internal.example:8443")
+        );
+    }
+
+    #[test]
+    fn omits_the_scheme_default_port() {
+        assert_eq!(
+            websocket_host_header(&parse("wss://api.deepgram.com/v1/listen")).as_deref(),
+            Some("api.deepgram.com")
+        );
+        assert_eq!(
+            websocket_host_header(&parse("wss://api.deepgram.com:443/v1/listen")).as_deref(),
+            Some("api.deepgram.com")
+        );
+        assert_eq!(
+            websocket_host_header(&parse("ws://localhost:80/v1/listen")).as_deref(),
+            Some("localhost")
+        );
+    }
+
+    #[test]
+    fn keeps_ipv6_brackets() {
+        assert_eq!(
+            websocket_host_header(&parse("ws://[::1]:9000/v1/listen")).as_deref(),
+            Some("[::1]:9000")
+        );
+        assert_eq!(
+            websocket_host_header(&parse("wss://[2001:db8::1]:8443/v1/listen")).as_deref(),
+            Some("[2001:db8::1]:8443")
+        );
+    }
+
+    #[test]
+    fn drops_userinfo() {
+        assert_eq!(
+            websocket_host_header(&parse("wss://user:secret@dg.example:8443/v1/listen")).as_deref(),
+            Some("dg.example:8443")
+        );
+    }
+}
 
 pub(crate) static USER_AGENT: &str = concat!(
     env!("CARGO_PKG_NAME"),
@@ -325,7 +401,7 @@ impl Deepgram {
     ///
     /// The base URL's scheme decides how WebSocket connections are made:
     /// `https://` gives `wss://`, with TLS and certificate verification (see
-    /// [`crate::tls`]); `http://` gives plaintext `ws://`, with neither, so
+    /// the `tls` module); `http://` gives plaintext `ws://`, with neither, so
     /// credentials and audio travel unencrypted. Use `http://` only for local
     /// testing (as in the example below) and prefer `https://` whenever an
     /// API key, a temporary token, or private traffic is involved.
@@ -367,7 +443,7 @@ impl Deepgram {
     ///
     /// The base URL's scheme decides how WebSocket connections are made:
     /// `https://` gives `wss://`, with TLS and certificate verification (see
-    /// [`crate::tls`]); `http://` gives plaintext `ws://`, with neither, so
+    /// the `tls` module); `http://` gives plaintext `ws://`, with neither, so
     /// credentials and audio travel unencrypted. Use `http://` only for local
     /// testing (as in the example below) and prefer `https://` whenever an
     /// API key, a temporary token, or private traffic is involved.

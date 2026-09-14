@@ -176,13 +176,14 @@ impl FluxSpeakHandle {
     async fn new(builder: FluxSpeakBuilder<'_>) -> Result<FluxSpeakHandle> {
         let url = builder.as_url()?;
         let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
+        let host_header = crate::websocket_host_header(&url).ok_or(DeepgramError::InvalidUrl)?;
 
         let request = {
             let http_builder = Request::builder()
                 .method("GET")
                 .uri(url.to_string())
                 .header("sec-websocket-key", client::generate_key())
-                .header("host", host)
+                .header("host", host_header)
                 .header("connection", "upgrade")
                 .header("upgrade", "websocket")
                 .header("sec-websocket-version", "13")
