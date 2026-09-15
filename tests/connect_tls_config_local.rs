@@ -8,14 +8,22 @@
 //! with a config that trusts it, live transcription, Flux speech-to-text,
 //! Flux text-to-speech, streaming text-to-speech, and the phase-timed
 //! diagnostics path must all connect.
+//!
+//! The `speak` surfaces are covered under `speak` alone, so the gate below
+//! is not `listen`-only; the `listen`-only cases carry their own `cfg`.
 
-#![cfg(feature = "listen")]
+#![cfg(any(feature = "listen", feature = "speak"))]
 
 mod common;
 
 use common::{client, config_trusting, self_signed, spawn_tls_server};
-use deepgram::{common::options::Options, tls::TlsTrust, DeepgramError};
+#[cfg(feature = "listen")]
+use deepgram::common::options::Options;
+#[cfg(feature = "listen")]
+use deepgram::tls::TlsTrust;
+use deepgram::DeepgramError;
 
+#[cfg(feature = "listen")]
 #[tokio::test]
 async fn default_trust_rejects_an_unknown_issuer_with_an_actionable_error() {
     let cert = self_signed();
@@ -55,6 +63,7 @@ async fn default_trust_rejects_an_unknown_issuer_with_an_actionable_error() {
     }
 }
 
+#[cfg(feature = "listen")]
 #[tokio::test]
 async fn tls_config_applies_to_live_transcription() {
     let cert = self_signed();
@@ -69,6 +78,7 @@ async fn tls_config_applies_to_live_transcription() {
         .expect("connect with a config that trusts the server");
 }
 
+#[cfg(feature = "listen")]
 #[tokio::test]
 async fn tls_config_applies_to_flux_speech_to_text() {
     let cert = self_signed();
@@ -115,6 +125,7 @@ async fn tls_config_applies_to_streaming_text_to_speech() {
         .expect("streaming TTS connect with a config that trusts the server");
 }
 
+#[cfg(feature = "listen")]
 #[tokio::test]
 async fn a_custom_config_that_does_not_trust_the_server_says_so() {
     let cert = self_signed();
@@ -145,6 +156,32 @@ async fn a_custom_config_that_does_not_trust_the_server_says_so() {
     let message = err.to_string();
     assert!(message.contains("does not trust"), "{message}");
     assert!(!message.contains("rustls-tls-native-roots"), "{message}");
+}
+
+/// The default trust roots must reject an unknown issuer on the streaming
+/// text-to-speech surface as well, with the same actionable error. This runs
+/// under `speak` alone, where the live-transcription case above is compiled
+/// out.
+#[cfg(feature = "speak")]
+#[tokio::test]
+async fn default_trust_rejects_an_unknown_issuer_on_streaming_text_to_speech() {
+    let cert = self_signed();
+    let port = spawn_tls_server(cert.cert_der, cert.key_der).await;
+
+    let err = client(port)
+        .text_to_speech()
+        .speak_stream()
+        .handle()
+        .await
+        .expect_err("self-signed certificate must be rejected by default");
+
+    let DeepgramError::UntrustedTlsCertificate { host, .. } = &err else {
+        panic!("expected UntrustedTlsCertificate, got {err:?}");
+    };
+    assert_eq!(host, "localhost");
+    let message = err.to_string();
+    assert!(message.contains("UnknownIssuer"), "{message}");
+    assert!(message.contains("Deepgram::tls_config"), "{message}");
 }
 
 #[cfg(feature = "connect-diagnostics")]
