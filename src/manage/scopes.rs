@@ -76,9 +76,8 @@ impl Scopes<'_> {
         project_id: &str,
         member_id: &str,
     ) -> crate::Result<response::Scopes> {
-        let url = format!(
-            "https://api.deepgram.com/v1/projects/{project_id}/members/{member_id}/scopes "
-        );
+        let url =
+            format!("https://api.deepgram.com/v1/projects/{project_id}/members/{member_id}/scopes");
 
         send_and_translate_response(self.0.client.get(url)).await
     }

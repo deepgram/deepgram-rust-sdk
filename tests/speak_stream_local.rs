@@ -338,3 +338,95 @@ async fn write_error_with_undrained_events_does_not_stall_the_worker() {
          error instead of succeeding forever"
     );
 }
+
+/// PR #166 review, B1: a write failure while the response channel is full
+/// must still *deliver* the terminal error to a consumer that is receiving.
+/// `split()` hands out a sender and an event stream, so a consumer draining
+/// from its own task never parks on the outbound channel — the response
+/// channel can be full at the instant of the write failure while the
+/// consumer is very much alive. Forwarding the error into the shared buffer
+/// silently discards it there; forwarding it through the worker's dedicated
+/// sender slot delivers it. `AGENTS.md` ("the worker forwards a terminal
+/// transport error exactly once") is the contract under test, so this asserts
+/// the error is *received*, not merely that nothing hangs.
+#[tokio::test]
+async fn write_error_reaches_a_slow_split_consumer() {
+    let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let port = spawn_mock_server(|mut ws| async move {
+        // Far more audio than the response channel holds, so frames are
+        // still queued in the socket when the connection breaks: the worker
+        // has inbound work to do and cannot reach the read error before the
+        // outbound write fails.
+        for _ in 0..QUEUED_AUDIO_FRAMES {
+            ws.send(Message::Binary(vec![0u8; 160].into()))
+                .await
+                .expect("server send");
+        }
+        // Vanish without a closing handshake, but only once the client's
+        // response channel is provably full.
+        let _ = abort_rx.await;
+        drop(ws);
+    })
+    .await;
+
+    let handle = connect(port).await;
+    let (sender, mut events) = handle.split();
+
+    // A deliberately slow consumer in its own task: one event every 10 ms,
+    // so the 256-deep response channel stays full throughout the failure
+    // while the consumer keeps receiving.
+    let consumer = tokio::spawn(async move {
+        let mut audio = 0usize;
+        let mut terminal_errors = 0usize;
+        while let Some(event) = events.next().await {
+            match event {
+                Ok(SpeakResponse::Audio(_)) => audio += 1,
+                Ok(other) => panic!("unexpected event {other:?}"),
+                Err(_) => terminal_errors += 1,
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        (audio, terminal_errors)
+    });
+
+    // Let the flood fill the response channel, then break the connection.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let _ = abort_tx.send(());
+
+    // Large payloads, so the socket's send buffer is exhausted quickly and
+    // the worker's write actually reaches the dead peer.
+    let text = "token ".repeat(1024);
+    let sending = async {
+        for _ in 0..2_000 {
+            if sender.speak(text.clone()).await.is_err() {
+                return true;
+            }
+        }
+        false
+    };
+    let send_failed = tokio::time::timeout(Duration::from_secs(20), sending)
+        .await
+        .expect("a write error with a full response channel must not deadlock `speak`");
+    assert!(
+        send_failed,
+        "the broken transport must fail a later `speak`"
+    );
+    drop(sender);
+
+    let (audio, terminal_errors) = tokio::time::timeout(Duration::from_secs(60), consumer)
+        .await
+        .expect("the event stream must end after the terminal error")
+        .expect("consumer task panicked");
+
+    assert!(
+        audio >= RESPONSE_CHANNEL_CAPACITY,
+        "the response channel must have been full at the write failure, but the consumer only \
+         drained {audio} audio events"
+    );
+    assert_eq!(
+        terminal_errors, 1,
+        "the terminal write error must reach a consumer that is still draining, exactly once \
+         (drained {audio} audio events)"
+    );
+}
