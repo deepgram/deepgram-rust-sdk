@@ -4,6 +4,8 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#billing
 
+use url::Url;
+
 use crate::{
     manage::billing::response::{Balance, Balances},
     send_and_translate_response, Deepgram,
@@ -67,7 +69,7 @@ impl Billing<'_> {
     /// # }
     /// ```
     pub async fn list_balance(&self, project_id: &str) -> crate::Result<Balances> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/balances",);
+        let url = self.balances_url(project_id)?;
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -108,16 +110,54 @@ impl Billing<'_> {
     /// # }
     /// ```
     pub async fn get_balance(&self, project_id: &str, balance_id: &str) -> crate::Result<Balance> {
-        let url =
-            format!("https://api.deepgram.com/v1/projects/{project_id}/balances/{balance_id}",);
+        let url = self.balance_url(project_id, balance_id)?;
 
         send_and_translate_response(self.0.client.get(url)).await
+    }
+
+    fn balances_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/balances"))
+    }
+
+    fn balance_url(&self, project_id: &str, balance_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/balances/{balance_id}"))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::manage::billing::response::{Balance, BillingUnits};
+    use crate::Deepgram;
+
+    #[test]
+    fn urls_default_base() {
+        let dg = Deepgram::new("token").unwrap();
+
+        assert_eq!(
+            dg.billing().balances_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/balances"
+        );
+        assert_eq!(
+            dg.billing().balance_url("proj", "bal").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/balances/bal"
+        );
+    }
+
+    #[test]
+    fn urls_custom_base() {
+        let dg = Deepgram::with_base_url("http://deepgram.internal").unwrap();
+
+        assert_eq!(
+            dg.billing().balances_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/balances"
+        );
+        assert_eq!(
+            dg.billing().balance_url("proj", "bal").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/balances/bal"
+        );
+    }
 
     #[test]
     fn test() {

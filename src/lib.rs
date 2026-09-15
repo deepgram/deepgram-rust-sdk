@@ -421,13 +421,11 @@ impl Deepgram {
     /// `http://deepgram.internal/abc` resolves to
     /// `http://deepgram.internal/v1/listen` and drops the `abc`.
     ///
-    /// Transcription, text-to-speech, and Text Intelligence requests all use
-    /// this base URL, and so do the model-listing endpoints
-    /// (`Deepgram::models`) and the self-hosted distribution credentials
-    /// (`Deepgram::self_hosted`). The remaining management requests still go
-    /// to the hosted site at `https://api.deepgram.com` regardless of what
-    /// is configured here — billing, usage, keys, members, invitations,
-    /// projects, and scopes — as does the `/v1/auth/grant` token exchange.
+    /// Every request this client makes goes to this base URL, including the
+    /// management API (projects, keys, members, scopes, invitations, usage,
+    /// and billing). To reach Deepgram's hosted management API while your
+    /// audio goes elsewhere, build a second client with [`Deepgram::new`]
+    /// and make the management calls on that one.
     ///
     /// Self-hosted instances do not in general authenticate incoming
     /// requests, so unlike in [`Deepgram::new`], so no api key needs to be
@@ -482,13 +480,12 @@ impl Deepgram {
     /// `http://deepgram.internal/abc` resolves to
     /// `http://deepgram.internal/v1/listen` and drops the `abc`.
     ///
-    /// Transcription, text-to-speech, and Text Intelligence requests all use
-    /// this base URL, and so do the model-listing endpoints
-    /// (`Deepgram::models`) and the self-hosted distribution credentials
-    /// (`Deepgram::self_hosted`). The remaining management requests still go
-    /// to the hosted site at `https://api.deepgram.com` regardless of what
-    /// is configured here — billing, usage, keys, members, invitations,
-    /// projects, and scopes — as does the `/v1/auth/grant` token exchange.
+    /// Every request this client makes goes to this base URL, including the
+    /// management API (projects, keys, members, scopes, invitations, usage,
+    /// and billing), and it carries `api_key` with it. To reach Deepgram's
+    /// hosted management API while your audio goes elsewhere, build a second
+    /// client with [`Deepgram::new`] and make the management calls on that
+    /// one.
     ///
     /// The base URL's scheme decides how WebSocket connections are made:
     /// `https://` gives `wss://`, with TLS and certificate verification (see
@@ -525,6 +522,10 @@ impl Deepgram {
     }
 
     /// Construct a new Deepgram client with the specified base URL and temp token.
+    ///
+    /// As with [`Deepgram::with_base_url_and_api_key`], every request this
+    /// client makes goes to this base URL, including the management API, and
+    /// it carries `temp_token` with it.
     pub fn with_base_url_and_temp_token<U, T>(base_url: U, temp_token: T) -> Result<Self>
     where
         U: TryInto<Url>,
@@ -566,6 +567,27 @@ impl Deepgram {
             #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
             tls: tls::TlsSettings::new(),
         })
+    }
+
+    /// Join a relative API path, such as `v1/projects`, onto this client's
+    /// configured base URL.
+    ///
+    /// Every management request is built this way, so a client constructed
+    /// with [`Deepgram::with_base_url`] sends them to that host rather than
+    /// to `https://api.deepgram.com`. Pass the path without a leading slash
+    /// so a base URL that carries a path prefix (`http://gateway/deepgram/`)
+    /// keeps it, matching how the transcription and speech surfaces build
+    /// theirs.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DeepgramError::InvalidUrl`] if `path` cannot be joined onto
+    /// the base URL.
+    #[cfg(feature = "manage")]
+    pub(crate) fn api_url(&self, path: &str) -> Result<Url> {
+        self.base_url
+            .join(path)
+            .map_err(|_| DeepgramError::InvalidUrl)
     }
 
     /// Use your own [`rustls::ClientConfig`] for every `wss://` WebSocket
