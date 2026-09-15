@@ -14,10 +14,10 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 | --- | --- |
 | `src/lib.rs` | The `Deepgram` client, `DeepgramError`, the `Transcription` and `Speak` handles, base URL, and `User-Agent` |
 | `src/listen/` | `rest.rs` (pre-recorded), `websocket.rs` (Nova streaming over `/v1/listen`), `flux.rs` (Flux STT over `/v2/listen`) |
-| `src/speak/` | `rest.rs` (Aura over `/v1/speak`), `flux/` (Flux TTS over `/v2/speak`: `rest.rs`, `websocket.rs`, `options.rs`, `response.rs`) |
+| `src/speak/` | `rest.rs` (Aura over `/v1/speak`), `options.rs`, `response.rs` (`SpeakMetadata`, the `/v1/speak` response headers), `flux/` (Flux TTS over `/v2/speak`: `rest.rs`, `websocket.rs`, `options.rs`, `response.rs`) |
 | `src/manage/` | Management API: `billing`, `invitations`, `keys`, `members`, `projects`, `scopes`, `usage`. Each has response types; `keys` and `projects` have `options.rs`, and `usage` has operation-specific option modules. |
 | `src/auth/` | `grant` for temporary tokens |
-| `src/common/` | Shared `Options` builder, `Model` enum, audio sources, and the batch, stream, and Flux STT response types |
+| `src/common/` | Shared `Options` builder, `Model` enum, audio sources, the batch, stream, and Flux STT response types, and `captions.rs` (the SRT/WebVTT helper) |
 | `src/diagnostics.rs` | Opt-in per-phase connect timing for `/v1/listen` (feature `connect-diagnostics`) |
 | `src/tls.rs` | The rustls connector every `wss://` WebSocket surface uses, `TlsTrust`, the `rustls-tls-native-roots` merge, and `Deepgram::tls_config` resolution |
 | `examples/` | Runnable example programs; registered targets are `[[example]]` entries in `Cargo.toml`, and sample audio is under `examples/audio/` |
@@ -38,7 +38,7 @@ Every row below was checked against `src/` on 2026-09-13.
 | Speech-to-text, pre-recorded | `POST /v1/listen` | `dg.transcription().prerecorded(source, &options)`, `prerecorded_callback`, `make_prerecorded_request_builder` | Shipped (`listen`) |
 | Speech-to-text, streaming (Nova) | `wss /v1/listen` | `dg.transcription().stream_request()` or `stream_request_with_options(options)`, then `.file(...)`, `.stream(...)`, or `.handle()` for a `WebsocketHandle` (`send_data`, `finalize`, `keep_alive`, `close_stream`, `receive`) | Shipped (`listen`) |
 | Flux STT (conversational speech-to-text) | `wss /v2/listen` | `dg.transcription().flux_request()` or `flux_request_with_options(options)`, then `.handle()` for a `FluxHandle` (`send_data`, `configure`, `force_end_turn`, `close_stream`, `receive`); models `Model::FluxGeneralEn`, `Model::FluxGeneralMulti` | Shipped (`listen`) since 0.8.0; `configure` and `language_hint` since 0.10.0; `force_end_turn` since 0.10.1 |
-| Text-to-speech, batch (Aura) | `POST /v1/speak` | `dg.text_to_speech().speak_to_file(...)`, `speak_to_stream(...)` | Shipped (`speak`) |
+| Text-to-speech, batch (Aura) | `POST /v1/speak` | `dg.text_to_speech().speak_to_file(...)`, `speak_to_stream(...)`; `speak_to_file_with_metadata(...)`, `speak_to_stream_with_metadata(...)` also return a `SpeakMetadata` whose `request_id()` is the `dg-request-id` header | Shipped (`speak`) |
 | Text-to-speech, streaming (Aura) | `wss /v1/speak` | none | Not shipped; `src/speak/` has no v1 WebSocket module (in progress on `origin/feat/phase-3-tts-ws-selfhosted`) |
 | Flux TTS, batch | `POST /v2/speak` | `dg.text_to_speech().flux_speak_to_file(...)`, `flux_speak_to_stream(...)` | Shipped (`speak`) since 0.10.1 |
 | Flux TTS, streaming | `wss /v2/speak` | `dg.text_to_speech().flux_request(options).handle()` for a `FluxSpeakHandle` (`speak`, `flush`, `interrupt`, `configure_speed`, `close`, `receive`); events arrive as `FluxSpeakResponse` | Shipped (`speak`) since 0.10.1 |

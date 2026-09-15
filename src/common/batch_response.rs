@@ -247,9 +247,20 @@ pub struct Entity {
     /// labels the model can return is not a fixed list.
     pub label: String,
 
-    /// The text of the entity as it appears in the transcript. Reflects the
-    /// formatted output when Smart Formatting is enabled.
+    /// The entity text, formatted when Smart Formatting is enabled. Not
+    /// necessarily a substring of the transcript: formatting can rewrite the
+    /// words (`five five five` becomes `(555`) and trailing punctuation the
+    /// transcript carries is dropped.
     pub value: String,
+
+    /// The entity text as it was spoken, before a formatting feature rewrote
+    /// it. `None` unless a formatting feature such as `smart_format` is
+    /// enabled, and also `None` for an entity that formatting left alone. With
+    /// `smart_format=true` a live probe returned it for five of six entities —
+    /// `PHONE_NUMBER` as `five five five` against a `value` of `(555` — and
+    /// omitted it for the one entity (`NAME`) whose text was unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_value: Option<String>,
 
     /// The model's confidence in this entity, from `0.0` to `1.0`. Larger
     /// values indicate higher confidence.
@@ -567,15 +578,40 @@ mod tests {
     }
 
     // Captured from a live `POST /v1/listen` response on 2026-09-15
-    // (nova-3, smart_format + detect_entities + sentiment). The two word-index
-    // conventions really do differ, so both are pinned here: the docs on these
-    // fields promise it.
+    // (nova-3, smart_format + detect_entities + sentiment). These fixtures pin
+    // what the SDK's types decode off a real payload, and that the two
+    // word-index conventions differ the way the docs on those fields say --
+    // they cannot detect the server changing convention, only the SDK drifting
+    // from the payload recorded here.
     const LIVE_ENTITY: &str = r#"{
         "label": "ORDINAL",
         "value": "first",
         "confidence": 0.9988257,
         "start_word": 9,
         "end_word": 10
+    }"#;
+
+    // Same session, a closed-loop probe: text with a phone number synthesized
+    // with aura-2-thalia-en, then transcribed with
+    // `smart_format=true&detect_entities=true`. Smart Formatting rewrote
+    // "five five five" as "(555", so the entity carries both forms.
+    const LIVE_ENTITY_WITH_RAW_VALUE: &str = r#"{
+        "label": "PHONE_NUMBER",
+        "value": "(555",
+        "raw_value": "five five five",
+        "confidence": 0.99934894,
+        "start_word": 9,
+        "end_word": 10
+    }"#;
+
+    // The one entity of the six in that same response that formatting left
+    // alone: the server omits `raw_value` entirely.
+    const LIVE_ENTITY_WITHOUT_RAW_VALUE: &str = r#"{
+        "label": "NAME",
+        "value": "Jane Doe",
+        "confidence": 0.9998472,
+        "start_word": 3,
+        "end_word": 5
     }"#;
 
     #[test]
@@ -592,20 +628,50 @@ mod tests {
     }
 
     #[test]
-    fn intelligence_segment_word_indices_are_end_inclusive() {
-        // The live sentiment segment spanned words 0..=61 and carried 62 words
-        // of text -- one more than an exclusive end index would give.
-        let segment: SentimentSegment = serde_json::from_str(
-            r#"{
-                "text": "one two three",
-                "start_word": 0,
-                "end_word": 2,
-                "sentiment": "neutral",
-                "sentiment_score": 0.0
-            }"#,
-        )
-        .unwrap();
+    fn entity_raw_value_is_read_when_formatting_rewrote_the_entity() {
+        let entity: Entity = serde_json::from_str(LIVE_ENTITY_WITH_RAW_VALUE).unwrap();
 
+        assert_eq!(entity.value, "(555");
+        assert_eq!(entity.raw_value.as_deref(), Some("five five five"));
+    }
+
+    #[test]
+    fn entity_raw_value_is_none_when_the_server_omits_it() {
+        let entity: Entity = serde_json::from_str(LIVE_ENTITY_WITHOUT_RAW_VALUE).unwrap();
+
+        assert_eq!(entity.value, "Jane Doe");
+        assert!(entity.raw_value.is_none());
+        // Two words, and the exclusive end index gives exactly two.
+        assert_eq!(
+            entity.end_word - entity.start_word,
+            entity.value.split_whitespace().count()
+        );
+
+        let json = serde_json::to_value(&entity).unwrap();
+        assert!(
+            json.get("raw_value").is_none(),
+            "absent raw_value must not serialize as null"
+        );
+    }
+
+    // The sentiment segment from the same live response as LIVE_ENTITY.
+    // `end_word` is 61 and the text carries 62 words -- one more than an
+    // exclusive end index would give.
+    const LIVE_SENTIMENT_SEGMENT: &str = r#"{
+        "text": "Yeah. As as much as, it's worth celebrating, the first, spacewalk, with an all female team, I think many of us are looking forward to it just being normal. And, I think if it signifies anything, it is, to honor the the women who came before us who, were skilled and qualified, and didn't get the same opportunities that we have today.",
+        "start_word": 0,
+        "end_word": 61,
+        "sentiment": "positive",
+        "sentiment_score": 0.6363217830657959
+    }"#;
+
+    #[test]
+    fn intelligence_segment_word_indices_are_end_inclusive() {
+        let segment: SentimentSegment = serde_json::from_str(LIVE_SENTIMENT_SEGMENT).unwrap();
+
+        assert_eq!(segment.start_word, 0);
+        assert_eq!(segment.end_word, 61);
+        assert_eq!(segment.text.split_whitespace().count(), 62);
         assert_eq!(
             segment.end_word - segment.start_word + 1,
             segment.text.split_whitespace().count(),
