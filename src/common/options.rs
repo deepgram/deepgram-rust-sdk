@@ -8,7 +8,16 @@ use std::{collections::HashMap, fmt};
 
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
-/// Used as a parameter for [`Transcription::prerecorded`](crate::Transcription::prerecorded) and similar functions.
+// `Transcription` only exists with the `listen` feature, so the link is
+// emitted only when it will resolve. docs.rs builds all features.
+#[cfg_attr(
+    feature = "listen",
+    doc = "Used as a parameter for [`Transcription::prerecorded`](crate::Transcription::prerecorded) and similar functions."
+)]
+#[cfg_attr(
+    not(feature = "listen"),
+    doc = "Used as a parameter for `Transcription::prerecorded` and similar functions."
+)]
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options {
     model: Option<Model>,
@@ -196,6 +205,20 @@ impl fmt::Display for Endpointing {
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
+///
+/// This is the request-time model selector.
+///
+// The whole sentence lives in both arms so it reads as one sentence in
+// source: `manage::models` is gated on `manage`, so the link is emitted only
+// when it will resolve. docs.rs builds all features.
+#[cfg_attr(
+    feature = "manage",
+    doc = "It is distinct from the model metadata record the management API returns, [`manage::models::response::Model`](crate::manage::models::response::Model)."
+)]
+#[cfg_attr(
+    not(feature = "manage"),
+    doc = "It is distinct from the model metadata record the management API returns, `manage::models::response::Model`."
+)]
 ///
 /// See the [Deepgram Model feature docs][docs] for more info.
 ///
@@ -788,7 +811,16 @@ pub enum Multichannel {
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// Use it to set of Deepgram's features, excluding the Callback feature.
-/// The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::Transcription::prerecorded_callback).
+// `Transcription` only exists with the `listen` feature, so the link is
+// emitted only when it will resolve. docs.rs builds all features.
+#[cfg_attr(
+    feature = "listen",
+    doc = "The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::Transcription::prerecorded_callback)."
+)]
+#[cfg_attr(
+    not(feature = "listen"),
+    doc = "The Callback feature can be set when making the request by calling `Transcription::prerecorded_callback`."
+)]
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]
@@ -1156,7 +1188,10 @@ impl OptionsBuilder {
     ///     .build();
     /// ```
     ///
-    /// ```
+    // `make_prerecorded_request_builder` only exists with the `listen`
+    // feature, so this example is compiled only when it is enabled.
+    #[cfg_attr(feature = "listen", doc = "```")]
+    #[cfg_attr(not(feature = "listen"), doc = "```ignore")]
     /// # use std::env;
     /// #
     /// # use deepgram::{
@@ -2912,7 +2947,9 @@ mod models_to_string_tests {
     }
 }
 
-#[cfg(test)]
+// These tests exercise the pre-recorded request builder, which lives in the
+// `listen` module; `common` itself also compiles under the `read` feature alone.
+#[cfg(all(test, feature = "listen"))]
 mod serialize_options_tests {
     use std::cmp;
     use std::collections::HashMap;

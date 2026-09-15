@@ -19,7 +19,7 @@ For a management-only install:
 
 ```toml
 [dependencies]
-deepgram = { version = "0.10.0", default-features = false, features = ["manage"] }
+deepgram = { default-features = false, features = ["manage"] }
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -76,6 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - Billing APIs: `billing().list_balance(project_id)`, `get_balance(project_id, balance_id)`.
 - Usage APIs: `usage().list_requests(...)`, `get_request(...)`, `get_usage(...)`, `get_fields(...)`.
 - Invitation API: `invitations().leave_project(project_id)`.
+- Models APIs: `models().get_models()`, `get_models_including_outdated()`, `get_model(model_id)`, `get_project_models(project_id)`, `get_project_models_including_outdated(project_id)`, `get_project_model(project_id, model_id)`. The listing calls take no arguments and return the latest model versions only; the `_including_outdated` variants also return non-latest versions.
 
 ## API reference (layered)
 
@@ -87,6 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
    - `src/manage/billing.rs`
    - `src/manage/usage.rs`
    - `src/manage/invitations.rs`
+   - `src/manage/models.rs`
    - `examples/manage/*.rs`
 2. **OpenAPI**
    - Raw spec: `https://developers.deepgram.com/openapi.yaml`
@@ -103,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 1. **Use API keys, not temp tokens.** `auth().grant(...)` explicitly does not authorize Manage APIs.
 2. **Examples in `examples/manage/` are useful, but source files are the source of truth.** Prefer `src/manage/*.rs` when you need exact method names and return types.
-3. **Admin traffic stays on hosted Deepgram.** Even with `with_base_url(...)`, billing/usage/key-management still target `https://api.deepgram.com`.
+3. **Most admin traffic stays on hosted Deepgram.** Even with `with_base_url(...)`, billing/usage/key-management still target `https://api.deepgram.com`. The model-listing calls are the exception: `models()` builds its requests against the client's configured base URL, so a self-hosted client reaches `/v1/models` on its own host.
 
 ## Example files in this repo
 
@@ -114,6 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - `examples/manage/billing.rs`
 - `examples/manage/usage.rs`
 - `examples/manage/invitations.rs`
+- `examples/manage/models.rs`
 
 ## Central product skills
 
