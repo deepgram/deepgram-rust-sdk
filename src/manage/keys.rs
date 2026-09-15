@@ -13,6 +13,7 @@ use crate::{
 };
 
 use response::Message;
+use url::Url;
 
 pub mod options;
 pub mod response;
@@ -74,7 +75,7 @@ impl Keys<'_> {
     /// # }
     /// ```
     pub async fn list(&self, project_id: &str) -> crate::Result<MembersAndApiKeys> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/keys");
+        let url = self.keys_url(project_id)?;
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -113,7 +114,7 @@ impl Keys<'_> {
     /// # }
     /// ```
     pub async fn get(&self, project_id: &str, key_id: &str) -> crate::Result<MemberAndApiKey> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/keys/{key_id}",);
+        let url = self.key_url(project_id, key_id)?;
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -153,7 +154,7 @@ impl Keys<'_> {
     /// # }
     /// ```
     pub async fn create(&self, project_id: &str, options: &Options) -> crate::Result<NewApiKey> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/keys");
+        let url = self.keys_url(project_id)?;
         let request = self
             .0
             .client
@@ -197,8 +198,50 @@ impl Keys<'_> {
     /// # }
     /// ```
     pub async fn delete(&self, project_id: &str, key_id: &str) -> crate::Result<Message> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/keys/{key_id}",);
+        let url = self.key_url(project_id, key_id)?;
 
         send_and_translate_response(self.0.client.delete(url)).await
+    }
+
+    fn keys_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0.api_url(&format!("v1/projects/{project_id}/keys"))
+    }
+
+    fn key_url(&self, project_id: &str, key_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/keys/{key_id}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Deepgram;
+
+    #[test]
+    fn urls_default_base() {
+        let dg = Deepgram::new("token").unwrap();
+
+        assert_eq!(
+            dg.keys().keys_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/keys"
+        );
+        assert_eq!(
+            dg.keys().key_url("proj", "key").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/keys/key"
+        );
+    }
+
+    #[test]
+    fn urls_custom_base() {
+        let dg = Deepgram::with_base_url("http://deepgram.internal").unwrap();
+
+        assert_eq!(
+            dg.keys().keys_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/keys"
+        );
+        assert_eq!(
+            dg.keys().key_url("proj", "key").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/keys/key"
+        );
     }
 }

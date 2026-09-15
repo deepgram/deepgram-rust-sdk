@@ -314,8 +314,22 @@ impl Deepgram {
     /// query your deepgram instance at `http://deepgram.internal/v1/listen`,
     /// the base_url will be `http://deepgram.internal`.
     ///
-    /// Admin features, such as billing, usage, and key management will
-    /// still go through the hosted site at `https://api.deepgram.com`.
+    /// Every request this client makes goes to this base URL, including the
+    /// management API (projects, keys, members, scopes, invitations, usage,
+    /// and billing) and the token grant in [`crate::auth`]. To reach
+    /// Deepgram's hosted management or auth API while your audio goes
+    /// elsewhere, build a second client with [`Deepgram::new`] and make
+    /// those calls on that one.
+    ///
+    /// A base URL that carries a path prefix must end in a slash to keep it.
+    /// Endpoint paths are joined on by RFC 3986 relative resolution, which
+    /// replaces the last segment of a path that does not end in one: with
+    /// `http://gateway.internal/deepgram/`, `projects().list()` goes to
+    /// `http://gateway.internal/deepgram/v1/projects`, while with
+    /// `http://gateway.internal/deepgram` it goes to
+    /// `http://gateway.internal/v1/projects` and the prefix is silently
+    /// dropped. A base URL with no path of its own
+    /// (`http://deepgram.internal`) needs no trailing slash.
     ///
     /// Self-hosted instances do not in general authenticate incoming
     /// requests, so unlike in [`Deepgram::new`], so no api key needs to be
@@ -362,8 +376,22 @@ impl Deepgram {
     /// query your deepgram instance at `http://deepgram.internal/v1/listen`,
     /// the base_url will be `http://deepgram.internal`.
     ///
-    /// Admin features, such as billing, usage, and key management will
-    /// still go through the hosted site at `https://api.deepgram.com`.
+    /// Every request this client makes goes to this base URL, including the
+    /// management API (projects, keys, members, scopes, invitations, usage,
+    /// and billing) and the token grant in [`crate::auth`], and it carries
+    /// `api_key` with it. To reach Deepgram's hosted management or auth API
+    /// while your audio goes elsewhere, build a second client with
+    /// [`Deepgram::new`] and make those calls on that one.
+    ///
+    /// A base URL that carries a path prefix must end in a slash to keep it.
+    /// Endpoint paths are joined on by RFC 3986 relative resolution, which
+    /// replaces the last segment of a path that does not end in one: with
+    /// `http://gateway.internal/deepgram/`, `projects().list()` goes to
+    /// `http://gateway.internal/deepgram/v1/projects`, while with
+    /// `http://gateway.internal/deepgram` it goes to
+    /// `http://gateway.internal/v1/projects` and the prefix is silently
+    /// dropped. A base URL with no path of its own
+    /// (`http://deepgram.internal`) needs no trailing slash.
     ///
     /// The base URL's scheme decides how WebSocket connections are made:
     /// `https://` gives `wss://`, with TLS and certificate verification (see
@@ -400,6 +428,15 @@ impl Deepgram {
     }
 
     /// Construct a new Deepgram client with the specified base URL and temp token.
+    ///
+    /// As with [`Deepgram::with_base_url_and_api_key`], every request this
+    /// client makes goes to this base URL, including the management API and
+    /// the token grant in [`crate::auth`], and it carries `temp_token` with
+    /// it. And as there, a base URL that carries a path prefix must end in a
+    /// slash (`http://gateway.internal/deepgram/`) to keep it: endpoint paths
+    /// are joined on by RFC 3986 relative resolution, which replaces the last
+    /// segment of a path that does not end in one, so without the slash the
+    /// prefix is silently dropped.
     pub fn with_base_url_and_temp_token<U, T>(base_url: U, temp_token: T) -> Result<Self>
     where
         U: TryInto<Url>,
@@ -441,6 +478,30 @@ impl Deepgram {
             #[cfg(any(feature = "listen", feature = "speak"))]
             tls: tls::TlsSettings::new(),
         })
+    }
+
+    /// Join a relative API path, such as `v1/projects`, onto this client's
+    /// configured base URL.
+    ///
+    /// Every management request and the token grant request are built this
+    /// way, so a client constructed with [`Deepgram::with_base_url`] sends
+    /// them to that host rather than to `https://api.deepgram.com`. Pass the
+    /// path without a leading slash so a base URL that carries a path prefix
+    /// (`http://gateway/deepgram/`) keeps it, matching how the transcription
+    /// and speech surfaces build theirs.
+    ///
+    /// Not feature-gated: [`crate::auth`] is always compiled, so this is
+    /// reachable in every feature combination, `--no-default-features`
+    /// included.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DeepgramError::InvalidUrl`] if `path` cannot be joined onto
+    /// the base URL.
+    pub(crate) fn api_url(&self, path: &str) -> Result<Url> {
+        self.base_url
+            .join(path)
+            .map_err(|_| DeepgramError::InvalidUrl)
     }
 
     /// Use your own [`rustls::ClientConfig`] for every `wss://` WebSocket
