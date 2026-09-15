@@ -5,6 +5,8 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::Scope;
+
 /// Success message.
 ///
 /// Returned by
@@ -12,7 +14,9 @@ use uuid::Uuid;
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Message {
-    #[allow(missing_docs)]
+    /// The server's confirmation text, for example
+    /// `"Successfully deleted the distribution credentials!"`. Intended for
+    /// humans; do not match on it.
     pub message: String,
 }
 
@@ -30,10 +34,13 @@ pub struct DistributionCredentialsList {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct DistributionCredentialsEntry {
-    #[allow(missing_docs)]
+    /// The project member who created the credentials, and to whom the API
+    /// attributes them.
     pub member: Member,
 
-    #[allow(missing_docs)]
+    /// The credentials themselves, without the registry `username` and
+    /// `secret` — those are returned only once, by
+    /// [`SelfHosted::create_distribution_credentials`](super::SelfHosted::create_distribution_credentials).
     pub distribution_credentials: DistributionCredentials,
 }
 
@@ -41,10 +48,11 @@ pub struct DistributionCredentialsEntry {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Member {
-    #[allow(missing_docs)]
+    /// The member's id within the project, the same value the
+    /// [`members`](crate::manage::members) endpoints use.
     pub member_id: Uuid,
 
-    #[allow(missing_docs)]
+    /// The email address the member signs in with.
     pub email: String,
 }
 
@@ -57,7 +65,10 @@ pub struct Member {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct DistributionCredentials {
-    #[allow(missing_docs)]
+    /// Identifies this set of credentials. Pass it to
+    /// [`SelfHosted::get_distribution_credentials`](super::SelfHosted::get_distribution_credentials)
+    /// or
+    /// [`SelfHosted::delete_distribution_credentials`](super::SelfHosted::delete_distribution_credentials).
     pub distribution_credentials_id: Uuid,
 
     /// The provider of the distribution service (e.g. `quay`).
@@ -66,9 +77,11 @@ pub struct DistributionCredentials {
     /// A comment describing the credentials.
     pub comment: Option<String>,
 
-    /// The permission scopes granted to the credentials.
+    /// The permission scopes granted to the credentials, deciding which
+    /// container images they may pull. A scope this version of the SDK does
+    /// not name arrives as [`Scope::Unknown`].
     #[serde(default)]
-    pub scopes: Vec<String>,
+    pub scopes: Vec<Scope>,
 
     /// Tags attached to the credentials. The server omits this field when it
     /// is empty.
@@ -93,7 +106,10 @@ pub struct DistributionCredentials {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct CreatedDistributionCredentials {
-    #[allow(missing_docs)]
+    /// Identifies this set of credentials. Pass it to
+    /// [`SelfHosted::get_distribution_credentials`](super::SelfHosted::get_distribution_credentials)
+    /// or
+    /// [`SelfHosted::delete_distribution_credentials`](super::SelfHosted::delete_distribution_credentials).
     pub distribution_credentials_id: Uuid,
 
     /// The provider of the distribution service (e.g. `quay`).
@@ -109,9 +125,11 @@ pub struct CreatedDistributionCredentials {
     /// A comment describing the credentials.
     pub comment: Option<String>,
 
-    /// The permission scopes granted to the credentials.
+    /// The permission scopes granted to the credentials, deciding which
+    /// container images they may pull. A scope this version of the SDK does
+    /// not name arrives as [`Scope::Unknown`].
     #[serde(default)]
-    pub scopes: Vec<String>,
+    pub scopes: Vec<Scope>,
 
     /// Tags attached to the credentials. The server omits this field when it
     /// is empty.
@@ -166,7 +184,7 @@ impl From<String> for SecretString {
 mod tests {
     use super::{
         CreatedDistributionCredentials, DistributionCredentialsEntry, DistributionCredentialsList,
-        Message, SecretString,
+        Message, Scope, SecretString,
     };
 
     #[test]
@@ -193,7 +211,10 @@ mod tests {
         let entry = &list.distribution_credentials[0];
         assert_eq!(entry.member.email, "email@example.com");
         assert_eq!(entry.distribution_credentials.provider, "quay");
-        assert_eq!(entry.distribution_credentials.scopes.len(), 2);
+        assert_eq!(
+            entry.distribution_credentials.scopes,
+            [Scope::Api, Scope::Engine]
+        );
         assert_eq!(
             entry.distribution_credentials.comment.as_deref(),
             Some("My Self-Hosted Distribution Credentials")
@@ -286,7 +307,7 @@ mod tests {
             created.comment.as_deref(),
             Some("created from the rust sdk")
         );
-        assert_eq!(created.scopes, ["self-hosted:products"]);
+        assert_eq!(created.scopes, [Scope::Products]);
         assert!(created.tags.is_empty());
 
         // The secret must never reach Debug output.
@@ -317,7 +338,40 @@ mod tests {
         });
         let created: CreatedDistributionCredentials = serde_json::from_value(json).unwrap();
         assert_eq!(created.tags, ["staging"]);
-        assert_eq!(created.scopes.len(), 2);
+        assert_eq!(created.scopes, [Scope::Api, Scope::Engine]);
+    }
+
+    #[test]
+    fn deserializes_response_with_an_unknown_scope() {
+        // A scope the SDK does not name must not fail the whole response, and
+        // must re-serialize to exactly the string it arrived as.
+        let json = serde_json::json!({
+            "member": { "member_id": "3376abcd-8e5e-49d3-92d4-876d3a4f0363", "email": "e@x.com" },
+            "distribution_credentials": {
+                "distribution_credentials_id": "8b36cfd0-472f-4a21-833f-2d6343c3a2f3",
+                "provider": "quay",
+                "scopes": ["self-hosted:products", "self-hosted:product:not-invented-yet"],
+                "created": "2023-06-28T15:36:59.609841Z"
+            }
+        });
+
+        let entry: DistributionCredentialsEntry = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            entry.distribution_credentials.scopes,
+            [
+                Scope::Products,
+                Scope::Unknown("self-hosted:product:not-invented-yet".to_string())
+            ]
+        );
+
+        let round_tripped = serde_json::to_value(&entry).unwrap();
+        assert_eq!(
+            round_tripped["distribution_credentials"]["scopes"],
+            serde_json::json!([
+                "self-hosted:products",
+                "self-hosted:product:not-invented-yet"
+            ])
+        );
     }
 
     #[test]
