@@ -398,11 +398,21 @@ impl Deepgram {
     /// query your deepgram instance at `http://deepgram.internal/v1/listen`,
     /// the base_url will be `http://deepgram.internal`.
     ///
-    /// Admin features, such as billing, usage, and key management will
-    /// still go through the hosted site at `https://api.deepgram.com`.
-    /// The one exception is the model-listing API: `models()` builds its
-    /// requests against the base URL given here, so `get_models` reaches
-    /// `/v1/models` on your own instance.
+    /// A base URL that carries a path of its own must end in a slash.
+    /// Endpoint paths are resolved against it with `Url::join`, which
+    /// replaces the last segment of a path that does not end in one:
+    /// `http://deepgram.internal/abc/` resolves to
+    /// `http://deepgram.internal/abc/v1/listen`, while
+    /// `http://deepgram.internal/abc` resolves to
+    /// `http://deepgram.internal/v1/listen` and drops the `abc`.
+    ///
+    /// Transcription, text-to-speech, and Text Intelligence requests all use
+    /// this base URL, and so do the model-listing endpoints
+    /// (`Deepgram::models`) and the self-hosted distribution credentials
+    /// (`Deepgram::self_hosted`). The remaining management requests still go
+    /// to the hosted site at `https://api.deepgram.com` regardless of what
+    /// is configured here — billing, usage, keys, members, invitations,
+    /// projects, and scopes — as does the `/v1/auth/grant` token exchange.
     ///
     /// Self-hosted instances do not in general authenticate incoming
     /// requests, so unlike in [`Deepgram::new`], so no api key needs to be
@@ -449,11 +459,21 @@ impl Deepgram {
     /// query your deepgram instance at `http://deepgram.internal/v1/listen`,
     /// the base_url will be `http://deepgram.internal`.
     ///
-    /// Admin features, such as billing, usage, and key management will
-    /// still go through the hosted site at `https://api.deepgram.com`.
-    /// The one exception is the model-listing API: `models()` builds its
-    /// requests against the base URL given here, so `get_models` reaches
-    /// `/v1/models` on your own instance.
+    /// A base URL that carries a path of its own must end in a slash.
+    /// Endpoint paths are resolved against it with `Url::join`, which
+    /// replaces the last segment of a path that does not end in one:
+    /// `http://deepgram.internal/abc/` resolves to
+    /// `http://deepgram.internal/abc/v1/listen`, while
+    /// `http://deepgram.internal/abc` resolves to
+    /// `http://deepgram.internal/v1/listen` and drops the `abc`.
+    ///
+    /// Transcription, text-to-speech, and Text Intelligence requests all use
+    /// this base URL, and so do the model-listing endpoints
+    /// (`Deepgram::models`) and the self-hosted distribution credentials
+    /// (`Deepgram::self_hosted`). The remaining management requests still go
+    /// to the hosted site at `https://api.deepgram.com` regardless of what
+    /// is configured here — billing, usage, keys, members, invitations,
+    /// projects, and scopes — as does the `/v1/auth/grant` token exchange.
     ///
     /// The base URL's scheme decides how WebSocket connections are made:
     /// `https://` gives `wss://`, with TLS and certificate verification (see
@@ -535,9 +555,9 @@ impl Deepgram {
 
     /// Use your own [`rustls::ClientConfig`] for every `wss://` WebSocket
     /// connection this client opens (live transcription, Flux
-    /// speech-to-text, Flux text-to-speech). It is used verbatim: trust
-    /// roots, client authentication, protocol versions, and session
-    /// resumption are all yours to decide.
+    /// speech-to-text, streaming text-to-speech, Flux text-to-speech). It
+    /// is used verbatim: trust roots, client authentication, protocol
+    /// versions, and session resumption are all yours to decide.
     ///
     /// Reach for this when the defaults don't fit — pinning to a private CA,
     /// presenting a client certificate, a custom verifier — and the

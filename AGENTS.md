@@ -14,9 +14,9 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 | --- | --- |
 | `src/lib.rs` | The `Deepgram` client, `DeepgramError`, the `Transcription`, `Speak`, and `TextIntelligence` handles, the `TranscriptionStream` re-export, base URL, and `User-Agent` |
 | `src/listen/` | `rest.rs` (pre-recorded), `websocket.rs` (Nova streaming over `/v1/listen`), `flux.rs` (Flux STT over `/v2/listen`) |
-| `src/speak/` | `rest.rs` (Aura over `/v1/speak`), `options.rs`, `response.rs` (`SpeakMetadata`, the `/v1/speak` response headers), `flux/` (Flux TTS over `/v2/speak`: `rest.rs`, `websocket.rs`, `options.rs`, `response.rs`) |
+| `src/speak/` | `rest.rs` (Aura batch over `POST /v1/speak`), `options.rs`, `response.rs` (`SpeakMetadata`, the `/v1/speak` response headers), `websocket.rs` (Aura streaming over `wss /v1/speak`), `flux/` (Flux TTS over `/v2/speak`: `rest.rs`, `websocket.rs`, `options.rs`, `response.rs`) |
 | `src/read/` | Text Intelligence over `POST /v1/read`: `rest.rs` (requests), `options.rs` (query builder), `response.rs` |
-| `src/manage/` | Management API: `billing`, `invitations`, `keys`, `members`, `models`, `projects`, `scopes`, `usage`. Each has response types; `keys` and `projects` have `options.rs`, and `usage` has operation-specific option modules. |
+| `src/manage/` | Management API: `billing`, `invitations`, `keys`, `members`, `models`, `projects`, `scopes`, `self_hosted`, `usage`. Each has response types; `keys` and `projects` have `options.rs`, and `usage` has operation-specific option modules. |
 | `src/auth/` | `grant` for temporary tokens |
 | `src/common/` | Shared `Options` builder, `Model` enum, audio sources, the batch, stream, and Flux STT response types, and `captions.rs` (the SRT/WebVTT helper) |
 | `src/diagnostics.rs` | Opt-in per-phase connect timing for `/v1/listen` (feature `connect-diagnostics`) |
@@ -40,13 +40,13 @@ Every row below was checked against `src/` on 2026-09-15.
 | Speech-to-text, streaming (Nova) | `wss /v1/listen` | `dg.transcription().stream_request()` or `stream_request_with_options(options)`, then `.file(...)`, `.stream(...)`, or `.handle()` for a `WebsocketHandle` (`send_data`, `finalize`, `keep_alive`, `close_stream`, `receive`) | Shipped (`listen`) |
 | Flux STT (conversational speech-to-text) | `wss /v2/listen` | `dg.transcription().flux_request()` or `flux_request_with_options(options)`, then `.handle()` for a `FluxHandle` (`send_data`, `configure`, `force_end_turn`, `close_stream`, `receive`); models `Model::FluxGeneralEn`, `Model::FluxGeneralMulti` | Shipped (`listen`) since 0.8.0; `configure` and `language_hint` since 0.10.0; `force_end_turn` since 0.10.1 |
 | Text-to-speech, batch (Aura) | `POST /v1/speak` | `dg.text_to_speech().speak_to_file(...)`, `speak_to_stream(...)`; `speak_to_file_with_metadata(...)`, `speak_to_stream_with_metadata(...)` also return a `SpeakMetadata` whose `request_id()` is the `dg-request-id` header | Shipped (`speak`) |
-| Text-to-speech, streaming (Aura) | `wss /v1/speak` | none | Not shipped; `src/speak/` has no v1 WebSocket module (in progress on `origin/feat/phase-3-tts-ws-selfhosted`) |
+| Text-to-speech, streaming (Aura) | `wss /v1/speak` | `dg.text_to_speech().speak_stream()` for a `SpeakStreamBuilder` (`model`, `encoding`, `sample_rate`, `speed`, `mip_opt_out`, `query_params`), then `.handle()` for a `SpeakStreamHandle` (`speak`, `flush`, `clear`, `close`, `receive`, `split`, `sender`, `request_id`); events arrive as `SpeakResponse` | Shipped (`speak`) |
 | Flux TTS, batch | `POST /v2/speak` | `dg.text_to_speech().flux_speak_to_file(...)`, `flux_speak_to_stream(...)` | Shipped (`speak`) since 0.10.1 |
 | Flux TTS, streaming | `wss /v2/speak` | `dg.text_to_speech().flux_request(options).handle()` for a `FluxSpeakHandle` (`speak`, `flush`, `interrupt`, `configure_speed`, `close`, `receive`); events arrive as `FluxSpeakResponse` | Shipped (`speak`) since 0.10.1 |
 | Voice Agent | `wss agent.deepgram.com/v1/agent/converse` | none | Not shipped (in progress on `origin/feat/agent-websocket` and `origin/feat/phase-4-voice-agent`) |
 | Text intelligence | `POST /v1/read` | `dg.text_intelligence()` for a `TextIntelligence` (`analyze_text`, `analyze_url`, `analyze_text_callback`, `analyze_url_callback`, `make_read_request_builder`, `make_read_callback_request_builder`) | Shipped (`read`) |
 | Management API | `/v1/projects/...` | `dg.projects()`, `dg.keys()`, `dg.members()`, `dg.scopes()`, `dg.invitations()`, `dg.usage()`, `dg.billing()`, and `dg.models()` for a `Models` (`get_models`, `get_models_including_outdated`, `get_model`, `get_project_models`, `get_project_models_including_outdated`, `get_project_model`) | Shipped (`manage`) |
-| Self-hosted credentials | `/v1/projects/{id}/onprem/...` | none | Not shipped |
+| Self-hosted credentials | `/v1/projects/{id}/self-hosted/distribution/credentials` | `dg.self_hosted()` with `list_distribution_credentials`, `get_distribution_credentials`, `create_distribution_credentials`, `delete_distribution_credentials` | Shipped (`manage`) |
 | Auth (grant token) | `POST /v1/auth/grant` | `dg.auth().grant(options)` | Shipped |
 
 ## Prerequisites

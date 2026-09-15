@@ -1,10 +1,11 @@
 //! TLS trust for `wss://` WebSocket connections.
 //!
 //! Every WebSocket surface in this crate — live transcription (`/v1/listen`),
-//! Flux speech-to-text, and Flux text-to-speech — connects through one
-//! explicit rustls connector built here. Trust is therefore identical across
-//! surfaces and cannot be changed by which TLS features other crates in your
-//! dependency graph happen to enable on `tokio-tungstenite`.
+//! Flux speech-to-text, streaming text-to-speech (`/v1/speak`), and Flux
+//! text-to-speech — connects through one explicit rustls connector built
+//! here. Trust is therefore identical across surfaces and cannot be changed
+//! by which TLS features other crates in your dependency graph happen to
+//! enable on `tokio-tungstenite`.
 //!
 //! Trust roots are resolved once per [`Deepgram`](crate::Deepgram) client:
 //!
