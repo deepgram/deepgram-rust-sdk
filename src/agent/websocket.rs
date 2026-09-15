@@ -58,6 +58,9 @@
 
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use std::time::Duration;
+
+use anyhow::anyhow;
 
 use bytes::Bytes;
 use core::fmt;
@@ -82,6 +85,18 @@ use crate::{Deepgram, DeepgramError, Result};
 
 /// Default Voice Agent WebSocket endpoint (SaaS).
 const AGENT_WS_URL: &str = "wss://agent.deepgram.com/v1/agent/converse";
+
+/// After the client's Close frame has been written, how long the worker
+/// waits for the *next* server frame before giving up on the close
+/// handshake and dropping the connection.
+///
+/// A well-behaved server answers with its own Close almost immediately;
+/// a gap this long means it is not going to. Without a bound, a server
+/// that holds the TCP connection open without answering would park the
+/// worker task forever and leave [`AgentEventStream`] never ending.
+/// Matches `CLOSE_DRAIN_IDLE_TIMEOUT` in the streaming text-to-speech
+/// worker.
+const CLOSE_DRAIN_IDLE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Sub-client for the Voice Agent.
 ///
@@ -513,7 +528,14 @@ async fn run_agent_worker(
     response_tx: Sender<Result<AgentEvent>>,
 ) -> Result<()> {
     let (ws_send, ws_recv) = ws_stream.split();
-    drive_agent_session(ws_send, ws_recv, message_rx, response_tx).await
+    drive_agent_session(
+        ws_send,
+        ws_recv,
+        message_rx,
+        response_tx,
+        CLOSE_DRAIN_IDLE_TIMEOUT,
+    )
+    .await
 }
 
 /// The worker loop, generic over the two halves of the split socket.
@@ -521,11 +543,16 @@ async fn run_agent_worker(
 /// Generic so the terminal write path can be unit-tested: a real
 /// transport cannot be made to fail a write while keeping its read half
 /// healthy, which is exactly the case that used to park the worker.
+///
+/// `close_drain_idle_timeout` bounds the wait for each server frame once
+/// the Close frame has been written (see [`CLOSE_DRAIN_IDLE_TIMEOUT`]);
+/// it is a parameter so tests can shorten it.
 async fn drive_agent_session<Si, St>(
     mut ws_send: Si,
     ws_recv: St,
     mut message_rx: Receiver<WsMessage>,
     mut response_tx: Sender<Result<AgentEvent>>,
+    close_drain_idle_timeout: Duration,
 ) -> Result<()>
 where
     Si: futures::Sink<Message, Error = tungstenite::Error> + Unpin,
@@ -593,12 +620,33 @@ where
             // closes. We must NOT keep selecting on `message_rx` here — it now
             // yields `Ready(None)` synchronously, which would busy-spin the task
             // (and hang a current-thread runtime).
-            if let std::ops::ControlFlow::Break(stop) =
-                handle_agent_inbound(ws_recv.next().await, &mut ws_send, &mut response_tx).await
+            //
+            // Every path that reaches this branch has already written the
+            // Close frame, so the wait is bounded: a server that never
+            // answers the close handshake but keeps the connection open
+            // would otherwise park this task and leave the consumer's
+            // `AgentEventStream` never ending. `is_open` is already
+            // `false` here, so terminal cleanup will not write a second
+            // Close frame whichever way we leave the loop.
+            let inbound = match tokio::time::timeout(close_drain_idle_timeout, ws_recv.next()).await
             {
-                if matches!(stop, InboundStop::TransportGone) {
-                    is_open = false;
+                Ok(inbound) => inbound,
+                Err(_elapsed) => {
+                    let _ = response_tx
+                        .send(Err(DeepgramError::UnexpectedServerResponse(anyhow!(
+                            "the Voice Agent server sent nothing for {}s after the Close frame \
+                             and did not complete the closing handshake; dropping the \
+                             connection",
+                            close_drain_idle_timeout.as_secs_f64()
+                        ))))
+                        .await;
+                    break;
                 }
+            };
+            if handle_agent_inbound(inbound, &mut ws_send, &mut response_tx)
+                .await
+                .is_break()
+            {
                 break;
             }
         }
@@ -772,6 +820,50 @@ mod tests {
         }
     }
 
+    /// A write half that accepts every send and records it, so a test
+    /// can assert what reached the wire.
+    #[derive(Clone, Default)]
+    struct RecordingSink(std::sync::Arc<std::sync::Mutex<Vec<Message>>>);
+
+    impl RecordingSink {
+        fn written(&self) -> Vec<Message> {
+            self.0.lock().expect("sink mutex is never poisoned").clone()
+        }
+    }
+
+    impl futures::Sink<Message> for RecordingSink {
+        type Error = tungstenite::Error;
+
+        fn poll_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn start_send(self: Pin<&mut Self>, item: Message) -> std::result::Result<(), Self::Error> {
+            self.0
+                .lock()
+                .expect("sink mutex is never poisoned")
+                .push(item);
+            Ok(())
+        }
+
+        fn poll_flush(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_close(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
     /// A failed write ends the worker after forwarding exactly one error,
     /// and the terminal cleanup closes the command channel so a retained
     /// handle's next send fails.
@@ -793,6 +885,7 @@ mod tests {
             SilentStream,
             message_rx,
             response_tx,
+            CLOSE_DRAIN_IDLE_TIMEOUT,
         ));
 
         let mut handle = AgentHandle {
@@ -830,6 +923,72 @@ mod tests {
             "keep_alive after a terminal write error must fail, not be dropped"
         );
         assert!(handle.close().await.is_ok(), "close is a no-op once ended");
+    }
+
+    /// After `close()` has written the Close frame, the wait for the
+    /// server's answering Close is bounded: a server that keeps the
+    /// connection open without completing the handshake used to park the
+    /// worker task forever and leave `AgentEventStream` never ending.
+    #[tokio::test]
+    async fn drain_after_close_is_bounded_and_ends_the_stream() {
+        let (message_tx, message_rx) = mpsc::channel::<WsMessage>(8);
+        let (response_tx, mut response_rx) = mpsc::channel::<Result<AgentEvent>>(8);
+        let sink = RecordingSink::default();
+
+        let worker = tokio::spawn(drive_agent_session(
+            sink.clone(),
+            // A read half that never yields and never ends: the server
+            // holds the connection open and answers nothing.
+            SilentStream,
+            message_rx,
+            response_tx,
+            Duration::from_millis(200),
+        ));
+
+        let mut handle = AgentHandle {
+            message_tx,
+            request_id: None,
+        };
+        handle.close().await.expect("close is accepted");
+
+        let first = tokio::time::timeout(Duration::from_secs(5), response_rx.next())
+            .await
+            .expect("the worker must give up within the drain timeout")
+            .expect("the drain timeout is surfaced before the stream ends");
+        assert!(
+            matches!(first, Err(DeepgramError::UnexpectedServerResponse(_))),
+            "expected the drain-timeout error, got {first:?}"
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_secs(5), response_rx.next())
+                .await
+                .expect("the event stream must end")
+                .is_none(),
+            "the stream must end after the drain-timeout error"
+        );
+
+        tokio::time::timeout(Duration::from_secs(5), worker)
+            .await
+            .expect("the worker task must return")
+            .expect("the worker task must not panic")
+            .expect("the worker returns Ok after terminal cleanup");
+
+        // Exactly one Close frame: the one `close()` asked for. Terminal
+        // cleanup must not write a second one.
+        let written = sink.written();
+        assert_eq!(
+            written
+                .iter()
+                .filter(|message| matches!(message, Message::Close(_)))
+                .count(),
+            1,
+            "expected exactly one Close frame, got {written:?}"
+        );
+
+        assert!(
+            handle.send_data(vec![0u8; 8]).await.is_err(),
+            "sends must fail once the worker has given up on the close handshake"
+        );
     }
 
     /// The agent URL is a constant; this test exists so a future change

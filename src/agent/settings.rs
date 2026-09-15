@@ -291,7 +291,10 @@ impl InlineAgentConfig {
 }
 
 /// Conversation context for an inline agent config — currently just message history.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+//
+// `Eq` is deliberately absent: `HistoryMessage::Unknown` holds a
+// `serde_json::Value`, which is `PartialEq` but not `Eq`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct AgentContext {
     /// Conversation history — user/assistant utterances and function-call records.

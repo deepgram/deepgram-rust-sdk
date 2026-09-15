@@ -17,10 +17,11 @@ use serde::{Deserialize, Serialize};
 /// manage those LLMs) and optional for `open_ai`, `anthropic`, and
 /// `google`, where omitting it selects Deepgram's managed LLM.
 ///
-/// The `Debug` output redacts header values (header names are kept) so
-/// that logging a `Settings`, `ThinkSettings`, or `SpeakSettings` never
-/// leaks an `Authorization` or API-key header. Serialization is
-/// unaffected.
+/// The `Debug` output redacts header values (header names are kept) and
+/// any `user:pass@` userinfo in the URL, so that logging a `Settings`,
+/// `ThinkSettings`, or `SpeakSettings` never leaks an `Authorization`
+/// header, an API-key header, or a credential embedded in the endpoint
+/// URL. Serialization is unaffected.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Endpoint {
@@ -53,7 +54,7 @@ impl Endpoint {
 impl fmt::Debug for Endpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Endpoint")
-            .field("url", &self.url)
+            .field("url", &RedactedUrl(&self.url))
             .field("headers", &RedactedHeaders(&self.headers))
             .finish()
     }
@@ -74,6 +75,41 @@ impl fmt::Debug for RedactedHeaders<'_> {
         }
         map.finish()
     }
+}
+
+/// `Debug` adapter for a URL that prints everything except any
+/// `user:pass@` userinfo in the authority, which is replaced with
+/// `"<redacted>"`.
+///
+/// A credential can live in a URL (`https://user:pass@llm.internal`), so
+/// printing `url` verbatim would defeat the header redaction next to it.
+/// Shared by [`Endpoint`] and `FunctionEndpoint`; same spirit as the
+/// origin-only `url` on `InsecureAgentUrl`.
+pub(crate) struct RedactedUrl<'a>(pub(crate) &'a str);
+
+impl fmt::Debug for RedactedUrl<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match redact_userinfo(self.0) {
+            Some(redacted) => fmt::Debug::fmt(&redacted, f),
+            None => fmt::Debug::fmt(self.0, f),
+        }
+    }
+}
+
+/// Replace a URL's `user[:pass]@` userinfo with `<redacted>@`, or return
+/// `None` when there is nothing to redact.
+///
+/// Deliberately string-based rather than going through `url::Url`: the
+/// field is a free-form `String` the caller may not have written as a
+/// parseable URL, and a value that fails to parse must still be printed
+/// with its userinfo removed.
+fn redact_userinfo(url: &str) -> Option<String> {
+    let (scheme, rest) = url.split_once("://")?;
+    // The authority ends at the first `/`, `?`, or `#`; a later `@` (in a
+    // path or query) is not userinfo.
+    let authority_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let at = rest[..authority_end].rfind('@')?;
+    Some(format!("{scheme}://{REDACTED}@{}", &rest[at + 1..]))
 }
 
 /// Placeholder printed in place of any secret in `Debug` output.
@@ -139,6 +175,45 @@ mod tests {
             debug.contains("https://llm.internal/v1/chat"),
             "got: {debug}"
         );
+    }
+
+    #[test]
+    fn debug_redacts_url_userinfo() {
+        // A credential can live in the URL itself, so `Debug` must strip
+        // `user:pass@` the way it strips header values.
+        let endpoint = Endpoint::new("https://alice:s3cret@llm.internal:8443/v1/chat?k=v");
+        let debug = format!("{endpoint:?}");
+        assert!(!debug.contains("s3cret"), "got: {debug}");
+        assert!(!debug.contains("alice"), "got: {debug}");
+        // Everything a reader needs to identify the endpoint is kept.
+        assert!(
+            debug.contains("llm.internal:8443/v1/chat?k=v"),
+            "got: {debug}"
+        );
+        assert!(debug.contains("<redacted>@"), "got: {debug}");
+    }
+
+    #[test]
+    fn debug_keeps_a_url_without_userinfo_verbatim() {
+        for url in [
+            "https://llm.internal/v1/chat",
+            // An `@` after the authority is not userinfo.
+            "https://llm.internal/v1/chat?to=a@b.com",
+            // Not a parseable URL at all: still printed, still safe.
+            "llm.internal/v1/chat",
+        ] {
+            let debug = format!("{:?}", Endpoint::new(url));
+            assert!(debug.contains(url), "got: {debug}");
+        }
+    }
+
+    #[test]
+    fn debug_redacts_userinfo_in_an_unparseable_url() {
+        // `url` is a free-form String; redaction must not depend on the
+        // value being a valid URL.
+        let debug = format!("{:?}", Endpoint::new("wss://bob:hunter2@"));
+        assert!(!debug.contains("hunter2"), "got: {debug}");
+        assert!(!debug.contains("bob"), "got: {debug}");
     }
 
     #[test]

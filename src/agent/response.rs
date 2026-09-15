@@ -1155,6 +1155,65 @@ mod tests {
         }
     }
 
+    /// `AGENTS.md`: a modeled event carrying an *unmodeled value* must
+    /// reach the consumer as an event, not as an error item that ends the
+    /// loop in every example. `type`-first dispatch made this a real
+    /// failure mode — the untagged derive used to hide it behind
+    /// `AgentResponse::Unknown`.
+    #[test]
+    fn unmodeled_role_on_a_modeled_event_is_not_an_error() {
+        let raw = json!({
+            "type": "ConversationText",
+            "role": "system",
+            "content": "You are a helpful agent."
+        });
+        let event: AgentResponse = serde_json::from_value(raw.clone())
+            .expect("an unrecognized role must not end the session");
+        match &event {
+            AgentResponse::ConversationText(e) => {
+                assert_eq!(e.role, ConversationRole::Unknown("system".to_string()));
+                assert_eq!(e.role.as_str(), "system");
+            }
+            other => panic!("expected ConversationText, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+    }
+
+    /// Same for a `History` event: an unknown `role` keeps the
+    /// conversation shape, and a shape matching neither modeled history
+    /// variant lands in `HistoryMessage::Unknown` with its JSON intact.
+    #[test]
+    fn unmodeled_history_role_and_shape_are_not_errors() {
+        let unknown_role = json!({
+            "type": "History",
+            "role": "system",
+            "content": "seed"
+        });
+        let event: AgentResponse = serde_json::from_value(unknown_role.clone())
+            .expect("an unrecognized role must not end the session");
+        match &event {
+            AgentResponse::History(HistoryMessage::Conversation(c)) => {
+                assert_eq!(c.role, ConversationRole::Unknown("system".to_string()));
+            }
+            other => panic!("expected History/Conversation, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(&event).unwrap(), unknown_role);
+
+        let unknown_shape = json!({
+            "type": "History",
+            "tool_result": { "id": "t1", "output": "42" }
+        });
+        let event: AgentResponse = serde_json::from_value(unknown_shape.clone())
+            .expect("an unmodeled history shape must not end the session");
+        match &event {
+            AgentResponse::History(HistoryMessage::Unknown(value)) => {
+                assert_eq!(value, &unknown_shape);
+            }
+            other => panic!("expected History/Unknown, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(&event).unwrap(), unknown_shape);
+    }
+
     #[test]
     fn dispatch_does_not_misroute_history_to_other_variants() {
         // Sanity: a History event must dispatch to AgentResponse::History
