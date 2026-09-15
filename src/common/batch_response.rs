@@ -284,10 +284,13 @@ pub struct Segment {
     /// The transcript text covered by this segment.
     pub text: String,
 
-    /// Index of this segment's first word in the transcript's word list.
+    /// Index of this segment's first word, inclusive, in the transcript's
+    /// word list.
     pub start_word: usize,
 
-    /// Index of this segment's last word in the transcript's word list.
+    /// Index of this segment's last word, **inclusive**, in the transcript's
+    /// word list. Note that this differs from [`Entity::end_word`], which is
+    /// exclusive.
     pub end_word: usize,
 
     /// The intents the model detected in this segment. A segment can carry
@@ -317,10 +320,13 @@ pub struct SentimentSegment {
     /// The transcript text covered by this segment.
     pub text: String,
 
-    /// Index of this segment's first word in the transcript's word list.
+    /// Index of this segment's first word, inclusive, in the transcript's
+    /// word list.
     pub start_word: usize,
 
-    /// Index of this segment's last word in the transcript's word list.
+    /// Index of this segment's last word, **inclusive**, in the transcript's
+    /// word list. Note that this differs from [`Entity::end_word`], which is
+    /// exclusive.
     pub end_word: usize,
 
     /// The sentiment classification for this segment: `positive`, `negative`,
@@ -383,10 +389,13 @@ pub struct TopicSegment {
     /// The transcript text covered by this segment.
     pub text: String,
 
-    /// Index of this segment's first word in the transcript's word list.
+    /// Index of this segment's first word, inclusive, in the transcript's
+    /// word list.
     pub start_word: usize,
 
-    /// Index of this segment's last word in the transcript's word list.
+    /// Index of this segment's last word, **inclusive**, in the transcript's
+    /// word list. Note that this differs from [`Entity::end_word`], which is
+    /// exclusive.
     pub end_word: usize,
 
     /// The topics the model detected in this segment. A segment can carry
@@ -555,6 +564,53 @@ mod tests {
         assert_eq!(metadata.duration, 12.5);
         assert_eq!(metadata.channels, 1);
         assert!(metadata.extra.is_none());
+    }
+
+    // Captured from a live `POST /v1/listen` response on 2026-09-15
+    // (nova-3, smart_format + detect_entities + sentiment). The two word-index
+    // conventions really do differ, so both are pinned here: the docs on these
+    // fields promise it.
+    const LIVE_ENTITY: &str = r#"{
+        "label": "ORDINAL",
+        "value": "first",
+        "confidence": 0.9988257,
+        "start_word": 9,
+        "end_word": 10
+    }"#;
+
+    #[test]
+    fn entity_word_indices_are_end_exclusive() {
+        let entity: Entity = serde_json::from_str(LIVE_ENTITY).unwrap();
+        // Live transcript word 9 is "first", and the entity covers exactly it.
+        assert_eq!(entity.start_word, 9);
+        assert_eq!(entity.end_word, 10);
+        assert_eq!(
+            entity.end_word - entity.start_word,
+            entity.value.split_whitespace().count(),
+            "Entity::end_word is exclusive, so the span equals the word count"
+        );
+    }
+
+    #[test]
+    fn intelligence_segment_word_indices_are_end_inclusive() {
+        // The live sentiment segment spanned words 0..=61 and carried 62 words
+        // of text -- one more than an exclusive end index would give.
+        let segment: SentimentSegment = serde_json::from_str(
+            r#"{
+                "text": "one two three",
+                "start_word": 0,
+                "end_word": 2,
+                "sentiment": "neutral",
+                "sentiment_score": 0.0
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            segment.end_word - segment.start_word + 1,
+            segment.text.split_whitespace().count(),
+            "segment end_word is inclusive, unlike Entity::end_word"
+        );
     }
 
     #[test]
