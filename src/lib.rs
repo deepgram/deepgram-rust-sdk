@@ -680,12 +680,28 @@ mod tests {
         // through `{:?}` on the client or on any sub-client that holds it.
         let key = "fake-key-abc123";
         let client = Deepgram::new(key).unwrap();
-        for debug in [
+        // Every sub-client holds the same `Deepgram`, so each one is a
+        // separate way to print it. Feature-gated ones are pushed
+        // conditionally so this test covers whatever is compiled in.
+        let mut debugs = vec![
             format!("{client:?}"),
             format!("{:#?}", client),
             format!("{:?}", client.transcription()),
             format!("{:?}", client.text_to_speech()),
-        ] {
+        ];
+        #[cfg(feature = "agent")]
+        debugs.push(format!("{:?}", client.agent()));
+        #[cfg(feature = "read")]
+        debugs.push(format!("{:?}", client.text_intelligence()));
+        #[cfg(feature = "manage")]
+        {
+            debugs.push(format!("{:?}", client.self_hosted()));
+            debugs.push(format!("{:?}", client.models()));
+            debugs.push(format!("{:?}", client.projects()));
+            debugs.push(format!("{:?}", client.keys()));
+        }
+        debugs.push(format!("{:?}", client.auth()));
+        for debug in debugs {
             assert!(!debug.contains(key), "{debug}");
             assert!(!debug.contains("Token "), "{debug}");
         }

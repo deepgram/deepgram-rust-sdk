@@ -29,9 +29,18 @@
 //!   `SpeakUpdated`, `ThinkUpdated`, `InjectionRefused`,
 //!   `FunctionCallResponse`) plus an `Unknown` catch-all for forward
 //!   compatibility, all unified under the [`response::AgentResponse`] enum.
-//!   Dispatch is on the event's `type`, so `Unknown` holds exactly the
-//!   events this SDK does not model; a recognized event with a malformed
-//!   payload is an error on the stream, never a silent `Unknown`.
+//!   Dispatch is on the event's `type`, so `AgentResponse::Unknown` holds
+//!   exactly the *events* this SDK does not model; a recognized event
+//!   with a malformed payload is an error on the stream, never a silent
+//!   `Unknown`. A recognized event carrying an *unrecognized value* is
+//!   neither: it stays on the happy path through that value's own
+//!   catch-all. A `role` this release does not name, on `ConversationText`
+//!   or `History`, arrives as
+//!   [`ConversationRole::Unknown(String)`](history::ConversationRole::Unknown)
+//!   holding the wire string verbatim, and a history entry matching
+//!   neither modeled shape as
+//!   [`HistoryMessage::Unknown(serde_json::Value)`](history::HistoryMessage::Unknown).
+//!   So a new server enum value never ends a session.
 //! - [`websocket`] — the [`Agent`] sub-client and live-session
 //!   primitives ([`AgentHandle`], [`AgentEventStream`], [`AgentEvent`])
 //!   that connect to `wss://agent.deepgram.com/v1/agent/converse`.

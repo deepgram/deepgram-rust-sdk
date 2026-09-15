@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::agent::endpoint::RedactedHeaders;
+use crate::agent::endpoint::{RedactedHeaders, RedactedUrl};
 use crate::agent::Endpoint;
 
 pub mod anthropic;
@@ -182,8 +182,10 @@ impl ThinkFunction {
 
 /// HTTP endpoint for server-side function execution.
 ///
-/// The `Debug` output redacts header values (header names are kept) so
-/// that logging a `ThinkSettings` never leaks an `Authorization` header.
+/// The `Debug` output redacts header values (header names are kept) and
+/// any `user:pass@` userinfo in the URL, so that logging a
+/// `ThinkSettings` never leaks an `Authorization` header or a credential
+/// embedded in the endpoint URL.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct FunctionEndpoint {
@@ -218,7 +220,7 @@ impl FunctionEndpoint {
 impl fmt::Debug for FunctionEndpoint {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FunctionEndpoint")
-            .field("url", &self.url)
+            .field("url", &RedactedUrl(&self.url))
             .field("method", &self.method)
             .field("headers", &RedactedHeaders(&self.headers))
             .finish()
@@ -499,6 +501,27 @@ mod tests {
         let debug = format!("{settings:?}");
         assert!(!debug.contains("super-secret-token"), "got: {debug}");
         assert!(!debug.contains("llm-secret"), "got: {debug}");
+    }
+
+    #[test]
+    fn function_endpoint_debug_redacts_url_userinfo() {
+        let fe = FunctionEndpoint::new("https://carol:t0ken@hooks.internal/fn", "POST");
+        let debug = format!("{fe:?}");
+        assert!(!debug.contains("t0ken"), "got: {debug}");
+        assert!(!debug.contains("carol"), "got: {debug}");
+        assert!(debug.contains("hooks.internal/fn"), "got: {debug}");
+
+        // Also redacted when nested in a ThinkSettings, alongside a
+        // Think `endpoint` carrying userinfo of its own.
+        let settings = ThinkSettings::new(ThinkProvider::OpenAi(OpenAiThinkProvider::new(
+            OpenAiModel::Gpt4oMini,
+        )))
+        .with_function(ThinkFunction::new("fn", "d", json!({})).with_endpoint(fe))
+        .with_endpoint(Endpoint::new("https://dave:llm-pass@llm.internal"));
+        let debug = format!("{settings:?}");
+        assert!(!debug.contains("t0ken"), "got: {debug}");
+        assert!(!debug.contains("llm-pass"), "got: {debug}");
+        assert!(!debug.contains("dave"), "got: {debug}");
     }
 
     #[test]
