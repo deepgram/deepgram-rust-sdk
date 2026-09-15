@@ -967,6 +967,29 @@ mod tests {
         assert_eq!(serde_json::to_value(&event).unwrap(), raw);
     }
 
+    /// `EndOfTurn` is emitted in production by Flux STT (V2) listen
+    /// providers but is absent from the published AsyncAPI spec, so the
+    /// SDK does not model it. It must reach the consumer through
+    /// `Unknown` with its payload intact — both documented triggers —
+    /// rather than failing the stream. `AgentListenSettings`'
+    /// `eager_eot_threshold` docs and the changelog promise exactly this.
+    #[test]
+    fn off_spec_end_of_turn_lands_in_unknown_with_its_payload() {
+        for trigger in ["model", "timeout"] {
+            let raw = json!({ "type": "EndOfTurn", "trigger": trigger });
+            let event: AgentResponse = serde_json::from_value(raw.clone()).unwrap();
+            match &event {
+                AgentResponse::Unknown(value) => {
+                    assert_eq!(value["type"], "EndOfTurn");
+                    assert_eq!(value["trigger"], trigger);
+                }
+                other => panic!("expected Unknown for EndOfTurn, got {other:?}"),
+            }
+            // Re-serializes byte-for-byte, so a consumer can forward it.
+            assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+        }
+    }
+
     #[test]
     fn unknown_round_trips_arbitrary_shapes() {
         // Even a non-object falls through to Unknown — useful if the
