@@ -243,7 +243,8 @@ mod tests {
     /// A base URL that carries a path prefix keeps it, the same way
     /// `Transcription`'s `/v1/listen` URL does. The trailing slash matters:
     /// without it the last path segment is replaced, per RFC 3986 relative
-    /// resolution.
+    /// resolution. Both forms are pinned here because the difference is what
+    /// the `Deepgram::with_base_url*` rustdoc tells developers to expect.
     #[test]
     fn urls_custom_base_with_path_prefix() {
         let dg = Deepgram::with_base_url("http://gateway.internal/deepgram/").unwrap();
@@ -251,6 +252,13 @@ mod tests {
         assert_eq!(
             dg.projects().projects_url().unwrap().as_str(),
             "http://gateway.internal/deepgram/v1/projects"
+        );
+
+        let dg = Deepgram::with_base_url("http://gateway.internal/deepgram").unwrap();
+
+        assert_eq!(
+            dg.projects().projects_url().unwrap().as_str(),
+            "http://gateway.internal/v1/projects"
         );
     }
 }
