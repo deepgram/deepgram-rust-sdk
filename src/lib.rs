@@ -400,6 +400,9 @@ impl Deepgram {
     ///
     /// Admin features, such as billing, usage, and key management will
     /// still go through the hosted site at `https://api.deepgram.com`.
+    /// The one exception is the model-listing API: `models()` builds its
+    /// requests against the base URL given here, so `get_models` reaches
+    /// `/v1/models` on your own instance.
     ///
     /// Self-hosted instances do not in general authenticate incoming
     /// requests, so unlike in [`Deepgram::new`], so no api key needs to be
@@ -448,6 +451,9 @@ impl Deepgram {
     ///
     /// Admin features, such as billing, usage, and key management will
     /// still go through the hosted site at `https://api.deepgram.com`.
+    /// The one exception is the model-listing API: `models()` builds its
+    /// requests against the base URL given here, so `get_models` reaches
+    /// `/v1/models` on your own instance.
     ///
     /// The base URL's scheme decides how WebSocket connections are made:
     /// `https://` gives `wss://`, with TLS and certificate verification (see
