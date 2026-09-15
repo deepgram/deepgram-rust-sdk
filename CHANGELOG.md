@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **BREAKING**: `manage::usage::response::Details` now exposes `duration`, `total_audio`, `channels`, and `streams` as `Option<f64>`, `Option<f64>`, `Option<usize>`, and `Option<usize>` instead of `f64`, `f64`, `usize`, and `usize`. Code that read these fields directly (`details.duration + 1.0`, `details.channels`) stops compiling; unwrap the option first and decide what an absent value means for you — `details.duration.unwrap_or(0.0)` is the closest match to the old reading, since the API omits these fields precisely when the request metered no audio. Required because `Usage::list_requests` and `Usage::get_request` were unusable against the live API: the four fields were declared required, the API omits them for every request that meters no audio, and decoding failed with serde's "missing field duration" on any page containing such a record.
+
+### Fixed
+
+- `Usage::list_requests` and `Usage::get_request` failed to decode successful (HTTP 200) responses from the live API. The API sends `duration`, `total_audio`, `channels`, and `streams` inside `response.details` only for requests that metered audio; it omits all four for `/v1/read`, `/v1/speak`, `/v2/speak`, and `/v1/agent/converse` records, and for `/v1/listen` and `/v2/listen` records that never carried audio. Because the model required them, a single such record failed the whole page. Verified against 3,943 live request records covering batch and streaming, succeeded and failed, callback and non-callback, and unresolved (`"response": null`) variants: all decode after the fix, and no other field in the payload was over-constrained.
+
 ## [0.11.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.1...0.11.0)
 
 ### Added
