@@ -525,6 +525,19 @@ mod tests {
     }
 
     #[test]
+    fn function_endpoint_debug_redacts_schemeless_url_userinfo() {
+        // A free-form URL with no scheme must still lose its userinfo.
+        let fe = FunctionEndpoint::new("carol:t0ken@hooks.internal/fn", "POST");
+        let debug = format!("{fe:?}");
+        assert!(!debug.contains("t0ken"), "got: {debug}");
+        assert!(!debug.contains("carol"), "got: {debug}");
+        assert!(
+            debug.contains("<redacted>@hooks.internal/fn"),
+            "got: {debug}"
+        );
+    }
+
+    #[test]
     fn settings_with_context_length_max() {
         let settings = ThinkSettings {
             provider: ThinkProvider::OpenAi(OpenAiThinkProvider::new(OpenAiModel::Gpt5)),
