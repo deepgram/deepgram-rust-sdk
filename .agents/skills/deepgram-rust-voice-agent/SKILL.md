@@ -21,10 +21,13 @@ The Voice Agent client is behind the `agent` feature (on by default).
 
 ```toml
 [dependencies]
-deepgram = { version = "0.12", default-features = false, features = ["agent"] }
+deepgram = { default-features = false, features = ["agent"] }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 ```
+
+`agent` is also part of the crate's default features, so a plain
+`cargo add deepgram` includes it.
 
 ```rust
 let dg = deepgram::Deepgram::new(std::env::var("DEEPGRAM_API_KEY")?)?;

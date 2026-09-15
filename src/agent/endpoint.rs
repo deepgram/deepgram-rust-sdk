@@ -83,8 +83,9 @@ impl fmt::Debug for RedactedHeaders<'_> {
 ///
 /// A credential can live in a URL (`https://user:pass@llm.internal`), so
 /// printing `url` verbatim would defeat the header redaction next to it.
-/// Shared by [`Endpoint`] and `FunctionEndpoint`; same spirit as the
-/// origin-only `url` on `InsecureAgentUrl`.
+/// Works whether or not the value carries a scheme, since the field is a
+/// free-form `String`. Shared by [`Endpoint`] and `FunctionEndpoint`;
+/// same spirit as the origin-only `url` on `InsecureAgentUrl`.
 pub(crate) struct RedactedUrl<'a>(pub(crate) &'a str);
 
 impl fmt::Debug for RedactedUrl<'_> {
@@ -103,13 +104,29 @@ impl fmt::Debug for RedactedUrl<'_> {
 /// field is a free-form `String` the caller may not have written as a
 /// parseable URL, and a value that fails to parse must still be printed
 /// with its userinfo removed.
+///
+/// A missing scheme is one such value (`bob:hunter2@llm.internal`), so
+/// the authority is located relative to whichever prefix is present —
+/// `scheme://`, a protocol-relative `//`, or nothing at all — instead of
+/// requiring `://`. Only an `@` inside that authority is userinfo: an
+/// `@` in a path or query (an email address in a parameter) is left
+/// alone either way.
 fn redact_userinfo(url: &str) -> Option<String> {
-    let (scheme, rest) = url.split_once("://")?;
+    let (prefix, rest) = match url.split_once("://") {
+        // `scheme://…`: keep the scheme, scan from the authority.
+        Some((scheme, rest)) => (&url[..scheme.len() + "://".len()], rest),
+        // Protocol-relative `//authority/…`, then the schemeless
+        // `authority/…` form a free-form field invites.
+        None => match url.strip_prefix("//") {
+            Some(rest) => ("//", rest),
+            None => ("", url),
+        },
+    };
     // The authority ends at the first `/`, `?`, or `#`; a later `@` (in a
     // path or query) is not userinfo.
     let authority_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
     let at = rest[..authority_end].rfind('@')?;
-    Some(format!("{scheme}://{REDACTED}@{}", &rest[at + 1..]))
+    Some(format!("{prefix}{REDACTED}@{}", &rest[at + 1..]))
 }
 
 /// Placeholder printed in place of any secret in `Debug` output.
@@ -214,6 +231,44 @@ mod tests {
         let debug = format!("{:?}", Endpoint::new("wss://bob:hunter2@"));
         assert!(!debug.contains("hunter2"), "got: {debug}");
         assert!(!debug.contains("bob"), "got: {debug}");
+    }
+
+    #[test]
+    fn debug_redacts_userinfo_in_a_schemeless_url() {
+        // `url` is free-form, so a host:port or userinfo form with no
+        // scheme at all is a value a caller can write. The credential
+        // must not survive into `Debug` just because `://` is absent.
+        for url in [
+            "bob:hunter2@llm.internal",
+            "bob:hunter2@llm.internal:8443/v1/chat?k=v",
+            // Userinfo with no password is still userinfo.
+            "bob@llm.internal/v1/chat",
+            // Protocol-relative form.
+            "//bob:hunter2@llm.internal/v1/chat",
+        ] {
+            let debug = format!("{:?}", Endpoint::new(url));
+            assert!(!debug.contains("hunter2"), "got: {debug}");
+            assert!(!debug.contains("bob"), "got: {debug}");
+            assert!(debug.contains("<redacted>@"), "got: {debug}");
+            // The host is still there to identify the endpoint by.
+            assert!(debug.contains("llm.internal"), "got: {debug}");
+        }
+    }
+
+    #[test]
+    fn debug_keeps_an_at_outside_a_schemeless_authority_verbatim() {
+        // The no-scheme path uses the same authority boundary as the
+        // scheme-bearing one, so an address in a path or query is not
+        // mistaken for a credential.
+        for url in [
+            "llm.internal/v1/chat?to=a@b.com",
+            "llm.internal/mail/a@b.com",
+            "/v1/chat?to=a@b.com",
+            "//llm.internal/v1/chat?to=a@b.com",
+        ] {
+            let debug = format!("{:?}", Endpoint::new(url));
+            assert!(debug.contains(url), "got: {debug}");
+        }
     }
 
     #[test]
