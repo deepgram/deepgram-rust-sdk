@@ -4,6 +4,8 @@
 //!
 //! [api]: https://developers.deepgram.com/reference/auth/tokens/grant
 
+use url::Url;
+
 use crate::{
     auth::{
         options::{Options, SerializableOptions},
@@ -45,6 +47,10 @@ impl Auth<'_> {
     /// The token will have usage::write permission for core voice APIs.
     /// Requires an API key with Member or higher authorization.
     /// Tokens created with this endpoint will not work with the Manage APIs.
+    ///
+    /// The request goes to the base URL the client was built with, so a
+    /// client built with [`Deepgram::with_base_url_and_api_key`] grants its
+    /// token from that host instead of from `https://api.deepgram.com`.
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
@@ -105,7 +111,7 @@ impl Auth<'_> {
     /// # }
     /// ```
     pub async fn grant(&self, options: Option<&Options>) -> crate::Result<GrantResponse> {
-        let url = "https://api.deepgram.com/v1/auth/grant";
+        let url = self.grant_url()?;
 
         let request = if let Some(opts) = options {
             self.0
@@ -118,5 +124,44 @@ impl Auth<'_> {
         };
 
         send_and_translate_response(request).await
+    }
+
+    fn grant_url(&self) -> crate::Result<Url> {
+        self.0.api_url("v1/auth/grant")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Deepgram;
+
+    #[test]
+    fn urls_default_base() {
+        let dg = Deepgram::new("token").unwrap();
+
+        assert_eq!(
+            dg.auth().grant_url().unwrap().as_str(),
+            "https://api.deepgram.com/v1/auth/grant"
+        );
+    }
+
+    #[test]
+    fn urls_custom_base() {
+        let dg = Deepgram::with_base_url("http://deepgram.internal").unwrap();
+
+        assert_eq!(
+            dg.auth().grant_url().unwrap().as_str(),
+            "http://deepgram.internal/v1/auth/grant"
+        );
+    }
+
+    #[test]
+    fn urls_custom_base_with_path_prefix() {
+        let dg = Deepgram::with_base_url("http://gateway/deepgram/").unwrap();
+
+        assert_eq!(
+            dg.auth().grant_url().unwrap().as_str(),
+            "http://gateway/deepgram/v1/auth/grant"
+        );
     }
 }
