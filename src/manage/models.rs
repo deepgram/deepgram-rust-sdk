@@ -39,13 +39,27 @@ impl<'a> From<&'a Deepgram> for Models<'a> {
 impl Models<'_> {
     /// List metadata on all the latest public models.
     ///
-    /// Pass `include_outdated = true` to also return non-latest versions.
+    /// To also include non-latest (outdated) versions, use
+    /// [`Models::get_models_including_outdated`].
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
     /// [api]: https://developers.deepgram.com/reference/manage/models/list
-    pub async fn get_models(&self, include_outdated: bool) -> crate::Result<ModelsResponse> {
-        send_and_translate_response(self.get_models_request(include_outdated)).await
+    pub async fn get_models(&self) -> crate::Result<ModelsResponse> {
+        send_and_translate_response(self.get_models_request(false)).await
+    }
+
+    /// List metadata on all public models, including non-latest (outdated)
+    /// versions.
+    ///
+    /// Sends `include_outdated=true`. For the latest versions only, use
+    /// [`Models::get_models`].
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/models/list
+    pub async fn get_models_including_outdated(&self) -> crate::Result<ModelsResponse> {
+        send_and_translate_response(self.get_models_request(true)).await
     }
 
     /// Get metadata on a specific public model by its UUID.
@@ -60,18 +74,30 @@ impl Models<'_> {
     /// List metadata on all the latest models a project has access to,
     /// including non-public (custom) models.
     ///
-    /// Pass `include_outdated = true` to also return non-latest versions.
+    /// To also include non-latest (outdated) versions, use
+    /// [`Models::get_project_models_including_outdated`].
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
     /// [api]: https://developers.deepgram.com/reference/manage/projects/models/list
-    pub async fn get_project_models(
+    pub async fn get_project_models(&self, project_id: &str) -> crate::Result<ModelsResponse> {
+        send_and_translate_response(self.get_project_models_request(project_id, false)).await
+    }
+
+    /// List metadata on all the models a project has access to, including
+    /// non-public (custom) models and non-latest (outdated) versions.
+    ///
+    /// Sends `include_outdated=true`. For the latest versions only, use
+    /// [`Models::get_project_models`].
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/projects/models/list
+    pub async fn get_project_models_including_outdated(
         &self,
         project_id: &str,
-        include_outdated: bool,
     ) -> crate::Result<ModelsResponse> {
-        send_and_translate_response(self.get_project_models_request(project_id, include_outdated))
-            .await
+        send_and_translate_response(self.get_project_models_request(project_id, true)).await
     }
 
     /// Get metadata for a specific model a project has access to.
@@ -87,11 +113,16 @@ impl Models<'_> {
         send_and_translate_response(self.get_project_model_request(project_id, model_id)).await
     }
 
+    /// `include_outdated` is optional on the endpoint and defaults to the
+    /// latest versions only, so it is sent only when it is `true`.
     fn get_models_request(&self, include_outdated: bool) -> RequestBuilder {
-        self.0
-            .client
-            .get("https://api.deepgram.com/v1/models")
-            .query(&[("include_outdated", include_outdated)])
+        let request = self.0.client.get("https://api.deepgram.com/v1/models");
+
+        if include_outdated {
+            request.query(&[("include_outdated", "true")])
+        } else {
+            request
+        }
     }
 
     fn get_model_request(&self, model_id: &str) -> RequestBuilder {
@@ -100,17 +131,22 @@ impl Models<'_> {
             .get(format!("https://api.deepgram.com/v1/models/{model_id}"))
     }
 
+    /// `include_outdated` is sent only when `true`, as in
+    /// `get_models_request`.
     fn get_project_models_request(
         &self,
         project_id: &str,
         include_outdated: bool,
     ) -> RequestBuilder {
-        self.0
-            .client
-            .get(format!(
-                "https://api.deepgram.com/v1/projects/{project_id}/models"
-            ))
-            .query(&[("include_outdated", include_outdated)])
+        let request = self.0.client.get(format!(
+            "https://api.deepgram.com/v1/projects/{project_id}/models"
+        ));
+
+        if include_outdated {
+            request.query(&[("include_outdated", "true")])
+        } else {
+            request
+        }
     }
 
     fn get_project_model_request(&self, project_id: &str, model_id: &str) -> RequestBuilder {
@@ -133,9 +169,13 @@ mod tests {
 
         let url = |request: reqwest::RequestBuilder| request.build().unwrap().url().to_string();
 
+        // `include_outdated` is optional on both listing endpoints and the
+        // endpoint default is the latest versions only, so `get_models` and
+        // `get_project_models` omit the parameter entirely and only the
+        // `_including_outdated` variants send it.
         assert_eq!(
             url(models.get_models_request(false)),
-            "https://api.deepgram.com/v1/models?include_outdated=false"
+            "https://api.deepgram.com/v1/models"
         );
         assert_eq!(
             url(models.get_models_request(true)),
@@ -144,6 +184,10 @@ mod tests {
         assert_eq!(
             url(models.get_model_request("4899aa60-f731-4d2b-b1fd-fa5d6a2dc98b")),
             "https://api.deepgram.com/v1/models/4899aa60-f731-4d2b-b1fd-fa5d6a2dc98b"
+        );
+        assert_eq!(
+            url(models.get_project_models_request("proj-1", false)),
+            "https://api.deepgram.com/v1/projects/proj-1/models"
         );
         assert_eq!(
             url(models.get_project_models_request("proj-1", true)),
