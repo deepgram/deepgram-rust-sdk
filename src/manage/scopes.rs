@@ -5,6 +5,7 @@
 //! [api]: https://developers.deepgram.com/api-reference/#scopes
 
 use serde::Serialize;
+use url::Url;
 
 use crate::{send_and_translate_response, Deepgram};
 
@@ -76,9 +77,7 @@ impl Scopes<'_> {
         project_id: &str,
         member_id: &str,
     ) -> crate::Result<response::Scopes> {
-        let url = format!(
-            "https://api.deepgram.com/v1/projects/{project_id}/members/{member_id}/scopes "
-        );
+        let url = self.scopes_url(project_id, member_id)?;
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -128,10 +127,40 @@ impl Scopes<'_> {
             scope: &'a str,
         }
 
-        let url =
-            format!("https://api.deepgram.com/v1/projects/{project_id}/members/{member_id}/scopes");
+        let url = self.scopes_url(project_id, member_id)?;
         let request = self.0.client.put(url).json(&Scope { scope });
 
         send_and_translate_response(request).await
+    }
+
+    fn scopes_url(&self, project_id: &str, member_id: &str) -> crate::Result<Url> {
+        self.0.api_url(&format!(
+            "v1/projects/{project_id}/members/{member_id}/scopes"
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Deepgram;
+
+    #[test]
+    fn urls_default_base() {
+        let dg = Deepgram::new("token").unwrap();
+
+        assert_eq!(
+            dg.scopes().scopes_url("proj", "mem").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/members/mem/scopes"
+        );
+    }
+
+    #[test]
+    fn urls_custom_base() {
+        let dg = Deepgram::with_base_url("http://deepgram.internal").unwrap();
+
+        assert_eq!(
+            dg.scopes().scopes_url("proj", "mem").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/members/mem/scopes"
+        );
     }
 }
