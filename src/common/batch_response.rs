@@ -633,6 +633,11 @@ mod tests {
 
         assert_eq!(entity.value, "(555");
         assert_eq!(entity.raw_value.as_deref(), Some("five five five"));
+
+        // Round-trip: a present raw_value must survive serialization, or a
+        // caller re-emitting a response would silently drop it.
+        let json = serde_json::to_value(&entity).unwrap();
+        assert_eq!(json["raw_value"], "five five five");
     }
 
     #[test]
