@@ -191,7 +191,7 @@ pub struct DeepgramListenV2Provider {
     /// API version — V2 (Flux STT).
     pub version: DeepgramListenV2Version,
 
-    /// Flux model identifier (e.g. `flux-general-en`, `flux-general-multi`).
+    /// Flux STT model identifier (e.g. `flux-general-en`, `flux-general-multi`).
     pub model: String,
 
     /// BCP-47 language codes that bias `flux-general-multi` toward specific
