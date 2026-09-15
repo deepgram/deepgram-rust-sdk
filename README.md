@@ -76,17 +76,23 @@ trim dependencies, disable the defaults and pick only what you need:
 cargo add deepgram --no-default-features --features read
 ```
 
-| Feature  | Enables                                                               |
-| -------- | --------------------------------------------------------------------- |
-| `listen` | Speech-to-text: pre-recorded REST, live WebSocket streaming, Flux STT |
-| `speak`  | Text-to-speech: Aura REST, Flux TTS REST and streaming WebSocket      |
-| `read`   | Text Intelligence (`/v1/read`): sentiment, summary, topics, intents   |
-| `manage` | Management API: projects, keys, members, usage, billing, models       |
+| Feature  | Enables                                                                                  |
+| -------- | ---------------------------------------------------------------------------------------- |
+| `listen` | Speech-to-text: pre-recorded REST, live WebSocket streaming, Flux STT                    |
+| `speak`  | Text-to-speech: Aura REST and streaming WebSocket, Flux TTS REST and streaming WebSocket |
+| `read`   | Text Intelligence (`/v1/read`): sentiment, summary, topics, intents                      |
+| `manage` | Management API: projects, keys, members, usage, billing, models                          |
 
 Token-based authentication (`auth`) is always available. The `listen` and
 `speak` features pull in WebSocket dependencies; `read` and `manage` are
 HTTP-only. The table lists the product features only: the two opt-in features,
 `connect-diagnostics` and `rustls-tls-native-roots`, are described below.
+
+For streaming text-to-speech, `dg.text_to_speech().speak_stream()` opens the
+Aura socket (`wss /v1/speak`); see
+[`examples/speak/websocket/`](./examples/speak/websocket/) for a runnable
+example, and [`examples/speak/flux/`](./examples/speak/flux/) for the Flux TTS
+equivalent.
 
 ## Connect Diagnostics
 
