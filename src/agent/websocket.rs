@@ -133,7 +133,7 @@ impl Agent<'_> {
     /// `localhost`, `127.0.0.0/8`, or `[::1]` — where plain `ws://` is
     /// accepted so integration tests can target a local mock server. Any
     /// other `ws://` URL is rejected *before* a connection is attempted
-    /// with [`DeepgramError::InternalClientError`] wrapping an
+    /// with [`DeepgramError::InsecureAgentUrl`], which carries an
     /// [`InsecureAgentUrl`], so the credential is never transmitted in
     /// cleartext. Schemes other than `ws`/`wss` return
     /// [`DeepgramError::InvalidUrl`].
@@ -221,8 +221,8 @@ impl Agent<'_> {
 ///
 /// The Deepgram credential travels in the handshake's `Authorization`
 /// header; sending it over `ws://` would expose it to anyone on the
-/// network path. Surfaced as [`DeepgramError::InternalClientError`] —
-/// downcast the inner `anyhow::Error` to this type to match on it.
+/// network path. Surfaced as [`DeepgramError::InsecureAgentUrl`], so
+/// callers can match on that variant directly.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct InsecureAgentUrl {
@@ -246,12 +246,6 @@ impl fmt::Display for InsecureAgentUrl {
 }
 
 impl std::error::Error for InsecureAgentUrl {}
-
-impl From<InsecureAgentUrl> for DeepgramError {
-    fn from(err: InsecureAgentUrl) -> Self {
-        DeepgramError::InternalClientError(anyhow::Error::new(err))
-    }
-}
 
 /// Enforce the TLS rule documented on [`Agent::start_at_url`].
 fn validate_agent_url(url: &url::Url) -> Result<()> {
@@ -941,13 +935,10 @@ mod tests {
             "ws://evil-localhost/agent",
         ] {
             let err = validate_agent_url(&parse(bad)).expect_err(bad);
-            let inner = match &err {
-                DeepgramError::InternalClientError(inner) => inner,
-                other => panic!("{bad}: expected InternalClientError, got {other:?}"),
+            let insecure = match &err {
+                DeepgramError::InsecureAgentUrl(insecure) => insecure,
+                other => panic!("{bad}: expected InsecureAgentUrl, got {other:?}"),
             };
-            let insecure = inner
-                .downcast_ref::<InsecureAgentUrl>()
-                .expect("downcasts to InsecureAgentUrl");
             let parsed = parse(bad);
             let expected_origin = format!(
                 "ws://{}",
@@ -967,12 +958,9 @@ mod tests {
     fn insecure_url_error_omits_userinfo_path_and_query() {
         let bad = "ws://alice:s3cret@agent.example.com:8080/v1/agent/converse?token=abc";
         let err = validate_agent_url(&parse(bad)).expect_err(bad);
-        let DeepgramError::InternalClientError(inner) = &err else {
-            panic!("expected InternalClientError, got {err:?}");
+        let DeepgramError::InsecureAgentUrl(insecure) = &err else {
+            panic!("expected InsecureAgentUrl, got {err:?}");
         };
-        let insecure = inner
-            .downcast_ref::<InsecureAgentUrl>()
-            .expect("downcasts to InsecureAgentUrl");
         assert_eq!(insecure.url, "ws://agent.example.com:8080");
         let text = err.to_string();
         for secret in ["alice", "s3cret", "token=abc", "/v1/agent/converse"] {

@@ -16,7 +16,7 @@ mod mock {
     use std::time::{Duration, Instant};
 
     use deepgram::agent::messages::FunctionCallResponseMessage;
-    use deepgram::agent::{AgentEvent, AgentResponse, InsecureAgentUrl};
+    use deepgram::agent::{AgentEvent, AgentResponse};
     use deepgram::{Deepgram, DeepgramError};
     use futures::{SinkExt, StreamExt};
     use tokio::net::TcpListener;
@@ -553,13 +553,10 @@ mod mock {
                 "{url}: rejection should not involve the network"
             );
             match &err {
-                DeepgramError::InternalClientError(inner) => {
-                    let insecure = inner
-                        .downcast_ref::<InsecureAgentUrl>()
-                        .unwrap_or_else(|| panic!("{url}: expected InsecureAgentUrl, got {inner}"));
+                DeepgramError::InsecureAgentUrl(insecure) => {
                     assert!(insecure.url.starts_with("ws://"), "{url}");
                 }
-                other => panic!("{url}: expected InternalClientError, got {other:?}"),
+                other => panic!("{url}: expected InsecureAgentUrl, got {other:?}"),
             }
             let text = err.to_string();
             assert!(text.contains("cleartext"), "{url}: {text}");
@@ -582,8 +579,7 @@ mod mock {
             .await
             .expect_err("no TLS listener, so the connection must fail");
         assert!(
-            !matches!(&err, DeepgramError::InternalClientError(inner)
-                if inner.downcast_ref::<InsecureAgentUrl>().is_some()),
+            !matches!(&err, DeepgramError::InsecureAgentUrl(_)),
             "wss:// must not be rejected by the TLS rule, got {err}"
         );
         assert!(!matches!(err, DeepgramError::InvalidUrl), "got {err}");

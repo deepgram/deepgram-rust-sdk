@@ -6,16 +6,19 @@
 //! a session, plus an [`AgentResponse::Unknown`] catch-all for
 //! forward-compatibility with future event types.
 //!
-//! Wire dispatch is structural via each variant's own `type` field —
-//! same approach as [`crate::agent::messages::ClientMessage`]. The
-//! [`AgentResponse::FunctionCallResponse`] variant reuses
-//! [`crate::agent::messages::FunctionCallResponseMessage`] since the
-//! spec defines that shape as bidirectional.
+//! Deserialization dispatches on the message's `type` discriminant and
+//! then parses exactly that variant, so a malformed *known* event is
+//! reported as an error instead of being downgraded to
+//! [`AgentResponse::Unknown`]. Only an unrecognized (or absent) `type`
+//! reaches `Unknown`. The [`AgentResponse::FunctionCallResponse`] variant
+//! reuses [`crate::agent::messages::FunctionCallResponseMessage`] since
+//! the spec defines that shape as bidirectional.
 //!
 //! Audio frames sent by the server are binary WebSocket frames and are
 //! not part of this enum — they're delivered out-of-band by the
 //! connection layer.
 
+use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize};
 
 use crate::agent::history::{ConversationRole, HistoryMessage};
@@ -23,15 +26,25 @@ use crate::agent::messages::FunctionCallResponseMessage;
 
 /// Discriminated union of every server-emitted JSON event.
 ///
-/// Variants are tried in order during deserialization; the
-/// [`AgentResponse::Unknown`] tail variant matches anything that didn't
-/// fit a typed shape and exposes the raw JSON for inspection or logging.
+/// Deserialization reads the message's `type` field and parses the one
+/// matching variant. A message whose `type` is recognized but whose
+/// payload does not match that event's schema is an error — it is *not*
+/// downgraded to [`AgentResponse::Unknown`], so a malformed
+/// [`AgentResponse::Error`] can never be mistaken for an event the
+/// consumer may ignore. [`AgentResponse::Unknown`] is reserved for a
+/// `type` this SDK does not model (or a payload with no `type` at all)
+/// and exposes the raw JSON verbatim, so a future server event never
+/// breaks a deployed client.
 //
 // Same `large_enum_variant` rationale as `ClientMessage`: events are
 // constructed once during deserialization and immediately consumed by a
 // match — boxing the largest variants would only add a heap allocation
 // per received WebSocket frame.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+//
+// `untagged` here drives *serialization* only (each variant is written as
+// its own payload, `type` field included); `Deserialize` is hand-written
+// below to dispatch on that `type`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(untagged)]
 #[non_exhaustive]
 #[allow(clippy::large_enum_variant)]
@@ -80,6 +93,72 @@ pub enum AgentResponse {
     /// Forward-compatibility escape — any JSON event the SDK does not
     /// yet model lands here with its raw payload preserved.
     Unknown(serde_json::Value),
+}
+
+/// Parse one recognized event payload, tagging any failure with the wire
+/// `type`. Keeping this separate from the dispatch table below means a
+/// malformed known event yields a real error naming the event, rather
+/// than falling through to [`AgentResponse::Unknown`].
+fn known_event<T, E>(event_type: &str, value: serde_json::Value) -> Result<T, E>
+where
+    T: serde::de::DeserializeOwned,
+    E: de::Error,
+{
+    serde_json::from_value(value).map_err(|err| {
+        E::custom(format_args!(
+            "malformed `{event_type}` event from the Voice Agent server: {err}"
+        ))
+    })
+}
+
+impl<'de> Deserialize<'de> for AgentResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Buffer the message once, then dispatch — every variant in this
+        // enum carries a `type` discriminant (server audio arrives as a
+        // binary frame and is not modeled here), so there is no variant
+        // that has to be probed structurally.
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let Some(event_type) = value.get("type").and_then(serde_json::Value::as_str) else {
+            // No `type` at all (or a non-object payload): nothing to
+            // dispatch on, so preserve it verbatim for the consumer.
+            return Ok(Self::Unknown(value));
+        };
+        let event_type = event_type.to_owned();
+
+        match event_type.as_str() {
+            "Welcome" => known_event(&event_type, value).map(Self::Welcome),
+            "SettingsApplied" => known_event(&event_type, value).map(Self::SettingsApplied),
+            "ConversationText" => known_event(&event_type, value).map(Self::ConversationText),
+            "UserStartedSpeaking" => known_event(&event_type, value).map(Self::UserStartedSpeaking),
+            "AgentThinking" => known_event(&event_type, value).map(Self::AgentThinking),
+            "FunctionCallRequest" => known_event(&event_type, value).map(Self::FunctionCallRequest),
+            "FunctionCallCancelled" => {
+                known_event(&event_type, value).map(Self::FunctionCallCancelled)
+            }
+            "AgentStartedSpeaking" => {
+                known_event(&event_type, value).map(Self::AgentStartedSpeaking)
+            }
+            "AgentAudioDone" => known_event(&event_type, value).map(Self::AgentAudioDone),
+            "Error" => known_event(&event_type, value).map(Self::Error),
+            "Warning" => known_event(&event_type, value).map(Self::Warning),
+            "History" => known_event(&event_type, value).map(Self::History),
+            "LatencyReport" => known_event(&event_type, value).map(Self::LatencyReport),
+            "ListenUpdated" => known_event(&event_type, value).map(Self::ListenUpdated),
+            "PromptUpdated" => known_event(&event_type, value).map(Self::PromptUpdated),
+            "SpeakUpdated" => known_event(&event_type, value).map(Self::SpeakUpdated),
+            "ThinkUpdated" => known_event(&event_type, value).map(Self::ThinkUpdated),
+            "InjectionRefused" => known_event(&event_type, value).map(Self::InjectionRefused),
+            "FunctionCallResponse" => {
+                known_event(&event_type, value).map(Self::FunctionCallResponse)
+            }
+            // Forward compatibility: an event type this SDK does not yet
+            // model reaches the consumer with its payload intact.
+            _ => Ok(Self::Unknown(value)),
+        }
+    }
 }
 
 // ---------- Welcome ----------
@@ -999,6 +1078,81 @@ mod tests {
         let event: AgentResponse = serde_json::from_value(raw.clone()).unwrap();
         assert!(matches!(event, AgentResponse::Unknown(_)));
         assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+    }
+
+    /// A *known* event type whose payload is missing a required field
+    /// must surface as an error. Before dispatch was keyed on `type`, the
+    /// untagged derive fell through to `Unknown` here, so a server
+    /// `Error` event that omitted `code` never reached a consumer
+    /// matching on `AgentResponse::Error`.
+    #[test]
+    fn known_type_with_missing_required_field_is_an_error() {
+        for (raw, event_type, missing) in [
+            (
+                json!({ "type": "Error", "description": "boom" }),
+                "Error",
+                "code",
+            ),
+            (
+                json!({ "type": "Warning", "code": "BUFFER_LOW" }),
+                "Warning",
+                "description",
+            ),
+            (
+                json!({ "type": "ConversationText", "role": "user" }),
+                "ConversationText",
+                "content",
+            ),
+            (json!({ "type": "Welcome" }), "Welcome", "request_id"),
+            (
+                json!({ "type": "FunctionCallRequest" }),
+                "FunctionCallRequest",
+                "functions",
+            ),
+        ] {
+            let err = serde_json::from_value::<AgentResponse>(raw.clone()).expect_err(&format!(
+                "{event_type} without {missing} must not deserialize"
+            ));
+            let text = err.to_string();
+            // The message names the event so the failure is diagnosable,
+            // and keeps serde's own cause.
+            assert!(text.contains(event_type), "{event_type}: {text}");
+            assert!(text.contains(missing), "{event_type}: {text}");
+        }
+    }
+
+    /// A known type with a *wrong* field type is an error too, not an
+    /// `Unknown` downgrade.
+    #[test]
+    fn known_type_with_wrong_field_type_is_an_error() {
+        let raw = json!({ "type": "AgentThinking", "content": 42 });
+        let err =
+            serde_json::from_value::<AgentResponse>(raw).expect_err("content is not a string");
+        assert!(err.to_string().contains("AgentThinking"), "{err}");
+    }
+
+    /// The forward-compatibility guarantee still holds: an unrecognized
+    /// `type`, and a payload with no `type` at all, both land in
+    /// `Unknown` with the raw JSON preserved.
+    #[test]
+    fn unrecognized_or_absent_type_still_lands_in_unknown() {
+        for raw in [
+            // Unknown type, even with fields that would fit a modeled
+            // event (this shape is a valid `Error` but for its `type`).
+            json!({ "type": "SomeFutureError", "description": "d", "code": "c" }),
+            // Missing `type` entirely.
+            json!({ "description": "d", "code": "c" }),
+            // `type` present but not a string.
+            json!({ "type": 7, "description": "d" }),
+        ] {
+            let event: AgentResponse = serde_json::from_value(raw.clone())
+                .unwrap_or_else(|err| panic!("{raw} must deserialize, got {err}"));
+            assert!(
+                matches!(event, AgentResponse::Unknown(_)),
+                "expected Unknown for {raw}, got {event:?}"
+            );
+            assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+        }
     }
 
     #[test]
