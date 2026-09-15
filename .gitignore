@@ -1,5 +1,7 @@
 /target
 .env
 your_output_file.wav
+output.raw
+flux-tts-batch.mp3
 .DS_Store
 /target-*

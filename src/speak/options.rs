@@ -17,10 +17,10 @@ macro_rules! speak_models {
         /// Used as a parameter for [`OptionsBuilder::model`] and
         /// [`SpeakStreamBuilder::model`](crate::speak::SpeakStreamBuilder::model).
         ///
-        /// The named variants cover the Aura-1 (`aura-*-en`) and Aura-2
-        /// (`aura-2-*`) voices listed in the Deepgram API specification; the
-        /// server default is [`Model::AuraAsteriaEn`]. Any voice not yet
-        /// modeled can be passed as [`Model::CustomId`], and
+        /// The named variants cover every Aura-1 (`aura-*-en`) and Aura-2
+        /// (`aura-2-*`) voice the Deepgram API serves; the server default is
+        /// [`Model::AuraAsteriaEn`]. Any voice not yet modeled can be passed
+        /// as [`Model::CustomId`], and
         /// `Model::from("aura-2-thalia-en")` resolves a wire string to its
         /// named variant (or `CustomId` for an unrecognized one).
         ///
@@ -77,7 +77,7 @@ macro_rules! speak_models {
         }
 
         impl Model {
-            /// Every named variant, in specification order (excludes
+            /// Every named variant, in declaration order (excludes
             /// [`Model::CustomId`]).
             #[cfg(test)]
             pub(crate) fn named_variants() -> Vec<Model> {
@@ -201,7 +201,6 @@ speak_models! {
         Aura2LiviaIt => "aura-2-livia-it",
         Aura2MaiaIt => "aura-2-maia-it",
         Aura2MeliaIt => "aura-2-melia-it",
-        Aura2PerseoIt => "aura-2-perseo-it",
     }
 
     "Japanese" {
@@ -457,13 +456,18 @@ mod model_tests {
     #[test]
     fn every_named_variant_round_trips_through_its_wire_string() {
         let variants = Model::named_variants();
-        // Exact, not a lower bound: 12 Aura-1 voices plus the 91 Aura-2
-        // voices in the API specification. When the specification grows,
-        // this fails until the new voice is added.
+        // Exact, not a lower bound: 12 Aura-1 voices plus the 90 Aura-2
+        // voices the API actually serves. Deliberately not derived from the
+        // API specification, which lists a 91st Aura-2 voice,
+        // `aura-2-perseo-it`: production answers
+        // `400 No such model/version combination found` for it and
+        // `GET /v1/models?include_outdated=true` does not list it, so it has
+        // no named variant here. When a voice is added, this fails until the
+        // new variant is added.
         assert_eq!(
             variants.len(),
-            103,
-            "expected every voice in the specification, got {}",
+            102,
+            "expected every voice the API serves, got {}",
             variants.len()
         );
         for model in variants {
@@ -493,11 +497,20 @@ mod model_tests {
         assert_eq!(Model::Aura2ThaliaEn.as_ref(), "aura-2-thalia-en");
         assert_eq!(Model::from("aura-2-thalia-en"), Model::Aura2ThaliaEn);
         assert_eq!(Model::Aura2AgustinaEs.as_ref(), "aura-2-agustina-es");
-        assert_eq!(Model::Aura2PerseoIt.as_ref(), "aura-2-perseo-it");
-        assert_eq!(Model::from("aura-2-perseo-it"), Model::Aura2PerseoIt);
+        assert_eq!(Model::Aura2MeliaIt.as_ref(), "aura-2-melia-it");
+        assert_eq!(Model::from("aura-2-melia-it"), Model::Aura2MeliaIt);
         assert_eq!(Model::Aura2UzumeJa.as_ref(), "aura-2-uzume-ja");
         // Aura-1 mapping is unchanged.
         assert_eq!(Model::AuraAsteriaEn.as_ref(), "aura-asteria-en");
+        // `aura-2-perseo-it` is in the API specification but the API answers
+        // `400 No such model/version combination found` for it, so it has no
+        // named variant: it resolves to `CustomId` like any other unserved
+        // voice. If the API starts serving it, add the variant and raise the
+        // exact count above.
+        assert_eq!(
+            Model::from("aura-2-perseo-it"),
+            Model::CustomId("aura-2-perseo-it".to_string())
+        );
     }
 
     #[test]
