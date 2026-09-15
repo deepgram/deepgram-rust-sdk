@@ -187,13 +187,13 @@ pub struct SearchResults {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Sentence {
-    #[allow(missing_docs)]
+    /// The text of the sentence.
     pub text: String,
 
-    #[allow(missing_docs)]
+    /// Number of seconds into the audio at which this sentence starts.
     pub start: f64,
 
-    #[allow(missing_docs)]
+    /// Number of seconds into the audio at which this sentence ends.
     pub end: f64,
 }
 
@@ -201,16 +201,16 @@ pub struct Sentence {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Paragraph {
-    #[allow(missing_docs)]
+    /// The sentences this paragraph was divided into, in spoken order.
     pub sentences: Vec<Sentence>,
 
-    #[allow(missing_docs)]
+    /// Count of the words in this paragraph.
     pub num_words: usize,
 
-    #[allow(missing_docs)]
+    /// Number of seconds into the audio at which this paragraph starts.
     pub start: f64,
 
-    #[allow(missing_docs)]
+    /// Number of seconds into the audio at which this paragraph ends.
     pub end: f64,
 }
 
@@ -224,10 +224,11 @@ pub struct Paragraph {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Paragraphs {
-    #[allow(missing_docs)]
+    /// The transcript for the processed audio, with line breaks inserted
+    /// where it is divided into paragraphs.
     pub transcript: String,
 
-    #[allow(missing_docs)]
+    /// The paragraphs the transcript was divided into, in spoken order.
     pub paragraphs: Vec<Paragraph>,
 }
 
@@ -241,19 +242,25 @@ pub struct Paragraphs {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Entity {
-    #[allow(missing_docs)]
+    /// The type of entity identified, for example `NAME`, `ORGANIZATION`,
+    /// `PHONE_NUMBER`, `EMAIL_ADDRESS`, `ADDRESS`, or `CARDINAL`. The set of
+    /// labels the model can return is not a fixed list.
     pub label: String,
 
-    #[allow(missing_docs)]
+    /// The text of the entity as it appears in the transcript. Reflects the
+    /// formatted output when Smart Formatting is enabled.
     pub value: String,
 
-    #[allow(missing_docs)]
+    /// The model's confidence in this entity, from `0.0` to `1.0`. Larger
+    /// values indicate higher confidence.
     pub confidence: f64,
 
-    #[allow(missing_docs)]
+    /// Index of the entity's first word, inclusive, in the transcript's
+    /// word list.
     pub start_word: usize,
 
-    #[allow(missing_docs)]
+    /// Index of the entity's last word, exclusive, in the transcript's
+    /// word list.
     pub end_word: usize,
 }
 
@@ -261,10 +268,12 @@ pub struct Entity {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Intent {
-    #[allow(missing_docs)]
+    /// The name of the intent the model detected. Returned as a verb phrase,
+    /// for example `Upgrade phone`; the set of intents is not a fixed list
+    /// unless `custom_intent_mode` is `strict`.
     pub intent: String,
 
-    #[allow(missing_docs)]
+    /// The model's confidence in this intent, from `0.0` to `1.0`.
     pub confidence_score: f64,
 }
 
@@ -272,16 +281,17 @@ pub struct Intent {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Segment {
-    #[allow(missing_docs)]
+    /// The transcript text covered by this segment.
     pub text: String,
 
-    #[allow(missing_docs)]
+    /// Index of this segment's first word in the transcript's word list.
     pub start_word: usize,
 
-    #[allow(missing_docs)]
+    /// Index of this segment's last word in the transcript's word list.
     pub end_word: usize,
 
-    #[allow(missing_docs)]
+    /// The intents the model detected in this segment. A segment can carry
+    /// more than one intent.
     pub intents: Vec<Intent>,
 }
 
@@ -295,7 +305,8 @@ pub struct Segment {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Intents {
-    #[allow(missing_docs)]
+    /// The segments of text the model identified as carrying notable intents.
+    /// These segments do not necessarily cover the whole transcript.
     pub segments: Vec<Segment>,
 }
 
@@ -303,19 +314,22 @@ pub struct Intents {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct SentimentSegment {
-    #[allow(missing_docs)]
+    /// The transcript text covered by this segment.
     pub text: String,
 
-    #[allow(missing_docs)]
+    /// Index of this segment's first word in the transcript's word list.
     pub start_word: usize,
 
-    #[allow(missing_docs)]
+    /// Index of this segment's last word in the transcript's word list.
     pub end_word: usize,
 
-    #[allow(missing_docs)]
+    /// The sentiment classification for this segment: `positive`, `negative`,
+    /// or `neutral`.
     pub sentiment: String,
 
-    #[allow(missing_docs)]
+    /// The sentiment of this segment, from `-1.0` (most negative) to `1.0`
+    /// (most positive). Scores within roughly `0.333` of zero are classified
+    /// as `neutral`.
     pub sentiment_score: f64,
 }
 
@@ -323,10 +337,12 @@ pub struct SentimentSegment {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct SentimentAverage {
-    #[allow(missing_docs)]
+    /// The sentiment classification for the transcript as a whole:
+    /// `positive`, `negative`, or `neutral`.
     pub sentiment: String,
 
-    #[allow(missing_docs)]
+    /// The sentiment of the transcript as a whole, from `-1.0` (most
+    /// negative) to `1.0` (most positive).
     pub sentiment_score: f64,
 }
 
@@ -340,10 +356,10 @@ pub struct SentimentAverage {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Sentiments {
-    #[allow(missing_docs)]
+    /// Per-segment sentiment for the transcript, in spoken order.
     pub segments: Vec<SentimentSegment>,
 
-    #[allow(missing_docs)]
+    /// The sentiment aggregated over the whole transcript.
     pub average: SentimentAverage,
 }
 
@@ -351,10 +367,12 @@ pub struct Sentiments {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct TopicDetail {
-    #[allow(missing_docs)]
+    /// The name of the topic the model detected. Topics are generated from
+    /// context rather than drawn from a fixed list, unless
+    /// `custom_topic_mode` is `strict`.
     pub topic: String,
 
-    #[allow(missing_docs)]
+    /// The model's confidence in this topic, from `0.0` to `1.0`.
     pub confidence_score: f64,
 }
 
@@ -362,16 +380,17 @@ pub struct TopicDetail {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct TopicSegment {
-    #[allow(missing_docs)]
+    /// The transcript text covered by this segment.
     pub text: String,
 
-    #[allow(missing_docs)]
+    /// Index of this segment's first word in the transcript's word list.
     pub start_word: usize,
 
-    #[allow(missing_docs)]
+    /// Index of this segment's last word in the transcript's word list.
     pub end_word: usize,
 
-    #[allow(missing_docs)]
+    /// The topics the model detected in this segment. A segment can carry
+    /// more than one topic.
     pub topics: Vec<TopicDetail>,
 }
 
@@ -385,7 +404,8 @@ pub struct TopicSegment {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Topics {
-    #[allow(missing_docs)]
+    /// The segments of text in which the model detected topics. These
+    /// segments do not necessarily cover the whole transcript.
     pub segments: Vec<TopicSegment>,
 }
 
@@ -399,10 +419,11 @@ pub struct Topics {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Summary {
-    #[allow(missing_docs)]
+    /// Status of the summarization request: `success` or `failure`. This is
+    /// not the summary text -- see [`Summary::short`].
     pub result: String,
 
-    #[allow(missing_docs)]
+    /// The generated summary of the audio.
     pub short: String,
 }
 
