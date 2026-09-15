@@ -180,15 +180,15 @@ impl OptionsBuilder {
 
     /// Set the HTTP method Deepgram uses to deliver the callback.
     ///
-    /// Only meaningful with [`Read::analyze_text_callback`] or
-    /// [`Read::analyze_url_callback`]. Defaults to `POST` on the server when
+    /// Only meaningful with [`TextIntelligence::analyze_text_callback`] or
+    /// [`TextIntelligence::analyze_url_callback`]. Defaults to `POST` on the server when
     /// omitted.
     ///
     /// See the [Deepgram Text Intelligence Callback docs][docs] for more info.
     ///
     /// [docs]: https://developers.deepgram.com/docs/text-intelligence-callback
-    /// [`Read::analyze_text_callback`]: crate::read::Read::analyze_text_callback
-    /// [`Read::analyze_url_callback`]: crate::read::Read::analyze_url_callback
+    /// [`TextIntelligence::analyze_text_callback`]: crate::read::TextIntelligence::analyze_text_callback
+    /// [`TextIntelligence::analyze_url_callback`]: crate::read::TextIntelligence::analyze_url_callback
     pub fn callback_method(mut self, callback_method: CallbackMethod) -> Self {
         self.0.callback_method = Some(callback_method);
         self
