@@ -346,6 +346,18 @@ pub enum DeepgramError {
         reason: String,
     },
 
+    /// [`Agent::start_at_url`](crate::agent::Agent::start_at_url) was
+    /// asked to open a cleartext (`ws://`) Voice Agent session to a host
+    /// that is not loopback, so the request was refused before any
+    /// connection was attempted and the credential was never sent.
+    ///
+    /// The payload's `url` field is the rejected origin only
+    /// (`scheme://host[:port]`) — path, query, and userinfo are omitted
+    /// so the error is safe to log.
+    #[cfg(feature = "agent")]
+    #[error(transparent)]
+    InsecureAgentUrl(#[from] agent::InsecureAgentUrl),
+
     /// An unexpected error occurred in the client
     #[error("an unepected error occurred in the deepgram client: {0}")]
     InternalClientError(anyhow::Error),

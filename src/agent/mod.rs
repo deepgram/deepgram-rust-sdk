@@ -29,6 +29,9 @@
 //!   `SpeakUpdated`, `ThinkUpdated`, `InjectionRefused`,
 //!   `FunctionCallResponse`) plus an `Unknown` catch-all for forward
 //!   compatibility, all unified under the [`response::AgentResponse`] enum.
+//!   Dispatch is on the event's `type`, so `Unknown` holds exactly the
+//!   events this SDK does not model; a recognized event with a malformed
+//!   payload is an error on the stream, never a silent `Unknown`.
 //! - [`websocket`] — the [`Agent`] sub-client and live-session
 //!   primitives ([`AgentHandle`], [`AgentEventStream`], [`AgentEvent`])
 //!   that connect to `wss://agent.deepgram.com/v1/agent/converse`.
