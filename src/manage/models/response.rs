@@ -22,8 +22,17 @@ pub struct ModelsResponse {
 /// Metadata describing a single Deepgram model.
 ///
 /// This is the management-API model record returned by the `/v1/models`
-/// endpoints. It is distinct from `common::options::Model`, the request-time
-/// model selector you pass when transcribing.
+/// endpoints. It is distinct from the request-time model selector you pass
+// `common::options` is gated on `listen`/`read`, so the link is emitted only
+// when it will resolve. docs.rs builds all features.
+#[cfg_attr(
+    any(feature = "listen", feature = "read"),
+    doc = "when transcribing or synthesizing, [`common::options::Model`](crate::common::options::Model)."
+)]
+#[cfg_attr(
+    not(any(feature = "listen", feature = "read")),
+    doc = "when transcribing or synthesizing, `common::options::Model`."
+)]
 ///
 /// The same shape is returned for STT and TTS models; STT models populate
 /// `batch` / `streaming` / `formatted_output`, while TTS models populate

@@ -7,7 +7,16 @@
 use reqwest::{header::CONTENT_TYPE, RequestBuilder};
 use serde::Serialize;
 
-/// Used as a parameter for `Transcription::prerecorded` and similar functions.
+// `Transcription` only exists with the `listen` feature, so the link is
+// emitted only when it will resolve. docs.rs builds all features.
+#[cfg_attr(
+    feature = "listen",
+    doc = "Used as a parameter for [`Transcription::prerecorded`](crate::Transcription::prerecorded) and similar functions."
+)]
+#[cfg_attr(
+    not(feature = "listen"),
+    doc = "Used as a parameter for `Transcription::prerecorded` and similar functions."
+)]
 #[derive(Debug)]
 pub struct AudioSource(InternalAudioSource);
 
