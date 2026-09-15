@@ -14,7 +14,10 @@
 
 use std::env;
 
-use deepgram::{manage::self_hosted::CreateDistributionCredentials, Deepgram, DeepgramError};
+use deepgram::{
+    manage::self_hosted::{CreateDistributionCredentials, Scope},
+    Deepgram, DeepgramError,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), DeepgramError> {
@@ -52,9 +55,9 @@ async fn main() -> Result<(), DeepgramError> {
     }
 
     // `comment` is required by the API; `provider` defaults to `quay` and
-    // `scopes` to `["self-hosted:products"]`.
+    // `scopes` to `[Scope::Products]` (`self-hosted:products`).
     let request = CreateDistributionCredentials::new("created by the deepgram-rust-sdk example")
-        .scopes(["self-hosted:product:api", "self-hosted:product:engine"]);
+        .scopes([Scope::Api, Scope::Engine]);
 
     let created = self_hosted
         .create_distribution_credentials(&project_id, &request)
@@ -77,10 +80,10 @@ async fn main() -> Result<(), DeepgramError> {
         None => println!("  secret:   <not returned>"),
     }
 
-    let id = created.distribution_credentials_id.to_string();
+    let id = created.distribution_credentials_id;
 
     let fetched = self_hosted
-        .get_distribution_credentials(&project_id, &id)
+        .get_distribution_credentials(&project_id, id)
         .await?;
     println!(
         "\nFetched {} (created {}, owner {})",
@@ -95,7 +98,7 @@ async fn main() -> Result<(), DeepgramError> {
     }
 
     let deleted = self_hosted
-        .delete_distribution_credentials(&project_id, &id)
+        .delete_distribution_credentials(&project_id, id)
         .await?;
     println!("\nDeleted {id}: {}", deleted.message);
 
