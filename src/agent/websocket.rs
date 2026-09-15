@@ -88,7 +88,7 @@ const AGENT_WS_URL: &str = "wss://agent.deepgram.com/v1/agent/converse";
 /// Construct via [`Deepgram::agent`]. Exposes [`Agent::start`] /
 /// [`Agent::start_at_url`] for opening a live agent WebSocket session.
 #[derive(Debug, Clone)]
-pub struct Agent<'a>(#[allow(unused)] pub &'a Deepgram);
+pub struct Agent<'a>(&'a Deepgram);
 
 impl Deepgram {
     /// Construct a new [`Agent`] sub-client from a [`Deepgram`].
@@ -515,10 +515,28 @@ enum WsMessage {
 
 async fn run_agent_worker(
     ws_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
+    message_rx: Receiver<WsMessage>,
+    response_tx: Sender<Result<AgentEvent>>,
+) -> Result<()> {
+    let (ws_send, ws_recv) = ws_stream.split();
+    drive_agent_session(ws_send, ws_recv, message_rx, response_tx).await
+}
+
+/// The worker loop, generic over the two halves of the split socket.
+///
+/// Generic so the terminal write path can be unit-tested: a real
+/// transport cannot be made to fail a write while keeping its read half
+/// healthy, which is exactly the case that used to park the worker.
+async fn drive_agent_session<Si, St>(
+    mut ws_send: Si,
+    ws_recv: St,
     mut message_rx: Receiver<WsMessage>,
     mut response_tx: Sender<Result<AgentEvent>>,
-) -> Result<()> {
-    let (mut ws_send, ws_recv) = ws_stream.split();
+) -> Result<()>
+where
+    Si: futures::Sink<Message, Error = tungstenite::Error> + Unpin,
+    St: Stream<Item = std::result::Result<Message, tungstenite::Error>> + Unpin,
+{
     let mut ws_recv = ws_recv.fuse();
     let mut is_open = true;
 
@@ -532,7 +550,12 @@ async fn run_agent_worker(
             // did exactly that under sustained inbound load.)
             select! {
                 inbound = ws_recv.next() => {
-                    if handle_agent_inbound(inbound, &mut ws_send, &mut response_tx).await.is_break() {
+                    if let std::ops::ControlFlow::Break(stop) =
+                        handle_agent_inbound(inbound, &mut ws_send, &mut response_tx).await
+                    {
+                        if matches!(stop, InboundStop::TransportGone) {
+                            is_open = false;
+                        }
                         break;
                     }
                 }
@@ -540,16 +563,28 @@ async fn run_agent_worker(
                     match outbound {
                         Some(WsMessage::Json(json)) => {
                             if let Err(err) = ws_send.send(Message::Text(json.into())).await {
+                                // A failed write is terminal for the
+                                // transport: forward it once and end the
+                                // worker, matching the Flux TTS worker.
+                                // Continuing here would park on the read
+                                // half with the command channel still
+                                // open, so a retained handle's send would
+                                // return `Ok` into a channel nobody
+                                // drains — the silent drop the worker
+                                // contract forbids.
                                 let _ = response_tx.send(Err(err.into())).await;
                                 is_open = false;
+                                break;
                             }
                         }
                         Some(WsMessage::Audio(audio)) => {
                             if let Err(err) =
                                 ws_send.send(Message::Binary(Bytes::from(audio))).await
                             {
+                                // Terminal, as above.
                                 let _ = response_tx.send(Err(err.into())).await;
                                 is_open = false;
+                                break;
                             }
                         }
                         Some(WsMessage::Close) | None => {
@@ -564,10 +599,12 @@ async fn run_agent_worker(
             // closes. We must NOT keep selecting on `message_rx` here — it now
             // yields `Ready(None)` synchronously, which would busy-spin the task
             // (and hang a current-thread runtime).
-            if handle_agent_inbound(ws_recv.next().await, &mut ws_send, &mut response_tx)
-                .await
-                .is_break()
+            if let std::ops::ControlFlow::Break(stop) =
+                handle_agent_inbound(ws_recv.next().await, &mut ws_send, &mut response_tx).await
             {
+                if matches!(stop, InboundStop::TransportGone) {
+                    is_open = false;
+                }
                 break;
             }
         }
@@ -595,14 +632,27 @@ async fn run_agent_worker(
     Ok(())
 }
 
+/// Why [`handle_agent_inbound`] asked the worker to stop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InboundStop {
+    /// The socket can still be written to, so terminal cleanup should
+    /// send a Close frame: either we are answering a peer close or the
+    /// consumer dropped the event stream while the session was healthy.
+    TransportUsable,
+    /// The transport is gone (read error or end of stream); do not try to
+    /// write to it again.
+    TransportGone,
+}
+
 /// Handle a single inbound WebSocket message. Returns [`ControlFlow::Break`]
-/// when the worker should stop (connection closed or the consumer dropped the
-/// event stream).
+/// when the worker should stop (connection closed, a terminal read error, or
+/// the consumer dropped the event stream), carrying whether the socket is
+/// still writable.
 async fn handle_agent_inbound<S>(
     inbound: Option<std::result::Result<Message, tungstenite::Error>>,
     ws_send: &mut S,
     response_tx: &mut Sender<Result<AgentEvent>>,
-) -> std::ops::ControlFlow<()>
+) -> std::ops::ControlFlow<InboundStop>
 where
     S: futures::Sink<Message> + Unpin,
 {
@@ -612,7 +662,7 @@ where
             let parsed: std::result::Result<AgentResponse, _> = serde_json::from_str(&text);
             let event = parsed.map(AgentEvent::Json).map_err(DeepgramError::from);
             if response_tx.send(event).await.is_err() {
-                return ControlFlow::Break(());
+                return ControlFlow::Break(InboundStop::TransportUsable);
             }
         }
         Some(Ok(Message::Binary(bytes))) => {
@@ -621,7 +671,7 @@ where
                 .await
                 .is_err()
             {
-                return ControlFlow::Break(());
+                return ControlFlow::Break(InboundStop::TransportUsable);
             }
         }
         Some(Ok(Message::Ping(payload))) => {
@@ -631,7 +681,7 @@ where
         Some(Ok(Message::Pong(_))) => {
             // Server-emitted pongs are unexpected; ignore.
         }
-        Some(Ok(Message::Close(None))) => return ControlFlow::Break(()),
+        Some(Ok(Message::Close(None))) => return ControlFlow::Break(InboundStop::TransportUsable),
         Some(Ok(Message::Close(Some(frame)))) => {
             // A normal (1000) close is not an error: the server ends every
             // session this way (after a client-initiated close and at the
@@ -645,24 +695,30 @@ where
                     }))
                     .await;
             }
-            return ControlFlow::Break(());
+            return ControlFlow::Break(InboundStop::TransportUsable);
         }
         Some(Ok(Message::Frame(_))) => {
             // Unfragmented Frame deliveries; tungstenite normally surfaces
             // these as Text/Binary. Ignore anything raw that slips through.
         }
         Some(Err(err)) => {
-            if response_tx.send(Err(err.into())).await.is_err() {
-                return ControlFlow::Break(());
-            }
+            // A read error is terminal for the transport: forward it once
+            // and end the worker, rather than keep polling a broken
+            // socket (which can surface duplicate errors) or accept
+            // further commands doomed to fail. Matches the Flux TTS
+            // worker.
+            let _ = response_tx.send(Err(err.into())).await;
+            return ControlFlow::Break(InboundStop::TransportGone);
         }
-        None => return ControlFlow::Break(()),
+        None => return ControlFlow::Break(InboundStop::TransportGone),
     }
     ControlFlow::Continue(())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
     use crate::agent::messages::{InjectAgentBehavior, KeepAliveMessage};
     use crate::agent::settings::{AgentConfig, SettingsMessage};
@@ -673,6 +729,114 @@ mod tests {
         think::{OpenAiModel, OpenAiThinkProvider, ThinkProvider, ThinkSettings},
         InlineAgentConfig,
     };
+
+    /// A write half that fails every send, paired with a read half that
+    /// never yields — a healthy but silent socket. No real transport can
+    /// be put in this state on demand, which is why the worker loop is
+    /// generic over its two halves.
+    struct FailingSink;
+
+    impl futures::Sink<Message> for FailingSink {
+        type Error = tungstenite::Error;
+
+        fn poll_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn start_send(
+            self: Pin<&mut Self>,
+            _item: Message,
+        ) -> std::result::Result<(), Self::Error> {
+            Err(tungstenite::Error::AlreadyClosed)
+        }
+
+        fn poll_flush(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_close(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    struct SilentStream;
+
+    impl Stream for SilentStream {
+        type Item = std::result::Result<Message, tungstenite::Error>;
+
+        fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            Poll::Pending
+        }
+    }
+
+    /// A failed write ends the worker after forwarding exactly one error,
+    /// and the terminal cleanup closes the command channel so a retained
+    /// handle's next send fails.
+    ///
+    /// Regression: the write-error arms used to forward the error and
+    /// mark the session closed but leave the command channel open, then
+    /// park on the read half. With a read half that stays silent — a
+    /// tungstenite write error that leaves the read half healthy — the
+    /// worker never returned, so `send_data` / `keep_alive` on a retained
+    /// handle returned `Ok` into a channel nobody drained. The worker
+    /// contract requires an error instead.
+    #[tokio::test]
+    async fn write_failure_ends_worker_after_single_error_and_fails_later_sends() {
+        let (message_tx, message_rx) = mpsc::channel::<WsMessage>(8);
+        let (response_tx, mut response_rx) = mpsc::channel::<Result<AgentEvent>>(8);
+
+        let worker = tokio::spawn(drive_agent_session(
+            FailingSink,
+            SilentStream,
+            message_rx,
+            response_tx,
+        ));
+
+        let mut handle = AgentHandle {
+            message_tx,
+            request_id: None,
+        };
+        // Accepted into the channel; the worker's write of it fails.
+        handle.send_data(vec![0u8; 8]).await.unwrap();
+
+        let first = tokio::time::timeout(Duration::from_secs(5), response_rx.next())
+            .await
+            .expect("the worker must end promptly after a failed write")
+            .expect("the terminal error must be forwarded");
+        assert!(first.is_err(), "expected the write error, got {first:?}");
+        assert!(
+            tokio::time::timeout(Duration::from_secs(5), response_rx.next())
+                .await
+                .expect("the event stream must end")
+                .is_none(),
+            "exactly one error may be forwarded for one fault"
+        );
+
+        tokio::time::timeout(Duration::from_secs(5), worker)
+            .await
+            .expect("the worker task must return")
+            .expect("the worker task must not panic")
+            .expect("the worker returns Ok after terminal cleanup");
+
+        assert!(
+            handle.send_data(vec![0u8; 8]).await.is_err(),
+            "send_data after a terminal write error must fail, not be dropped"
+        );
+        assert!(
+            handle.keep_alive().await.is_err(),
+            "keep_alive after a terminal write error must fail, not be dropped"
+        );
+        assert!(handle.close().await.is_ok(), "close is a no-op once ended");
+    }
 
     /// The agent URL is a constant; this test exists so a future change
     /// that introduces a configurable host doesn't accidentally break

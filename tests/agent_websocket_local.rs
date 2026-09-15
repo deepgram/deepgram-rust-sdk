@@ -2,10 +2,11 @@
 //!
 //! These exercise connection-level behavior that unit tests on the message
 //! types cannot: fair scheduling between inbound frames and outbound
-//! commands, prompt failure of retained handles after the session ends, the
-//! TLS rule on `start_at_url`, and the `Host` header sent on the handshake.
+//! commands, prompt failure of retained handles after the session ends,
+//! single-delivery of a terminal transport error, the TLS rule on
+//! `start_at_url`, and the `Host` header sent on the handshake.
 //!
-//! Run with: cargo test --test agent_websocket --features agent
+//! Run with: cargo test --test agent_websocket_local --features agent
 
 #[cfg(feature = "agent")]
 mod mock {
@@ -159,6 +160,16 @@ mod mock {
         reader.abort();
     }
 
+    /// Accept one connection, complete the handshake, send `Welcome`, then
+    /// tear the connection down without a closing handshake, which the
+    /// client surfaces as a terminal transport error.
+    async fn aborting_server(listener: TcpListener) {
+        let (stream, _) = listener.accept().await.unwrap();
+        let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
+        ws.send(Message::Text(WELCOME.into())).await.unwrap();
+        drop(ws);
+    }
+
     // ---------- B5: fair scheduling ----------
 
     /// Guards bounded delivery of outbound controls while the server
@@ -304,6 +315,63 @@ mod mock {
                 }
             }
         }
+        assert!(handle.send_data(vec![0u8; 320]).await.is_err());
+        assert!(handle.close().await.is_ok());
+    }
+
+    /// A terminal transport fault must forward exactly one error and end
+    /// the worker, whichever direction notices it first, after which a
+    /// retained handle's sends fail.
+    ///
+    /// Regression: a failed *write* used to forward the error and mark the
+    /// session closed but leave the command channel open, then park on the
+    /// read half forever. A retained handle's `send_data` / `keep_alive`
+    /// returned `Ok` into a channel nobody drained — the silent drop the
+    /// worker contract forbids — and a subsequent read error could surface
+    /// a second error item for one fault. Mirrors
+    /// `flux_speak_backpressure_local::terminal_read_error_ends_worker_after_single_error`.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn terminal_transport_error_ends_worker_after_single_error() {
+        let (listener, addr) = bind().await;
+        tokio::spawn(aborting_server(listener));
+
+        let dg = client();
+        let (mut handle, mut events) = dg.agent().start_at_url(&agent_url(addr)).await.unwrap();
+
+        // Keep writing, so the worker is actively sending when the
+        // transport dies. Sends must start failing once the worker has
+        // ended; they must never keep returning `Ok`.
+        let sender = tokio::spawn(async move {
+            let deadline = Instant::now() + BOUND;
+            while handle.send_data(vec![0u8; 640]).await.is_ok() {
+                assert!(
+                    Instant::now() < deadline,
+                    "handle kept accepting sends after the transport failed"
+                );
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            handle
+        });
+
+        let mut errors = 0usize;
+        while let Some(event) = tokio::time::timeout(BOUND, events.next())
+            .await
+            .expect("stream must end promptly after a terminal error")
+        {
+            if event.is_err() {
+                errors += 1;
+            }
+        }
+        assert_eq!(
+            errors, 1,
+            "exactly one terminal error must reach the consumer, without duplicates"
+        );
+
+        let mut handle = tokio::time::timeout(BOUND, sender)
+            .await
+            .expect("the sending task must stop once sends start failing")
+            .unwrap();
+        assert!(handle.keep_alive().await.is_err());
         assert!(handle.send_data(vec![0u8; 320]).await.is_err());
         assert!(handle.close().await.is_ok());
     }

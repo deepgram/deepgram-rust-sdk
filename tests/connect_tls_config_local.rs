@@ -5,9 +5,9 @@
 //! A localhost TLS server presents a self-signed certificate that the
 //! bundled webpki roots will never trust. Without `Deepgram::tls_config`
 //! every surface must refuse it with `DeepgramError::UntrustedTlsCertificate`;
-//! with a config that trusts it, live transcription, Flux speech-to-text,
-//! Flux text-to-speech, streaming text-to-speech, the Voice Agent, and the
-//! phase-timed diagnostics path must all connect.
+//! with a config that trusts it, live transcription, Flux STT, Flux TTS,
+//! streaming text-to-speech, the Voice Agent, and the phase-timed
+//! diagnostics path must all connect.
 //!
 //! The `speak` surfaces are covered under `speak` alone, so the gate below
 //! is not `listen`-only; the `listen`-only cases carry their own `cfg`.
