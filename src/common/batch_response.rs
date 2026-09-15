@@ -9,7 +9,16 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Returned by `Transcription::prerecorded`.
+// `Transcription` only exists with the `listen` feature, so the link is
+// emitted only when it will resolve. docs.rs builds all features.
+#[cfg_attr(
+    feature = "listen",
+    doc = "Returned by [`Transcription::prerecorded`](crate::Transcription::prerecorded)."
+)]
+#[cfg_attr(
+    not(feature = "listen"),
+    doc = "Returned by `Transcription::prerecorded`."
+)]
 ///
 /// See the [Deepgram API Reference][api] for more info.
 ///
@@ -24,7 +33,16 @@ pub struct Response {
     pub results: ListenResults,
 }
 
-/// Returned by `Transcription::prerecorded_callback`.
+// `Transcription` only exists with the `listen` feature, so the link is
+// emitted only when it will resolve. docs.rs builds all features.
+#[cfg_attr(
+    feature = "listen",
+    doc = "Returned by [`Transcription::prerecorded_callback`](crate::Transcription::prerecorded_callback)."
+)]
+#[cfg_attr(
+    not(feature = "listen"),
+    doc = "Returned by `Transcription::prerecorded_callback`."
+)]
 ///
 /// See the [Deepgram Callback feature docs][docs] for more info.
 ///

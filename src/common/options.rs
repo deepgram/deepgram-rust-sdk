@@ -8,7 +8,16 @@ use std::{collections::HashMap, fmt};
 
 use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
-/// Used as a parameter for `Transcription::prerecorded` and similar functions.
+// `Transcription` only exists with the `listen` feature, so the link is
+// emitted only when it will resolve. docs.rs builds all features.
+#[cfg_attr(
+    feature = "listen",
+    doc = "Used as a parameter for [`Transcription::prerecorded`](crate::Transcription::prerecorded) and similar functions."
+)]
+#[cfg_attr(
+    not(feature = "listen"),
+    doc = "Used as a parameter for `Transcription::prerecorded` and similar functions."
+)]
 #[derive(Debug, PartialEq, Clone)]
 pub struct Options {
     model: Option<Model>,
@@ -196,6 +205,18 @@ impl fmt::Display for Endpointing {
 }
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
+///
+/// This is the request-time model selector. It is distinct from the model
+// `manage::models` is gated on `manage`, so the link is emitted only when it
+// will resolve. docs.rs builds all features.
+#[cfg_attr(
+    feature = "manage",
+    doc = "metadata record the management API returns, [`manage::models::response::Model`](crate::manage::models::response::Model)."
+)]
+#[cfg_attr(
+    not(feature = "manage"),
+    doc = "metadata record the management API returns, `manage::models::response::Model`."
+)]
 ///
 /// See the [Deepgram Model feature docs][docs] for more info.
 ///
@@ -788,7 +809,16 @@ pub enum Multichannel {
 /// Builds an [`Options`] object using [the Builder pattern][builder].
 ///
 /// Use it to set of Deepgram's features, excluding the Callback feature.
-/// The Callback feature can be set when making the request by calling `Transcription::prerecorded_callback`.
+// `Transcription` only exists with the `listen` feature, so the link is
+// emitted only when it will resolve. docs.rs builds all features.
+#[cfg_attr(
+    feature = "listen",
+    doc = "The Callback feature can be set when making the request by calling [`Transcription::prerecorded_callback`](crate::Transcription::prerecorded_callback)."
+)]
+#[cfg_attr(
+    not(feature = "listen"),
+    doc = "The Callback feature can be set when making the request by calling `Transcription::prerecorded_callback`."
+)]
 ///
 /// [builder]: https://rust-unofficial.github.io/patterns/patterns/creational/builder.html
 #[derive(Debug, PartialEq, Clone)]

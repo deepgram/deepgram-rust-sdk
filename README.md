@@ -69,8 +69,8 @@ cargo add tokio --features full
 ### Cargo features
 
 The product features (`listen`, `speak`, `read`, `manage`) are enabled by
-default; `connect-diagnostics` is opt-in. To trim dependencies, disable the
-defaults and pick only what you need:
+default; `connect-diagnostics` and `rustls-tls-native-roots` are opt-in. To
+trim dependencies, disable the defaults and pick only what you need:
 
 ```sh
 cargo add deepgram --no-default-features --features read
@@ -85,7 +85,8 @@ cargo add deepgram --no-default-features --features read
 
 Token-based authentication (`auth`) is always available. The `listen` and
 `speak` features pull in WebSocket dependencies; `read` and `manage` are
-HTTP-only. The opt-in `connect-diagnostics` feature is described below.
+HTTP-only. The table lists the product features only: the two opt-in features,
+`connect-diagnostics` and `rustls-tls-native-roots`, are described below.
 
 ## Connect Diagnostics
 
