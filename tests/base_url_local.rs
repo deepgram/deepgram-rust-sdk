@@ -1,20 +1,21 @@
-//! Every management request goes to the base URL the client was built with.
+//! Every management request, and the token grant, goes to the base URL the
+//! client was built with.
 //!
 //! A client pointed at a proxy, a private deployment, or a mock server must
-//! not send management traffic — and the credential attached to it — to
-//! `https://api.deepgram.com`. These tests point the client at a local
-//! capture server and assert the request line every management method
-//! produces, so a method that rebuilds a hardcoded URL fails here: its
-//! request never reaches the capture server and the assertion times out.
+//! not send management or auth traffic — and the credential attached to it —
+//! to `https://api.deepgram.com`. These tests point the client at a local
+//! capture server and assert the request line every such method produces, so
+//! a method that rebuilds a hardcoded URL fails here: its request never
+//! reaches the capture server and the assertion times out.
 //!
-//! Run with: cargo test --test manage_base_url_local --features manage
-
-#![cfg(feature = "manage")]
+//! `deepgram::auth` is always compiled, so the auth test runs in every
+//! feature combination; the management test is gated on `manage`.
+//!
+//! Run with: cargo test --test base_url_local --features manage
 
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use deepgram::manage::{keys, projects, usage};
 use deepgram::Deepgram;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -96,8 +97,11 @@ async fn assert_captured(rx: &mut UnboundedReceiver<String>, expected: &str) {
     assert_eq!(captured, expected);
 }
 
+#[cfg(feature = "manage")]
 #[tokio::test]
 async fn every_management_request_uses_the_configured_base_url() {
+    use deepgram::manage::{keys, projects, usage};
+
     let (addr, mut rx) = capture_server().await;
     let base_url = format!("http://{addr}");
     let dg = Deepgram::with_base_url_and_api_key(base_url.as_str(), "token").unwrap();
@@ -176,8 +180,11 @@ async fn every_management_request_uses_the_configured_base_url() {
 
 /// A base URL that carries a path prefix keeps it, and query parameters are
 /// still appended to the joined path.
+#[cfg(feature = "manage")]
 #[tokio::test]
 async fn base_url_path_prefix_and_query_parameters_are_preserved() {
+    use deepgram::manage::usage;
+
     let (addr, mut rx) = capture_server().await;
     let base_url = format!("http://{addr}/gateway/");
     let dg = Deepgram::with_base_url_and_api_key(base_url.as_str(), "token").unwrap();
@@ -194,4 +201,29 @@ async fn base_url_path_prefix_and_query_parameters_are_preserved() {
         "GET /gateway/v1/projects/proj/requests?start=2024-01-01",
     )
     .await;
+}
+
+/// `POST /v1/auth/grant` goes to the configured base URL too, with and
+/// without a path prefix. `deepgram::auth` has no Cargo feature, so this runs
+/// even with `--no-default-features`.
+#[tokio::test]
+async fn the_token_grant_uses_the_configured_base_url() {
+    use deepgram::auth::options::Options;
+
+    let (addr, mut rx) = capture_server().await;
+    let base_url = format!("http://{addr}");
+    let dg = Deepgram::with_base_url_and_api_key(base_url.as_str(), "token").unwrap();
+
+    let _ = dg.auth().grant(None).await;
+    assert_captured(&mut rx, "POST /v1/auth/grant").await;
+
+    let options = Options::builder().ttl_seconds(300.0).build();
+    let _ = dg.auth().grant(Some(&options)).await;
+    assert_captured(&mut rx, "POST /v1/auth/grant").await;
+
+    let prefixed = format!("http://{addr}/gateway/");
+    let dg = Deepgram::with_base_url_and_api_key(prefixed.as_str(), "token").unwrap();
+
+    let _ = dg.auth().grant(None).await;
+    assert_captured(&mut rx, "POST /gateway/v1/auth/grant").await;
 }
