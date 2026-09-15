@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **BREAKING**: `send_data`, `finalize`, `keep_alive`, and `close_stream` on a `/v1/listen` streaming handle now return `Err` once the session has ended, where 0.11.0 returned `Ok(())` indefinitely. Code that called one of them on a handle whose session had already failed, and propagated the result with `?`, now surfaces an error where it previously carried on. Handle the error, or stop sending once `receive()` has yielded an `Err` or `None`. Cause: the worker used to drain its command channel after the loop ended, accepting audio that had nowhere to go; the first failed write now ends the session, so every later send reports the failure instead of appearing to succeed. The same write failure is also reported exactly once now — a failed write used to leave the worker running, so each later send to the same dead socket produced another `Err` on the stream and the shutdown path could add one more.
+
+### Fixed
+
+- Streaming speech-to-text (`/v1/listen` and `/v2/listen`): a transport failure now reaches your code even when your code is behind on responses. Previously, when the bounded response channel (256 items) was full at the moment the worker's write to the socket failed — a `send_data`, `finalize`, `keep_alive`, or `close_stream` (on Flux speech-to-text, also `configure` or `force_end_turn`) reaching a dead peer while your code had not been draining `receive()` — the worker waited for room to forward the terminal error and parked there instead of ending the session; the caller then filled the bounded command channel and parked in `send_data` too, so the call never returned and the error never arrived. What you observe now: the failing send returns `Err`, `receive()` yields the already-buffered responses followed by exactly one `Err` carrying the transport failure, then `None`, and later sends keep failing instead of appearing to succeed. Present on `/v2/listen` since Flux speech-to-text shipped in 0.8.0 and on `/v1/listen` since the low-level streaming handle shipped in 0.6.0. The Flux text-to-speech WebSocket (`/v2/speak`) has the same defect; its fix ships separately.
+- Streaming speech-to-text (`/v1/listen`): audio, `finalize`, `keep_alive`, and `close_stream` now keep reaching the wire while your code is behind on responses, on a connection that is perfectly healthy. The worker forwarded each inbound response with a blocking send, so a full response channel parked it there: it stopped writing whatever you handed it, a caller that kept calling `send_data` filled the bounded command channel and parked as well, and the session hung with no transport failure involved at all. Inbound reads now pause while the channel is full, so the backpressure reaches the socket instead of the worker — the behavior `/v2/listen` has had since 0.10.1 — and a write that does fail can end the session and report it.
+
 ## [0.11.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.1...0.11.0)
 
 ### Added
