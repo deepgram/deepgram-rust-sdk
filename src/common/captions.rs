@@ -78,13 +78,13 @@ impl CaptionOptions {
     /// Set the maximum number of words per caption cue.
     ///
     /// A value of `0` is treated as `1` to avoid producing empty cues.
-    pub fn max_words_per_cue(mut self, max_words_per_cue: usize) -> Self {
+    pub fn with_max_words_per_cue(mut self, max_words_per_cue: usize) -> Self {
         self.max_words_per_cue = max_words_per_cue;
         self
     }
 
     /// Set whether to include the WebVTT `NOTE` metadata header.
-    pub fn include_metadata_header(mut self, include_metadata_header: bool) -> Self {
+    pub fn with_include_metadata_header(mut self, include_metadata_header: bool) -> Self {
         self.include_metadata_header = include_metadata_header;
         self
     }
@@ -421,7 +421,10 @@ mod tests {
     #[test]
     fn srt_respects_line_length() {
         let response = sample_response();
-        let out = srt(&response, &CaptionOptions::default().max_words_per_cue(2));
+        let out = srt(
+            &response,
+            &CaptionOptions::default().with_max_words_per_cue(2),
+        );
         assert!(out.starts_with("1\n00:00:00,000 --> 00:00:01,000\nHello, there\n\n2\n"));
         assert!(out.contains("2\n00:00:01,000 --> 00:00:01,500\nfriend.\n\n"));
     }
@@ -440,7 +443,7 @@ mod tests {
         let response = sample_response();
         let out = webvtt(
             &response,
-            &CaptionOptions::default().include_metadata_header(false),
+            &CaptionOptions::default().with_include_metadata_header(false),
         );
         assert_eq!(
             out,
@@ -502,7 +505,10 @@ mod tests {
             word("five", 0.4, 0.5, Some(0)),
         ]);
 
-        let out = srt(&response, &CaptionOptions::default().max_words_per_cue(2));
+        let out = srt(
+            &response,
+            &CaptionOptions::default().with_max_words_per_cue(2),
+        );
         assert_eq!(
             out,
             "1\n00:00:00,000 --> 00:00:00,200\n[Speaker 0]\none two\n\n\
@@ -521,7 +527,7 @@ mod tests {
 
         let out = webvtt(
             &response,
-            &CaptionOptions::default().include_metadata_header(false),
+            &CaptionOptions::default().with_include_metadata_header(false),
         );
         assert_eq!(
             out,
@@ -586,8 +592,8 @@ mod tests {
         let out = webvtt(
             &response,
             &CaptionOptions::default()
-                .include_metadata_header(false)
-                .max_words_per_cue(2),
+                .with_include_metadata_header(false)
+                .with_max_words_per_cue(2),
         );
         assert_eq!(
             out,
@@ -597,7 +603,10 @@ mod tests {
         );
 
         // SRT labels only the first chunk; the second continues speaker 2.
-        let out = srt(&response, &CaptionOptions::default().max_words_per_cue(2));
+        let out = srt(
+            &response,
+            &CaptionOptions::default().with_max_words_per_cue(2),
+        );
         assert_eq!(
             out,
             "1\n00:00:00,000 --> 00:00:00,200\n[Speaker 2]\none two\n\n\
@@ -637,8 +646,8 @@ mod tests {
         let out = webvtt(
             &response,
             &CaptionOptions::default()
-                .include_metadata_header(false)
-                .max_words_per_cue(2),
+                .with_include_metadata_header(false)
+                .with_max_words_per_cue(2),
         );
         assert_eq!(
             out,
