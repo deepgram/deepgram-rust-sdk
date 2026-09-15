@@ -4,6 +4,8 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#members
 
+use url::Url;
+
 use crate::{send_and_translate_response, Deepgram};
 
 use response::Message;
@@ -67,7 +69,7 @@ impl Members<'_> {
     /// # }
     /// ```
     pub async fn list_members(&self, project_id: &str) -> crate::Result<response::Members> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/members",);
+        let url = self.members_url(project_id)?;
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -107,8 +109,50 @@ impl Members<'_> {
     /// # }
     /// ```
     pub async fn remove_member(&self, project_id: &str, member_id: &str) -> crate::Result<Message> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/members/{member_id}",);
+        let url = self.member_url(project_id, member_id)?;
 
         send_and_translate_response(self.0.client.delete(url)).await
+    }
+
+    fn members_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0.api_url(&format!("v1/projects/{project_id}/members"))
+    }
+
+    fn member_url(&self, project_id: &str, member_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/members/{member_id}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Deepgram;
+
+    #[test]
+    fn urls_default_base() {
+        let dg = Deepgram::new("token").unwrap();
+
+        assert_eq!(
+            dg.members().members_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/members"
+        );
+        assert_eq!(
+            dg.members().member_url("proj", "mem").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/members/mem"
+        );
+    }
+
+    #[test]
+    fn urls_custom_base() {
+        let dg = Deepgram::with_base_url("http://deepgram.internal").unwrap();
+
+        assert_eq!(
+            dg.members().members_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/members"
+        );
+        assert_eq!(
+            dg.members().member_url("proj", "mem").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/members/mem"
+        );
     }
 }

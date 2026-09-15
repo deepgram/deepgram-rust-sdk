@@ -6,6 +6,8 @@
 
 use response::{Fields, Request, Requests, UsageSummary};
 
+use url::Url;
+
 use crate::{send_and_translate_response, Deepgram};
 
 pub mod get_fields_options;
@@ -78,7 +80,7 @@ impl Usage<'_> {
         project_id: &str,
         options: &list_requests_options::Options,
     ) -> crate::Result<Requests> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/requests",);
+        let url = self.requests_url(project_id)?;
         let request = self
             .0
             .client
@@ -126,8 +128,7 @@ impl Usage<'_> {
     /// # }
     /// ```
     pub async fn get_request(&self, project_id: &str, request_id: &str) -> crate::Result<Request> {
-        let url =
-            format!("https://api.deepgram.com/v1/projects/{project_id}/requests/{request_id}",);
+        let url = self.request_url(project_id, request_id)?;
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -172,7 +173,7 @@ impl Usage<'_> {
         project_id: &str,
         options: &get_usage_options::Options,
     ) -> crate::Result<UsageSummary> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/usage");
+        let url = self.usage_url(project_id)?;
         let request = self
             .0
             .client
@@ -222,7 +223,7 @@ impl Usage<'_> {
         project_id: &str,
         options: &get_fields_options::Options,
     ) -> crate::Result<Fields> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/usage/fields",);
+        let url = self.fields_url(project_id)?;
         let request = self
             .0
             .client
@@ -230,5 +231,75 @@ impl Usage<'_> {
             .query(&get_fields_options::SerializableOptions::from(options));
 
         send_and_translate_response(request).await
+    }
+
+    fn requests_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/requests"))
+    }
+
+    fn request_url(&self, project_id: &str, request_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/requests/{request_id}"))
+    }
+
+    fn usage_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0.api_url(&format!("v1/projects/{project_id}/usage"))
+    }
+
+    fn fields_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/usage/fields"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Deepgram;
+
+    #[test]
+    fn urls_default_base() {
+        let dg = Deepgram::new("token").unwrap();
+        let usage = dg.usage();
+
+        assert_eq!(
+            usage.requests_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/requests"
+        );
+        assert_eq!(
+            usage.request_url("proj", "req").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/requests/req"
+        );
+        assert_eq!(
+            usage.usage_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/usage"
+        );
+        assert_eq!(
+            usage.fields_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/usage/fields"
+        );
+    }
+
+    #[test]
+    fn urls_custom_base() {
+        let dg = Deepgram::with_base_url("http://deepgram.internal").unwrap();
+        let usage = dg.usage();
+
+        assert_eq!(
+            usage.requests_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/requests"
+        );
+        assert_eq!(
+            usage.request_url("proj", "req").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/requests/req"
+        );
+        assert_eq!(
+            usage.usage_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/usage"
+        );
+        assert_eq!(
+            usage.fields_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/usage/fields"
+        );
     }
 }
