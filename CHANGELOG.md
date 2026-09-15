@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Flux speech-to-text (`/v2/listen`): a broken transport no longer deadlocks a caller that is not draining responses. The worker forwarded a terminal write error with a blocking send, so with the bounded response channel full it parked instead of ending the session; the caller then filled the bounded command channel and parked in `send_data` (or `configure`, `force_end_turn`, `close_stream`), and the error never arrived. The terminal error is now forwarded without waiting for room — the worker ends the session either way, the stream ends, and later sends fail fast. An error dropped this way is only ever a duplicate of the failure the caller already observes through the ended stream and the failing send. Present since Flux speech-to-text shipped in 0.8.0; the same geometry was fixed on both text-to-speech WebSocket workers.
+
 ## [0.11.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.1...0.11.0)
 
 ### Added

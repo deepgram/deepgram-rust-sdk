@@ -683,13 +683,18 @@ async fn run_flux_worker(
                         // A failed write means the transport is broken: forward
                         // the first terminal error and end the worker, rather
                         // than accept further commands doomed to fail the same
-                        // way.
+                        // way. The forward is non-blocking on purpose: waiting
+                        // for room on a full response channel would park the
+                        // worker while a caller that is not draining responses
+                        // is parked on the full command channel. The worker is
+                        // terminating either way, and the end of the stream is
+                        // the signal the caller cannot miss.
                         Some(WsMessage::Audio(audio)) => {
                             if let Err(err) = ws_stream_send
                                 .send(Message::Binary(Bytes::from(audio)))
                                 .await
                             {
-                                let _ = response_tx.send(Err(err.into())).await;
+                                let _ = response_tx.try_send(Err(err.into()));
                                 is_open = false;
                                 break;
                             }
@@ -699,7 +704,7 @@ async fn run_flux_worker(
                                 .send(Message::Text(Utf8Bytes::from(json)))
                                 .await
                             {
-                                let _ = response_tx.send(Err(err.into())).await;
+                                let _ = response_tx.try_send(Err(err.into()));
                                 is_open = false;
                                 break;
                             }
@@ -712,7 +717,7 @@ async fn run_flux_worker(
                                 )))
                                 .await
                             {
-                                let _ = response_tx.send(Err(err.into())).await;
+                                let _ = response_tx.try_send(Err(err.into()));
                                 is_open = false;
                                 break;
                             }
@@ -726,7 +731,7 @@ async fn run_flux_worker(
                                 )))
                                 .await
                             {
-                                let _ = response_tx.send(Err(err.into())).await;
+                                let _ = response_tx.try_send(Err(err.into()));
                                 break;
                             }
                         }
@@ -743,8 +748,9 @@ async fn run_flux_worker(
             )))
             .await
         {
-            // If the response channel is closed, there's nothing to be done about it now.
-            let _ = response_tx.send(Err(err.into())).await;
+            // If the response channel is closed or full, there's nothing to
+            // be done about it now; the channel closes right below.
+            let _ = response_tx.try_send(Err(err.into()));
         }
     }
     response_tx.close_channel();
