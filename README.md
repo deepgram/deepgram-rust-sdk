@@ -79,7 +79,7 @@ cargo add deepgram --no-default-features --features read
 | Feature  | Enables                                                               |
 | -------- | --------------------------------------------------------------------- |
 | `listen` | Speech-to-text: pre-recorded REST, live WebSocket streaming, Flux STT |
-| `speak`  | Text-to-speech REST and streaming WebSocket (Aura, Flux TTS)          |
+| `speak`  | Text-to-speech: Aura REST, Flux TTS REST and streaming WebSocket      |
 | `read`   | Text Intelligence (`/v1/read`): sentiment, summary, topics, intents   |
 | `manage` | Management API: projects, keys, members, usage, billing, models       |
 

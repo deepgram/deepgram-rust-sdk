@@ -23,26 +23,41 @@ async fn main() -> Result<(), DeepgramError> {
     // placeholder rather than failing when one is absent.
     println!("STT models:");
     for model in &models.stt {
+        let multilingual = match model.multilingual {
+            Some(true) => " [multilingual]",
+            _ => "",
+        };
         println!(
-            "  {} ({}) v{}",
+            "  {} ({}) v{}{multilingual}",
             model.name.as_deref().unwrap_or("-"),
             model.canonical_name.as_deref().unwrap_or("-"),
             model.version.as_deref().unwrap_or("-"),
         );
     }
 
-    println!("TTS models:");
+    // `display_name` is the human-readable voice name to show in a picker
+    // ("Angus"); `name` is the wire form ("angus").
+    println!("TTS voices:");
     for model in &models.tts {
-        let accent = model
-            .metadata
-            .as_ref()
+        let metadata = model.metadata.as_ref();
+        let display_name = metadata
+            .and_then(|m| m.display_name.as_deref())
+            .or(model.name.as_deref())
+            .unwrap_or("-");
+        let accent = metadata
             .and_then(|m| m.accent.as_deref())
             .unwrap_or("unknown accent");
         println!(
-            "  {} ({}) — {accent}",
-            model.name.as_deref().unwrap_or("-"),
+            "  {display_name} ({}) — {accent}",
             model.canonical_name.as_deref().unwrap_or("-"),
         );
+    }
+
+    // The response also names every language the listed models cover, so a
+    // BCP-47 tag from `model.languages` can be shown to a human.
+    println!("Languages covered: {}", models.languages.len());
+    if let Some(name) = models.languages.get("en-US") {
+        println!("  en-US is {name}");
     }
 
     Ok(())

@@ -206,16 +206,18 @@ impl fmt::Display for Endpointing {
 
 /// Used as a parameter for [`OptionsBuilder::model`] and [`OptionsBuilder::multichannel_with_models`].
 ///
-/// This is the request-time model selector. It is distinct from the model
-// `manage::models` is gated on `manage`, so the link is emitted only when it
-// will resolve. docs.rs builds all features.
+/// This is the request-time model selector.
+///
+// The whole sentence lives in both arms so it reads as one sentence in
+// source: `manage::models` is gated on `manage`, so the link is emitted only
+// when it will resolve. docs.rs builds all features.
 #[cfg_attr(
     feature = "manage",
-    doc = "metadata record the management API returns, [`manage::models::response::Model`](crate::manage::models::response::Model)."
+    doc = "It is distinct from the model metadata record the management API returns, [`manage::models::response::Model`](crate::manage::models::response::Model)."
 )]
 #[cfg_attr(
     not(feature = "manage"),
-    doc = "metadata record the management API returns, `manage::models::response::Model`."
+    doc = "It is distinct from the model metadata record the management API returns, `manage::models::response::Model`."
 )]
 ///
 /// See the [Deepgram Model feature docs][docs] for more info.
