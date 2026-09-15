@@ -707,6 +707,12 @@ async fn run_worker_with_drain_timeout(
     // Cleared once the peer closed the connection or the transport failed, so
     // the cleanup below does not try to write a Close frame to a dead socket.
     let mut socket_open = true;
+    // A dedicated sender for the terminal write error. A `futures` mpsc
+    // channel's capacity is `buffer + num_senders`, so this clone carries its
+    // own guaranteed slot: forwarding the error through it neither blocks (the
+    // slot is never consumed by audio) nor drops it (the slot is always
+    // there), even when the consumer has not drained a single event.
+    let mut error_tx = response_tx.clone();
 
     /// One scheduling decision per loop iteration.
     enum Step {
@@ -787,14 +793,13 @@ async fn run_worker_with_drain_timeout(
                 let text = serde_json::to_string(&message).unwrap_or_default();
                 if let Err(err) = ws_sink.send(Message::Text(Utf8Bytes::from(text))).await {
                     // A failed write means the transport is broken: forward
-                    // the terminal error and end the worker. Non-blocking on
-                    // purpose: with a single unsplit handle whose owner sends
-                    // without draining, waiting for room on a full response
-                    // channel would park the worker while the caller is
-                    // parked on the full outbound channel. The worker is
-                    // terminating either way, and the end of the stream is
-                    // the signal the caller cannot miss.
-                    let _ = response_tx.try_send(Err(err.into()));
+                    // the terminal error exactly once and end the worker.
+                    // `error_tx` is a dedicated clone, so it has its own
+                    // reserved slot: the forward cannot park the worker
+                    // behind undrained audio (which would deadlock a caller
+                    // that sends without draining), and it cannot be dropped
+                    // for want of room either.
+                    let _ = error_tx.try_send(Err(err.into()));
                     socket_open = false;
                     break;
                 }

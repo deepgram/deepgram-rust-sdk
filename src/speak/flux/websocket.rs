@@ -344,6 +344,12 @@ async fn run_flux_speak_worker(
     let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
+    // A dedicated sender for the terminal write error. A `futures` mpsc
+    // channel's capacity is `buffer + num_senders`, so this clone carries its
+    // own guaranteed slot: forwarding the error through it neither blocks (the
+    // slot is never consumed by audio) nor drops it (the slot is always
+    // there), even when the consumer has not drained a single event.
+    let mut error_tx = response_tx.clone();
     // False once `message_rx` is exhausted (all senders dropped or the
     // channel closed): a closed-and-drained channel reports `Ready(None)`
     // on every poll, so keeping it in the select would busy-spin while
@@ -515,16 +521,16 @@ async fn run_flux_speak_worker(
                                 .await
                             {
                                 // A failed write means the transport is broken:
-                                // forward the first terminal error and end the
-                                // worker, rather than accept further commands
-                                // doomed to fail the same way. Non-blocking on
-                                // purpose: waiting for room on a full response
-                                // channel would park the worker while a caller
-                                // that is not draining events is parked on the
-                                // full command channel. The worker is
-                                // terminating either way, and the end of the
-                                // stream is the signal the caller cannot miss.
-                                let _ = response_tx.try_send(Err(err.into()));
+                                // forward the terminal error exactly once and
+                                // end the worker, rather than accept further
+                                // commands doomed to fail the same way.
+                                // `error_tx` is a dedicated clone, so it has
+                                // its own reserved slot: the forward cannot
+                                // park the worker behind undrained audio
+                                // (which would deadlock a caller that sends
+                                // without draining), and it cannot be dropped
+                                // for want of room either.
+                                let _ = error_tx.try_send(Err(err.into()));
                                 is_open = false;
                                 break;
                             }
@@ -553,9 +559,10 @@ async fn run_flux_speak_worker(
             )))
             .await
         {
-            // If the response channel is closed or full, there's nothing to
-            // be done about it now; the channel closes right below.
-            let _ = response_tx.try_send(Err(err.into()));
+            // The dedicated slot is still unused here (the loop exited
+            // without a write failure), so this terminal error is delivered
+            // even if the consumer never drained the audio ahead of it.
+            let _ = error_tx.try_send(Err(err.into()));
         }
     }
     response_tx.close_channel();
