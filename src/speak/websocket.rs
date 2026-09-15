@@ -305,8 +305,11 @@ pub enum SpeakResponse {
         /// The unique identifier of the model used.
         model_uuid: Option<String>,
         /// Unique identifiers of any additional models used to generate the
-        /// audio, if the server reported them.
-        additional_model_uuids: Option<Vec<Uuid>>,
+        /// audio, if the server reported them. Reported verbatim, like
+        /// `model_uuid`: a value the server does not format as a UUID is
+        /// still delivered rather than downgrading this event to
+        /// [`SpeakResponse::Unknown`].
+        additional_model_uuids: Option<Vec<String>>,
     },
 
     /// Emitted after a `Flush`, once all buffered audio has been sent.
@@ -348,7 +351,7 @@ enum TextEvent {
         model_version: Option<String>,
         model_uuid: Option<String>,
         #[serde(default)]
-        additional_model_uuids: Option<Vec<Uuid>>,
+        additional_model_uuids: Option<Vec<String>>,
     },
     Flushed {
         sequence_id: Option<u32>,
@@ -784,8 +787,14 @@ async fn run_worker_with_drain_timeout(
                 let text = serde_json::to_string(&message).unwrap_or_default();
                 if let Err(err) = ws_sink.send(Message::Text(Utf8Bytes::from(text))).await {
                     // A failed write means the transport is broken: forward
-                    // the terminal error and end the worker.
-                    let _ = response_tx.send(Err(err.into())).await;
+                    // the terminal error and end the worker. Non-blocking on
+                    // purpose: with a single unsplit handle whose owner sends
+                    // without draining, waiting for room on a full response
+                    // channel would park the worker while the caller is
+                    // parked on the full outbound channel. The worker is
+                    // terminating either way, and the end of the stream is
+                    // the signal the caller cannot miss.
+                    let _ = response_tx.try_send(Err(err.into()));
                     socket_open = false;
                     break;
                 }
@@ -917,6 +926,18 @@ mod tests {
             builder.as_url().to_string(),
             "wss://api.deepgram.com/v1/speak?model=aura-asteria-en&encoding=linear16&sample_rate=24000"
         );
+
+        // The `CustomEncoding` escape hatch reaches the wire verbatim.
+        let builder = dg
+            .text_to_speech()
+            .speak_stream()
+            .encoding(Encoding::CustomEncoding("future-codec".into()));
+        let url = builder.as_url().to_string();
+        assert!(
+            url.contains("encoding=future-codec"),
+            "custom encoding must reach the URL: {url}"
+        );
+        assert_eq!(url, "wss://api.deepgram.com/v1/speak?encoding=future-codec");
     }
 
     #[test]
@@ -1092,8 +1113,8 @@ mod tests {
 
     #[test]
     fn parses_metadata_additional_model_uuids() {
-        let a = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
-        let b = Uuid::parse_str("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee").unwrap();
+        let a = "11111111-2222-3333-4444-555555555555";
+        let b = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
         let metadata = parse_text_message(&format!(
             r#"{{"type":"Metadata","request_id":"abc","model_name":"aura-asteria-en","model_version":"1","model_uuid":"u","additional_model_uuids":["{a}","{b}"]}}"#
         ));
@@ -1104,7 +1125,7 @@ mod tests {
                 model_name: Some("aura-asteria-en".to_string()),
                 model_version: Some("1".to_string()),
                 model_uuid: Some("u".to_string()),
-                additional_model_uuids: Some(vec![a, b]),
+                additional_model_uuids: Some(vec![a.to_string(), b.to_string()]),
             }
         );
 
@@ -1127,6 +1148,28 @@ mod tests {
                 ..
             } if v.is_empty()
         ));
+    }
+
+    /// PR #166 review: a value the server does not format as a UUID must not
+    /// cost the caller the whole event. The response enum falls back to
+    /// `Unknown` when a known message fails to deserialize, so a strict
+    /// element type here would downgrade a perfectly readable `Metadata`.
+    #[test]
+    fn a_non_uuid_additional_model_uuid_still_parses_as_metadata() {
+        let metadata = parse_text_message(
+            r#"{"type":"Metadata","request_id":"abc","additional_model_uuids":["not-a-uuid"]}"#,
+        );
+        assert_eq!(
+            metadata,
+            SpeakResponse::Metadata {
+                request_id: "abc".to_string(),
+                model_name: None,
+                model_version: None,
+                model_uuid: None,
+                additional_model_uuids: Some(vec!["not-a-uuid".to_string()]),
+            },
+            "an unparseable element must not downgrade Metadata to Unknown"
+        );
     }
 
     #[test]

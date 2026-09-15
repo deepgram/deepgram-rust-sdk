@@ -535,9 +535,9 @@ impl Deepgram {
 
     /// Use your own [`rustls::ClientConfig`] for every `wss://` WebSocket
     /// connection this client opens (live transcription, Flux
-    /// speech-to-text, Flux text-to-speech). It is used verbatim: trust
-    /// roots, client authentication, protocol versions, and session
-    /// resumption are all yours to decide.
+    /// speech-to-text, streaming text-to-speech, Flux text-to-speech). It
+    /// is used verbatim: trust roots, client authentication, protocol
+    /// versions, and session resumption are all yours to decide.
     ///
     /// Reach for this when the defaults don't fit — pinning to a private CA,
     /// presenting a client certificate, a custom verifier — and the

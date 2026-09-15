@@ -33,6 +33,16 @@ macro_rules! speak_models {
 
             /// A voice identified by its raw wire string, for voices that do
             /// not yet have a named variant.
+            ///
+            /// A `CustomId` holding the wire string of a named variant is
+            /// *not* equal to that variant, even though both serialize
+            /// identically: `Model::CustomId("aura-2-thalia-en".to_string())
+            /// != Model::Aura2ThaliaEn`, while
+            /// `Model::from("aura-2-thalia-en") == Model::Aura2ThaliaEn`.
+            /// When comparing `Model` values, normalize through
+            /// [`Model::from`] (or compare
+            /// [`as_ref`](AsRef::as_ref) strings) rather than comparing
+            /// constructed values directly.
             CustomId(String),
         }
 
@@ -171,6 +181,7 @@ speak_models! {
     Aura2LiviaIt => "aura-2-livia-it",
     Aura2MaiaIt => "aura-2-maia-it",
     Aura2MeliaIt => "aura-2-melia-it",
+    Aura2PerseoIt => "aura-2-perseo-it",
     Aura2AmaJa => "aura-2-ama-ja",
     Aura2EbisuJa => "aura-2-ebisu-ja",
     Aura2FujinJa => "aura-2-fujin-ja",
@@ -422,9 +433,13 @@ mod model_tests {
     #[test]
     fn every_named_variant_round_trips_through_its_wire_string() {
         let variants = Model::named_variants();
-        assert!(
-            variants.len() >= 102,
-            "expected the spec's voices, got {}",
+        // Exact, not a lower bound: 12 Aura-1 voices plus the 91 Aura-2
+        // voices in the API specification. When the specification grows,
+        // this fails until the new voice is added.
+        assert_eq!(
+            variants.len(),
+            103,
+            "expected every voice in the specification, got {}",
             variants.len()
         );
         for model in variants {
@@ -454,6 +469,8 @@ mod model_tests {
         assert_eq!(Model::Aura2ThaliaEn.as_ref(), "aura-2-thalia-en");
         assert_eq!(Model::from("aura-2-thalia-en"), Model::Aura2ThaliaEn);
         assert_eq!(Model::Aura2AgustinaEs.as_ref(), "aura-2-agustina-es");
+        assert_eq!(Model::Aura2PerseoIt.as_ref(), "aura-2-perseo-it");
+        assert_eq!(Model::from("aura-2-perseo-it"), Model::Aura2PerseoIt);
         assert_eq!(Model::Aura2UzumeJa.as_ref(), "aura-2-uzume-ja");
         // Aura-1 mapping is unchanged.
         assert_eq!(Model::AuraAsteriaEn.as_ref(), "aura-asteria-en");

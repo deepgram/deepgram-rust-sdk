@@ -517,15 +517,27 @@ async fn run_flux_speak_worker(
                                 // A failed write means the transport is broken:
                                 // forward the first terminal error and end the
                                 // worker, rather than accept further commands
-                                // doomed to fail the same way.
-                                let _ = response_tx.send(Err(err.into())).await;
+                                // doomed to fail the same way. Non-blocking on
+                                // purpose: waiting for room on a full response
+                                // channel would park the worker while a caller
+                                // that is not draining events is parked on the
+                                // full command channel. The worker is
+                                // terminating either way, and the end of the
+                                // stream is the signal the caller cannot miss.
+                                let _ = response_tx.try_send(Err(err.into()));
                                 is_open = false;
                                 break;
                             }
                         }
                         Err(err) => {
-                            if response_tx.send(Err(err.into())).await.is_err() {
-                                break;
+                            // Serializing a `ClientMessage` cannot fail in
+                            // practice. Forward without blocking for the same
+                            // reason as above; only a gone consumer ends the
+                            // worker, a merely-full channel does not.
+                            if let Err(send_err) = response_tx.try_send(Err(err.into())) {
+                                if send_err.is_disconnected() {
+                                    break;
+                                }
                             }
                         }
                     }
@@ -541,8 +553,9 @@ async fn run_flux_speak_worker(
             )))
             .await
         {
-            // If the response channel is closed, there's nothing to be done about it now.
-            let _ = response_tx.send(Err(err.into())).await;
+            // If the response channel is closed or full, there's nothing to
+            // be done about it now; the channel closes right below.
+            let _ = response_tx.try_send(Err(err.into()));
         }
     }
     response_tx.close_channel();

@@ -23,6 +23,9 @@ const REQUEST_ID: &str = "0193b1c8-6d3f-7a4e-b8f0-1234567890ab";
 /// hold, so the channel is guaranteed to be full while they remain undrained.
 const QUEUED_RESPONSES: usize = 600;
 
+/// The worker's bounded response channel, as the client sizes it.
+const RESPONSE_CHANNEL_CAPACITY: usize = 256;
+
 /// Bind a localhost listener that accepts one upgrade (with a valid
 /// `dg-request-id`), and hand the accepted WebSocket to `serve`.
 async fn spawn_mock_server<F, Fut>(serve: F) -> u16
@@ -202,5 +205,60 @@ async fn terminal_read_error_ends_worker_after_single_error() {
     assert!(
         handle.speak("too late").await.is_err(),
         "speak() after a terminal error must return an error"
+    );
+}
+
+/// PR #166 review, applied to the released Flux text-to-speech socket: a
+/// write failure while the response channel is *full* must not deadlock.
+/// Forwarding the terminal error with a blocking send parks the worker on
+/// the full response channel while the caller, which is not draining events,
+/// parks on the full command channel — neither side moves and the error
+/// never surfaces.
+#[tokio::test]
+async fn write_error_with_undrained_events_does_not_deadlock() {
+    let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let port = spawn_mock_server(|mut ws| async move {
+        // Just over the response channel's capacity, so the channel fills
+        // while everything still fits in the socket buffers.
+        for _ in 0..(RESPONSE_CHANNEL_CAPACITY + 50) {
+            ws.send(Message::Binary(vec![0u8; 160].into()))
+                .await
+                .expect("server send");
+        }
+        // Vanish without a closing handshake, but only once the client has
+        // filled its response channel, so the write below fails while there
+        // is provably no room to forward the error into.
+        let _ = abort_rx.await;
+        drop(ws);
+    })
+    .await;
+
+    let mut handle = connect(port).await;
+
+    // Never receive anything: let the worker forward the flood until its
+    // bounded response channel is full, then break the connection.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let _ = abort_tx.send(());
+
+    // Large payloads, so the socket's send buffer is exhausted quickly and
+    // the worker's write actually reaches the dead peer.
+    let text = "token ".repeat(1024);
+    let sending = async {
+        for _ in 0..2_000 {
+            if handle.speak(text.clone()).await.is_err() {
+                return true;
+            }
+        }
+        false
+    };
+
+    let failed = tokio::time::timeout(Duration::from_secs(15), sending)
+        .await
+        .expect("a write error with undrained events must not deadlock `speak`");
+    assert!(
+        failed,
+        "once the transport is broken the worker must end the session, so `speak` reports an \
+         error instead of hanging or succeeding forever"
     );
 }
