@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - WebSocket handshakes (live transcription, Flux speech-to-text, Flux text-to-speech) now send the URL's full authority in the `Host` header, so a base URL on a non-default port (`https://dg.internal.example:8443`, `http://127.0.0.1:54321`) produces `Host: dg.internal.example:8443` rather than `Host: dg.internal.example`. Strict reverse proxies and virtual-host routing on self-hosted deployments could reject or misroute the old value. Default ports are still omitted, so requests to `api.deepgram.com` are unchanged.
 - `cargo doc` with a single Cargo feature (for example `--no-default-features --features manage`) no longer reports unresolved intra-doc links from the crate-level feature list and the `with_base_url*` docs to modules that are compiled only under other features. Documentation builds with all features are unchanged.
+- Flux speech-to-text (`/v2/listen`): a broken transport no longer deadlocks a caller that is not draining responses. The worker forwarded a terminal write error with a blocking send, so with the bounded response channel full it parked instead of ending the session; the caller then filled the bounded command channel and parked in `send_data` (or `configure`, `force_end_turn`, `close_stream`), and the error never arrived. The terminal error is now forwarded without waiting for room — the worker ends the session either way, the stream ends, and later sends fail fast. An error dropped this way is only ever a duplicate of the failure the caller already observes through the ended stream and the failing send. Present since Flux speech-to-text shipped in 0.8.0; the same geometry was fixed on both text-to-speech WebSocket workers.
 
 ## [0.11.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.1...0.11.0)
 
@@ -276,4 +277,3 @@ Some Enums have changed and may need to be updated
 ### Changed
 
 - Use Rustls instead of OpenSSL.
-
