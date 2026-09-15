@@ -5,6 +5,7 @@
 //! [docs]: https://developers.deepgram.com/guides/fundamentals/model-metadata
 
 use reqwest::RequestBuilder;
+use url::Url;
 
 use crate::{send_and_translate_response, Deepgram};
 
@@ -116,7 +117,7 @@ impl Models<'_> {
     /// `include_outdated` is optional on the endpoint and defaults to the
     /// latest versions only, so it is sent only when it is `true`.
     fn get_models_request(&self, include_outdated: bool) -> RequestBuilder {
-        let request = self.0.client.get("https://api.deepgram.com/v1/models");
+        let request = self.0.client.get(self.models_url());
 
         if include_outdated {
             request.query(&[("include_outdated", "true")])
@@ -126,9 +127,7 @@ impl Models<'_> {
     }
 
     fn get_model_request(&self, model_id: &str) -> RequestBuilder {
-        self.0
-            .client
-            .get(format!("https://api.deepgram.com/v1/models/{model_id}"))
+        self.0.client.get(self.model_url(model_id))
     }
 
     /// `include_outdated` is sent only when `true`, as in
@@ -138,9 +137,7 @@ impl Models<'_> {
         project_id: &str,
         include_outdated: bool,
     ) -> RequestBuilder {
-        let request = self.0.client.get(format!(
-            "https://api.deepgram.com/v1/projects/{project_id}/models"
-        ));
+        let request = self.0.client.get(self.project_models_url(project_id));
 
         if include_outdated {
             request.query(&[("include_outdated", "true")])
@@ -150,9 +147,32 @@ impl Models<'_> {
     }
 
     fn get_project_model_request(&self, project_id: &str, model_id: &str) -> RequestBuilder {
-        self.0.client.get(format!(
-            "https://api.deepgram.com/v1/projects/{project_id}/models/{model_id}"
-        ))
+        self.0
+            .client
+            .get(self.project_model_url(project_id, model_id))
+    }
+
+    fn models_url(&self) -> Url {
+        self.join("v1/models")
+    }
+
+    fn model_url(&self, model_id: &str) -> Url {
+        self.join(&format!("v1/models/{model_id}"))
+    }
+
+    fn project_models_url(&self, project_id: &str) -> Url {
+        self.join(&format!("v1/projects/{project_id}/models"))
+    }
+
+    fn project_model_url(&self, project_id: &str, model_id: &str) -> Url {
+        self.join(&format!("v1/projects/{project_id}/models/{model_id}"))
+    }
+
+    fn join(&self, path: &str) -> Url {
+        self.0
+            .base_url
+            .join(path)
+            .expect("base_url is checked to be a valid base_url when constructing Deepgram client")
     }
 }
 
@@ -160,8 +180,8 @@ impl Models<'_> {
 mod tests {
     use crate::Deepgram;
 
-    /// The four model endpoints hardcode their request URLs, so pin each one.
-    /// A path typo would otherwise only surface against the live API.
+    /// Pin each of the four model request URLs. A path typo would otherwise
+    /// only surface against the live API.
     #[test]
     fn request_urls() {
         let dg = Deepgram::new("token").unwrap();
@@ -212,5 +232,34 @@ mod tests {
         ] {
             assert_eq!(request.build().unwrap().method(), reqwest::Method::GET);
         }
+    }
+
+    /// A custom base URL must reach the management endpoints too: before this,
+    /// every `manage` module hardcoded `https://api.deepgram.com` and silently
+    /// ignored `with_base_url`.
+    #[test]
+    fn request_urls_honor_a_custom_base_url() {
+        let dg =
+            Deepgram::with_base_url_and_api_key("http://localhost:8888/abc/", "token").unwrap();
+        let models = dg.models();
+
+        let url = |request: reqwest::RequestBuilder| request.build().unwrap().url().to_string();
+
+        assert_eq!(
+            url(models.get_models_request(false)),
+            "http://localhost:8888/abc/v1/models"
+        );
+        assert_eq!(
+            url(models.get_model_request("model-2")),
+            "http://localhost:8888/abc/v1/models/model-2"
+        );
+        assert_eq!(
+            url(models.get_project_models_request("proj-1", true)),
+            "http://localhost:8888/abc/v1/projects/proj-1/models?include_outdated=true"
+        );
+        assert_eq!(
+            url(models.get_project_model_request("proj-1", "model-2")),
+            "http://localhost:8888/abc/v1/projects/proj-1/models/model-2"
+        );
     }
 }
