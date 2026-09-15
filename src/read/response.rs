@@ -15,8 +15,8 @@ pub use crate::common::batch_response::{
     TopicSegment, Topics,
 };
 
-/// Returned by [`Read::analyze_text`](crate::read::Read::analyze_text) and
-/// [`Read::analyze_url`](crate::read::Read::analyze_url).
+/// Returned by [`TextIntelligence::analyze_text`](crate::read::TextIntelligence::analyze_text) and
+/// [`TextIntelligence::analyze_url`](crate::read::TextIntelligence::analyze_url).
 ///
 /// See the [Deepgram Text Intelligence docs][docs] for more info.
 ///
@@ -32,14 +32,17 @@ pub struct Response {
 }
 
 /// Metadata about a Text Intelligence request.
+///
+/// The `/v1/read` reference marks every field optional, so each is an
+/// [`Option`]: a contract-valid response that omits one still deserializes.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ReadMetadata {
     #[allow(missing_docs)]
-    pub request_id: Uuid,
+    pub request_id: Option<Uuid>,
 
     #[allow(missing_docs)]
-    pub created: String,
+    pub created: Option<String>,
 
     /// The language of the analyzed text.
     pub language: Option<String>,
@@ -58,17 +61,20 @@ pub struct ReadMetadata {
 }
 
 /// Per-feature model and token usage information.
+///
+/// The `/v1/read` reference marks every field optional, so each is an
+/// [`Option`]: a contract-valid response that omits one still deserializes.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct AnalysisInfo {
     #[allow(missing_docs)]
-    pub model_uuid: String,
+    pub model_uuid: Option<String>,
 
     #[allow(missing_docs)]
-    pub input_tokens: u32,
+    pub input_tokens: Option<u32>,
 
     #[allow(missing_docs)]
-    pub output_tokens: u32,
+    pub output_tokens: Option<u32>,
 }
 
 /// Text Intelligence results.
@@ -142,6 +148,22 @@ mod tests {
         });
 
         let response: Response = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            response.metadata.request_id.map(|id| id.to_string()),
+            Some("7dcd719f-344b-4c72-a194-6bd1019d855c".to_string())
+        );
+        assert_eq!(
+            response.metadata.created.as_deref(),
+            Some("2023-12-01T15:54:39.681Z")
+        );
+        assert_eq!(
+            response
+                .metadata
+                .sentiment_info
+                .as_ref()
+                .and_then(|info| info.input_tokens),
+            Some(22)
+        );
         assert_eq!(response.metadata.language.as_deref(), Some("en"));
         assert_eq!(response.results.summary.unwrap().text, "A short summary.");
         let sentiments = response.results.sentiments.unwrap();
@@ -150,5 +172,30 @@ mod tests {
         // topics/intents were not requested.
         assert!(response.results.topics.is_none());
         assert!(response.results.intents.is_none());
+    }
+
+    #[test]
+    fn deserializes_metadata_with_omitted_optional_fields() {
+        // The `/v1/read` reference marks every `metadata` field optional, and
+        // every field of the per-feature `*_info` objects too. A response that
+        // omits any of them must still deserialize rather than failing the
+        // whole request.
+        let json = serde_json::json!({
+            "metadata": { "summary_info": {} },
+            "results": { "summary": { "text": "A short summary." } }
+        });
+
+        let response: Response = serde_json::from_value(json).unwrap();
+        assert!(response.metadata.request_id.is_none());
+        assert!(response.metadata.created.is_none());
+        assert!(response.metadata.language.is_none());
+        assert!(response.metadata.sentiment_info.is_none());
+        assert!(response.metadata.topics_info.is_none());
+        assert!(response.metadata.intents_info.is_none());
+
+        let summary_info = response.metadata.summary_info.unwrap();
+        assert!(summary_info.model_uuid.is_none());
+        assert!(summary_info.input_tokens.is_none());
+        assert!(summary_info.output_tokens.is_none());
     }
 }

@@ -66,7 +66,7 @@ pub use rustls;
 #[cfg(feature = "listen")]
 pub use listen::websocket::TranscriptionStream;
 #[cfg(feature = "read")]
-pub use read::Read;
+pub use read::TextIntelligence;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 

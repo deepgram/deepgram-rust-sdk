@@ -44,8 +44,8 @@ Every row below was checked against `src/` on 2026-09-13.
 | Flux TTS, batch | `POST /v2/speak` | `dg.text_to_speech().flux_speak_to_file(...)`, `flux_speak_to_stream(...)` | Shipped (`speak`) since 0.10.1 |
 | Flux TTS, streaming | `wss /v2/speak` | `dg.text_to_speech().flux_request(options).handle()` for a `FluxSpeakHandle` (`speak`, `flush`, `interrupt`, `configure_speed`, `close`, `receive`); events arrive as `FluxSpeakResponse` | Shipped (`speak`) since 0.10.1 |
 | Voice Agent | `wss agent.deepgram.com/v1/agent/converse` | none | Not shipped (in progress on `origin/feat/agent-websocket` and `origin/feat/phase-4-voice-agent`) |
-| Text intelligence | `POST /v1/read` | `dg.text_intelligence()` for a `Read` (`analyze_text`, `analyze_url`, `analyze_text_callback`, `analyze_url_callback`, `make_read_request_builder`, `make_read_callback_request_builder`) | Shipped (`read`) |
-| Management API | `/v1/projects/...` | `dg.projects()`, `dg.keys()`, `dg.members()`, `dg.scopes()`, `dg.invitations()`, `dg.usage()`, `dg.billing()`, and `dg.models()` for a `Models` (`get_models`, `get_model`, `get_project_models`, `get_project_model`) | Shipped (`manage`) |
+| Text intelligence | `POST /v1/read` | `dg.text_intelligence()` for a `TextIntelligence` (`analyze_text`, `analyze_url`, `analyze_text_callback`, `analyze_url_callback`, `make_read_request_builder`, `make_read_callback_request_builder`) | Shipped (`read`) |
+| Management API | `/v1/projects/...` | `dg.projects()`, `dg.keys()`, `dg.members()`, `dg.scopes()`, `dg.invitations()`, `dg.usage()`, `dg.billing()`, and `dg.models()` for a `Models` (`get_models`, `get_models_including_outdated`, `get_model`, `get_project_models`, `get_project_models_including_outdated`, `get_project_model`) | Shipped (`manage`) |
 | Self-hosted credentials | `/v1/projects/{id}/onprem/...` | none | Not shipped |
 | Auth (grant token) | `POST /v1/auth/grant` | `dg.auth().grant(options)` | Shipped |
 

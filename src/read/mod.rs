@@ -4,7 +4,7 @@
 //! intent analyses as [Audio Intelligence][audio], but to text you already
 //! have (a transcript, document, chat log, or email) rather than to audio.
 //!
-//! Construct a [`Read`] with [`Deepgram::text_intelligence`].
+//! Construct a [`TextIntelligence`] with [`Deepgram::text_intelligence`].
 //!
 //! The API supports English only; the request builder sends `language=en`
 //! automatically because the endpoint requires it.
@@ -28,17 +28,17 @@ pub mod rest;
 ///
 /// [docs]: https://developers.deepgram.com/docs/text-intelligence
 #[derive(Debug, Clone)]
-pub struct Read<'a>(&'a Deepgram);
+pub struct TextIntelligence<'a>(&'a Deepgram);
 
 impl Deepgram {
-    /// Construct a new [`Read`] from a [`Deepgram`].
-    pub fn text_intelligence(&self) -> Read<'_> {
+    /// Construct a new [`TextIntelligence`] from a [`Deepgram`].
+    pub fn text_intelligence(&self) -> TextIntelligence<'_> {
         self.into()
     }
 }
 
-impl<'a> From<&'a Deepgram> for Read<'a> {
-    /// Construct a new [`Read`] from a [`Deepgram`].
+impl<'a> From<&'a Deepgram> for TextIntelligence<'a> {
+    /// Construct a new [`TextIntelligence`] from a [`Deepgram`].
     fn from(deepgram: &'a Deepgram) -> Self {
         Self(deepgram)
     }

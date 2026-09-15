@@ -17,7 +17,7 @@ async fn main() -> Result<(), DeepgramError> {
 
     let dg_client = Deepgram::new(&deepgram_api_key)?;
 
-    let models = dg_client.models().get_models(false).await?;
+    let models = dg_client.models().get_models().await?;
 
     // The Models API marks these display fields optional, so fall back to a
     // placeholder rather than failing when one is absent.
