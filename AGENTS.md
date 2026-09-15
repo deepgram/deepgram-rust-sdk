@@ -12,7 +12,7 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 
 | Path | What lives there |
 | --- | --- |
-| `src/lib.rs` | The `Deepgram` client, `DeepgramError`, the `Transcription` and `Speak` handles, base URL, and `User-Agent` |
+| `src/lib.rs` | The `Deepgram` client, `DeepgramError`, the `Transcription`, `Speak`, and `TextIntelligence` handles, the `TranscriptionStream` re-export, base URL, and `User-Agent` |
 | `src/listen/` | `rest.rs` (pre-recorded), `websocket.rs` (Nova streaming over `/v1/listen`), `flux.rs` (Flux STT over `/v2/listen`) |
 | `src/speak/` | `rest.rs` (Aura over `/v1/speak`), `options.rs`, `response.rs` (`SpeakMetadata`, the `/v1/speak` response headers), `flux/` (Flux TTS over `/v2/speak`: `rest.rs`, `websocket.rs`, `options.rs`, `response.rs`) |
 | `src/read/` | Text Intelligence over `POST /v1/read`: `rest.rs` (requests), `options.rs` (query builder), `response.rs` |
@@ -32,7 +32,7 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 
 ## Client surfaces
 
-Every row below was checked against `src/` on 2026-09-13.
+Every row below was checked against `src/` on 2026-09-15.
 
 | Product | Endpoint | Entry point | Status |
 | --- | --- | --- | --- |

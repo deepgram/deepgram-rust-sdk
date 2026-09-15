@@ -21,18 +21,18 @@ in and can be enabled on its own.
 
 ```toml
 [dependencies]
-deepgram = { version = "0.12", default-features = false, features = ["read"] }
+deepgram = { default-features = false, features = ["read"] }
 tokio = { version = "1", features = ["full"] }
 ```
 
 `read` is also part of the crate's default features, so a plain
-`deepgram = "0.12"` includes it.
+`cargo add deepgram` includes it.
 
 ```rust
 use deepgram::Deepgram;
 
 let dg_client = Deepgram::new(&std::env::var("DEEPGRAM_API_KEY")?)?;
-let read = dg_client.text_intelligence();
+let text_intelligence = dg_client.text_intelligence();
 ```
 
 ## Quick start: analyze a block of text
@@ -147,9 +147,10 @@ parameters the typed options do not cover yet.
 
 1. **This is different from audio intelligence.** Audio intelligence is piggybacked on STT and configured through the transcription `Options`; text intelligence is its own `/v1/read` API with its own `read::options::Options`. The two `Options` types are not interchangeable.
 2. **Every analysis result is optional.** `results.sentiments`, `summary`, `topics`, and `intents` are `Option`, populated only for the flags you enabled. Match on them rather than unwrapping.
-3. **English only.** `/v1/read` accepts English; the builder sends `language=en` by default because the endpoint rejects a request without it.
-4. **`read` can be enabled alone.** If a consumer has `default-features = false`, text intelligence needs `features = ["read"]` — it is not covered by `listen`.
-5. **API keys use `Token`.** This API does not use `Bearer` for standard API keys. `Deepgram::new` handles the header for you.
+3. **Every metadata field is optional too.** Each field of `ReadMetadata` (including `request_id`, an `Option<Uuid>`, and `created`) and every field of `AnalysisInfo` is an `Option`, matching the reference, so logging the request id means unwrapping first rather than reading it straight off `response.metadata`.
+4. **English only.** `/v1/read` accepts English; the builder sends `language=en` by default because the endpoint rejects a request without it.
+5. **`read` can be enabled alone.** If a consumer has `default-features = false`, text intelligence needs `features = ["read"]` — it is not covered by `listen`.
+6. **API keys use `Token`.** This API does not use `Bearer` for standard API keys. `Deepgram::new` handles the header for you.
 
 ## Example files in this repo
 

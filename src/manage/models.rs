@@ -262,4 +262,30 @@ mod tests {
             "http://localhost:8888/abc/v1/projects/proj-1/models/model-2"
         );
     }
+
+    /// A base URL that carries a path prefix has to end in `/` for the prefix
+    /// to survive: `Url::join` treats a base whose path does not end in `/` as
+    /// naming a file and replaces its last segment, so `.../abc` drops `abc`.
+    /// That is standard `Url::join` behavior and is how every surface in this
+    /// crate builds its URLs, not something specific to `models`. A bare host
+    /// (`http://localhost:8888`) is unaffected, because its path is already
+    /// `/`.
+    #[test]
+    fn a_base_url_path_prefix_needs_a_trailing_slash() {
+        let url = |request: reqwest::RequestBuilder| request.build().unwrap().url().to_string();
+
+        let no_prefix =
+            Deepgram::with_base_url_and_api_key("http://localhost:8888", "token").unwrap();
+        assert_eq!(
+            url(no_prefix.models().get_models_request(false)),
+            "http://localhost:8888/v1/models"
+        );
+
+        let unterminated_prefix =
+            Deepgram::with_base_url_and_api_key("http://localhost:8888/abc", "token").unwrap();
+        assert_eq!(
+            url(unterminated_prefix.models().get_models_request(false)),
+            "http://localhost:8888/v1/models"
+        );
+    }
 }
