@@ -157,10 +157,10 @@ Linux, for the REST client too, so a file containing only the CA breaks
 requests to hosts that CA did not sign.
 
 **Or supply your own `rustls` config.** Set it once on the client and every
-`wss://` WebSocket it opens (live transcription, Flux speech-to-text, Flux
-text-to-speech) uses it verbatim: pin a private CA, present a client
-certificate, plug in a custom verifier. Build it from `deepgram::rustls` so
-the versions match.
+`wss://` WebSocket it opens (live transcription, Flux speech-to-text,
+streaming text-to-speech, Flux text-to-speech) uses it verbatim: pin a
+private CA, present a client certificate, plug in a custom verifier. Build
+it from `deepgram::rustls` so the versions match.
 
 ```rust
 use deepgram::{rustls, Deepgram};

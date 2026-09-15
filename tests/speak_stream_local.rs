@@ -23,6 +23,9 @@ const REQUEST_ID: &str = "0193b1c8-6d3f-7a4e-b8f0-1234567890ab";
 /// hold, so the channel is guaranteed to be full while they remain undrained.
 const QUEUED_AUDIO_FRAMES: usize = 600;
 
+/// The worker's bounded response channel, as the client sizes it.
+const RESPONSE_CHANNEL_CAPACITY: usize = 256;
+
 /// Far more text messages than the client's bounded outbound channel (256)
 /// can hold, so `speak()` would block if the worker stopped draining it.
 const SPEAK_MESSAGES: usize = 400;
@@ -239,5 +242,99 @@ async fn peer_close_ends_stream_and_fails_later_sends() {
     assert!(
         handle.speak("too late").await.is_err(),
         "speak() after peer close must return an error"
+    );
+}
+
+/// PR #166 review (matching the Flux speech-to-text and Flux text-to-speech
+/// sockets' `terminal_read_error_ends_worker_after_single_error`): the first
+/// terminal transport error must end the worker — exactly one error is
+/// forwarded, then the stream ends, and later sends fail instead of being
+/// accepted by a dead session.
+#[tokio::test]
+async fn terminal_read_error_ends_worker_after_single_error() {
+    let port = spawn_mock_server(|ws| async move {
+        // Abrupt teardown without a closing handshake produces a terminal
+        // read error on the client.
+        drop(ws);
+    })
+    .await;
+
+    let mut handle = connect(port).await;
+
+    let mut errors = 0usize;
+    while let Some(response) = tokio::time::timeout(Duration::from_secs(5), handle.receive())
+        .await
+        .expect("stream must end promptly after a terminal error")
+    {
+        assert!(
+            response.is_err(),
+            "only the terminal error is expected, got: {response:?}"
+        );
+        errors += 1;
+    }
+    assert_eq!(
+        errors, 1,
+        "exactly one terminal error must be forwarded, without duplicates"
+    );
+
+    assert!(
+        handle.speak("too late").await.is_err(),
+        "speak() after a terminal error must return an error"
+    );
+}
+
+/// PR #166 review: a write failure while the response channel is *full*
+/// must not stall the worker. Forwarding the terminal error with a blocking
+/// send parks the worker on the full response channel, so it never ends the
+/// session: the caller keeps handing text to a worker that will never write
+/// it again and is never told the transport died. The error is forwarded
+/// without waiting for room instead — the end of the stream, and the failing
+/// send, are the signals.
+#[tokio::test]
+async fn write_error_with_undrained_events_does_not_stall_the_worker() {
+    let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let port = spawn_mock_server(|mut ws| async move {
+        // Just over the response channel's capacity, so the channel fills
+        // while everything still fits in the socket buffers.
+        for _ in 0..(RESPONSE_CHANNEL_CAPACITY + 50) {
+            ws.send(Message::Binary(vec![0u8; 160].into()))
+                .await
+                .expect("server send");
+        }
+        // Vanish without a closing handshake, but only once the client has
+        // filled its response channel, so the write below fails while there
+        // is provably no room to forward the error into.
+        let _ = abort_rx.await;
+        drop(ws);
+    })
+    .await;
+
+    let handle = connect(port).await;
+
+    // Never receive anything: let the worker forward the flood until its
+    // bounded response channel is full, then break the connection.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let _ = abort_tx.send(());
+
+    // Large payloads, so the socket's send buffer is exhausted quickly and
+    // the worker's write actually reaches the dead peer.
+    let text = "token ".repeat(1024);
+    let sending = async {
+        for _ in 0..2_000 {
+            if handle.speak(text.clone()).await.is_err() {
+                return true;
+            }
+        }
+        false
+    };
+
+    let failed = tokio::time::timeout(Duration::from_secs(15), sending)
+        .await
+        .expect("a write error with undrained events must not deadlock `speak`");
+    assert!(
+        failed,
+        "once the transport is broken the worker must end the session, so `speak` reports an \
+         error instead of succeeding forever"
     );
 }
