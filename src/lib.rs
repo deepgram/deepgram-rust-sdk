@@ -321,6 +321,16 @@ impl Deepgram {
     /// elsewhere, build a second client with [`Deepgram::new`] and make
     /// those calls on that one.
     ///
+    /// A base URL that carries a path prefix must end in a slash to keep it.
+    /// Endpoint paths are joined on by RFC 3986 relative resolution, which
+    /// replaces the last segment of a path that does not end in one: with
+    /// `http://gateway.internal/deepgram/`, `projects().list()` goes to
+    /// `http://gateway.internal/deepgram/v1/projects`, while with
+    /// `http://gateway.internal/deepgram` it goes to
+    /// `http://gateway.internal/v1/projects` and the prefix is silently
+    /// dropped. A base URL with no path of its own
+    /// (`http://deepgram.internal`) needs no trailing slash.
+    ///
     /// Self-hosted instances do not in general authenticate incoming
     /// requests, so unlike in [`Deepgram::new`], so no api key needs to be
     /// provided. The SDK will not include an `Authorization` header in its
@@ -373,6 +383,16 @@ impl Deepgram {
     /// while your audio goes elsewhere, build a second client with
     /// [`Deepgram::new`] and make those calls on that one.
     ///
+    /// A base URL that carries a path prefix must end in a slash to keep it.
+    /// Endpoint paths are joined on by RFC 3986 relative resolution, which
+    /// replaces the last segment of a path that does not end in one: with
+    /// `http://gateway.internal/deepgram/`, `projects().list()` goes to
+    /// `http://gateway.internal/deepgram/v1/projects`, while with
+    /// `http://gateway.internal/deepgram` it goes to
+    /// `http://gateway.internal/v1/projects` and the prefix is silently
+    /// dropped. A base URL with no path of its own
+    /// (`http://deepgram.internal`) needs no trailing slash.
+    ///
     /// The base URL's scheme decides how WebSocket connections are made:
     /// `https://` gives `wss://`, with TLS and certificate verification (see
     /// [`crate::tls`]); `http://` gives plaintext `ws://`, with neither, so
@@ -412,7 +432,11 @@ impl Deepgram {
     /// As with [`Deepgram::with_base_url_and_api_key`], every request this
     /// client makes goes to this base URL, including the management API and
     /// the token grant in [`crate::auth`], and it carries `temp_token` with
-    /// it.
+    /// it. And as there, a base URL that carries a path prefix must end in a
+    /// slash (`http://gateway.internal/deepgram/`) to keep it: endpoint paths
+    /// are joined on by RFC 3986 relative resolution, which replaces the last
+    /// segment of a path that does not end in one, so without the slash the
+    /// prefix is silently dropped.
     pub fn with_base_url_and_temp_token<U, T>(base_url: U, temp_token: T) -> Result<Self>
     where
         U: TryInto<Url>,
