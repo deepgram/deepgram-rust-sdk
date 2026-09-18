@@ -20,7 +20,7 @@ categories = ["api-bindings", "multimedia::audio", "network-programming"]
 [dependencies]
 # TODO Investigate which of these dependencies can go behind features.
 bytes = "1"
-futures = "^0.3"
+futures = "^0.3.32"
 http = "1.4"
 pin-project = "1"
 reqwest = { version = "^0.13", default-features = false, features = [

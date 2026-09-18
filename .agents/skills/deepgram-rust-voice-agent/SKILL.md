@@ -21,7 +21,7 @@ The Voice Agent client is behind the `agent` feature (on by default).
 
 ```toml
 [dependencies]
-deepgram = { default-features = false, features = ["agent"] }
+deepgram = { version = "0.12", default-features = false, features = ["agent"] }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 ```
