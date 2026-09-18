@@ -18,8 +18,10 @@ use reqwest::header::HeaderMap;
 /// Every field is optional because a header may be absent (for example, on an
 /// error response or from a self-hosted instance).
 ///
-/// See the [Deepgram Text-to-Speech docs][docs] for the full list of response
-/// headers.
+/// The field list was taken from a live `/v1/speak` response rather than
+/// from the documentation, which does not enumerate these headers.
+///
+/// See the [Deepgram Text-to-Speech docs][docs] for the endpoint itself.
 ///
 /// [docs]: https://developers.deepgram.com/docs/text-to-speech#results
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -35,6 +37,25 @@ pub struct SpeakMetadata {
     /// The unique identifier of the model that processed the request
     /// (`dg-model-uuid`).
     pub model_uuid: Option<String>,
+
+    /// The unique identifiers of any additional models that contributed to
+    /// the request (`dg-additional-model-uuids`), in the order the header
+    /// lists them.
+    ///
+    /// The header carries a comma-separated list, so it is split here; a
+    /// single-model response omits the header entirely and this is `None`.
+    pub additional_model_uuids: Option<Vec<String>>,
+
+    /// The project the request was billed to (`dg-project-id`).
+    pub project_id: Option<String>,
+
+    /// How many of the input's `[break]` directives were applied
+    /// (`dg-breaks-applied`).
+    pub breaks_applied: Option<u32>,
+
+    /// How many of the input's pronunciation directives were applied
+    /// (`dg-pronunciations-applied`).
+    pub pronunciations_applied: Option<u32>,
 
     /// The number of characters in the input text (`dg-char-count`).
     pub char_count: Option<u32>,
@@ -65,6 +86,18 @@ impl SpeakMetadata {
             request_id: get("dg-request-id"),
             model_name: get("dg-model-name"),
             model_uuid: get("dg-model-uuid"),
+            additional_model_uuids: get("dg-additional-model-uuids").map(|value| {
+                value
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|uuid| !uuid.is_empty())
+                    .map(str::to_owned)
+                    .collect()
+            }),
+            project_id: get("dg-project-id"),
+            breaks_applied: get("dg-breaks-applied").and_then(|value| value.parse().ok()),
+            pronunciations_applied: get("dg-pronunciations-applied")
+                .and_then(|value| value.parse().ok()),
             char_count: get("dg-char-count").and_then(|value| value.parse().ok()),
             content_type: get("content-type"),
             transfer_encoding: get("transfer-encoding"),
@@ -110,6 +143,17 @@ mod tests {
         ),
         ("dg-char-count", "42", |m| {
             m.char_count.map(|c| c.to_string())
+        }),
+        (
+            "dg-project-id",
+            "23eb6e85-c3f3-4d91-9595-f9f5b62741b8",
+            |m| m.project_id.clone(),
+        ),
+        ("dg-breaks-applied", "0", |m| {
+            m.breaks_applied.map(|c| c.to_string())
+        }),
+        ("dg-pronunciations-applied", "2", |m| {
+            m.pronunciations_applied.map(|c| c.to_string())
         }),
         ("content-type", "audio/mpeg", |m| m.content_type.clone()),
         ("transfer-encoding", "chunked", |m| {
@@ -179,6 +223,47 @@ mod tests {
         let metadata = SpeakMetadata::from_headers(&map);
         assert_eq!(metadata.request_id.as_deref(), Some("req-1"));
         assert_eq!(metadata.content_type.as_deref(), Some("audio/wav"));
+    }
+
+    #[test]
+    fn additional_model_uuids_splits_the_comma_separated_header() {
+        // Observed live: `/v1/speak` returns two uuids in one header.
+        let metadata = SpeakMetadata::from_headers(&headers(&[(
+            "dg-additional-model-uuids",
+            "0ec06c9b-0aa0-44d0-a001-3ec57d32229e,2e5096c7-7bf1-435e-bbdd-f673f88d0ebd",
+        )]));
+        assert_eq!(
+            metadata.additional_model_uuids.as_deref(),
+            Some(
+                &[
+                    "0ec06c9b-0aa0-44d0-a001-3ec57d32229e".to_owned(),
+                    "2e5096c7-7bf1-435e-bbdd-f673f88d0ebd".to_owned(),
+                ][..]
+            )
+        );
+
+        // One value, surrounding whitespace, and an empty entry.
+        let metadata =
+            SpeakMetadata::from_headers(&headers(&[("dg-additional-model-uuids", " a , , b ")]));
+        assert_eq!(
+            metadata.additional_model_uuids.as_deref(),
+            Some(&["a".to_owned(), "b".to_owned()][..])
+        );
+
+        // Absent header stays `None` rather than becoming an empty list, so
+        // a caller can tell "no additional models" from "not reported".
+        let metadata = SpeakMetadata::from_headers(&HeaderMap::new());
+        assert_eq!(metadata.additional_model_uuids, None);
+    }
+
+    #[test]
+    fn non_numeric_applied_counts_are_none() {
+        let metadata = SpeakMetadata::from_headers(&headers(&[
+            ("dg-breaks-applied", "some"),
+            ("dg-pronunciations-applied", "-1"),
+        ]));
+        assert_eq!(metadata.breaks_applied, None);
+        assert_eq!(metadata.pronunciations_applied, None);
     }
 
     #[test]
