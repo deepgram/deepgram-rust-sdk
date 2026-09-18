@@ -257,6 +257,60 @@ mod mock {
         let _ = tokio::time::timeout(BOUND, drain).await;
     }
 
+    /// The case the sibling test above cannot reach: the consumer *retains*
+    /// the event stream but stops polling it, so the bounded event channel
+    /// fills up.
+    ///
+    /// This is what actually broke. Fair selection does not help when the
+    /// inbound branch, once chosen, blocks inside `response_tx.send(..).await`
+    /// waiting for a consumer that is not reading: the worker parks there and
+    /// never polls the command channel again, so every outbound message
+    /// stalls — mic audio, function responses, `KeepAlive`, and `close()`
+    /// alike. The worker now reserves response-channel capacity before
+    /// reading a frame, which turns a lagging consumer into ordinary socket
+    /// backpressure instead of a wedged loop.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn outbound_controls_survive_a_consumer_that_stops_draining() {
+        let (listener, addr) = bind().await;
+        let (text_tx, mut text_rx) = mpsc::unbounded_channel();
+        tokio::spawn(flooding_server(listener, text_tx));
+
+        let dg = client();
+        let (mut handle, _events) = dg.agent().start_at_url(&agent_url(addr)).await.unwrap();
+
+        // `_events` is alive but never polled. Give the server's flood long
+        // enough to overrun the 256-slot event channel several times over.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+
+        // The outbound direction must still reach the wire.
+        handle.keep_alive().await.unwrap();
+        let got = tokio::time::timeout(BOUND, text_rx.recv())
+            .await
+            .expect("KeepAlive starved by an undrained event stream")
+            .expect("server text channel open");
+        assert_eq!(got, r#"{"type":"KeepAlive"}"#);
+
+        // Including binary audio, which is what a live microphone sends.
+        handle.send_data(vec![1, 2, 3, 4]).await.unwrap();
+        handle.keep_alive().await.unwrap();
+        let got = tokio::time::timeout(BOUND, text_rx.recv())
+            .await
+            .expect("KeepAlive after audio starved by an undrained event stream")
+            .expect("server text channel open");
+        assert_eq!(got, r#"{"type":"KeepAlive"}"#);
+
+        // `close()` is accepted rather than blocking behind the backlog. Note
+        // what this deliberately does not assert: completing the *closing
+        // handshake* still needs the consumer to drain, because the worker
+        // has to forward the server's remaining frames somewhere, and this
+        // consumer never reads one. Writing the Close frame is the client's
+        // half, and that is what must not stall.
+        tokio::time::timeout(BOUND, handle.close())
+            .await
+            .expect("close() blocked behind an undrained event stream")
+            .expect("close() should be accepted");
+    }
+
     // ---------- B6: terminal shutdown ----------
 
     #[tokio::test]

@@ -77,12 +77,14 @@ impl fmt::Debug for RedactedHeaders<'_> {
     }
 }
 
-/// `Debug` adapter for a URL that prints everything except any
-/// `user:pass@` userinfo in the authority, which is replaced with
-/// `"<redacted>"`.
+/// `Debug` adapter for a URL that prints everything except the parts that
+/// carry a credential — `user:pass@` userinfo in the authority, and the
+/// value of any query parameter whose name names a secret — each replaced
+/// with `"<redacted>"`.
 ///
-/// A credential can live in a URL (`https://user:pass@llm.internal`), so
-/// printing `url` verbatim would defeat the header redaction next to it.
+/// A credential can live in a URL (`https://user:pass@llm.internal`) or in
+/// its query string (`?api-key=…`), so printing `url` verbatim would defeat
+/// the header redaction next to it.
 /// Works whether or not the value carries a scheme, since the field is a
 /// free-form `String`. Shared by [`Endpoint`] and `FunctionEndpoint`;
 /// same spirit as the origin-only `url` on `InsecureAgentUrl`.
@@ -90,9 +92,13 @@ pub(crate) struct RedactedUrl<'a>(pub(crate) &'a str);
 
 impl fmt::Debug for RedactedUrl<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match redact_userinfo(self.0) {
+        // The two steps are independent: a URL can carry userinfo, a secret
+        // query parameter, or both.
+        let without_userinfo = redact_userinfo(self.0);
+        let source = without_userinfo.as_deref().unwrap_or(self.0);
+        match redact_query_secrets(source) {
             Some(redacted) => fmt::Debug::fmt(&redacted, f),
-            None => fmt::Debug::fmt(self.0, f),
+            None => fmt::Debug::fmt(source, f),
         }
     }
 }
@@ -127,6 +133,84 @@ fn redact_userinfo(url: &str) -> Option<String> {
     let authority_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
     let at = rest[..authority_end].rfind('@')?;
     Some(format!("{prefix}{REDACTED}@{}", &rest[at + 1..]))
+}
+
+/// Replace the value of any query parameter whose name names a credential
+/// with `<redacted>`, or return `None` when there is nothing to redact.
+///
+/// A credential is routinely a query parameter rather than a header — Google
+/// AI Studio takes `?key=`, Azure OpenAI takes `?api-key=`, and a pre-signed
+/// URL carries `?signature=` — and `think.endpoint` / `speak.endpoint` are
+/// exactly the fields a caller points at those services. Redacting only the
+/// userinfo and the header values would print such a key in full, right next
+/// to a header value that reads as redacted.
+///
+/// Deliberately string-based, for the same reason as [`redact_userinfo`]:
+/// the field is a free-form `String` that may not parse as a URL.
+fn redact_query_secrets(url: &str) -> Option<String> {
+    let (before, query) = url.split_once('?')?;
+    // A fragment is not part of the query.
+    let (query, fragment) = match query.split_once('#') {
+        Some((query, fragment)) => (query, Some(fragment)),
+        None => (query, None),
+    };
+    let mut redacted_any = false;
+    let mut out = String::with_capacity(query.len());
+    for (index, pair) in query.split('&').enumerate() {
+        if index > 0 {
+            out.push('&');
+        }
+        match pair.split_once('=') {
+            Some((name, _)) if is_secret_param(name) => {
+                redacted_any = true;
+                out.push_str(name);
+                out.push('=');
+                out.push_str(REDACTED);
+            }
+            _ => out.push_str(pair),
+        }
+    }
+    if !redacted_any {
+        return None;
+    }
+    Some(match fragment {
+        Some(fragment) => format!("{before}?{out}#{fragment}"),
+        None => format!("{before}?{out}"),
+    })
+}
+
+/// Whether a query-parameter name names a credential. Compared with `-` and
+/// `_` removed and ignoring case, so `api-key`, `api_key` and `apiKey` all
+/// match the same entry.
+fn is_secret_param(name: &str) -> bool {
+    let normalized: String = name
+        .chars()
+        .filter(|c| *c != '-' && *c != '_')
+        .flat_map(char::to_lowercase)
+        .collect();
+    matches!(
+        normalized.as_str(),
+        "key"
+            | "apikey"
+            | "apisecret"
+            | "accesskey"
+            | "secretkey"
+            | "secret"
+            | "clientsecret"
+            | "token"
+            | "accesstoken"
+            | "idtoken"
+            | "refreshtoken"
+            | "sessiontoken"
+            | "password"
+            | "passwd"
+            | "pwd"
+            | "auth"
+            | "authorization"
+            | "sig"
+            | "signature"
+            | "subscriptionkey"
+    )
 }
 
 /// Placeholder printed in place of any secret in `Debug` output.
@@ -208,6 +292,63 @@ mod tests {
             "got: {debug}"
         );
         assert!(debug.contains("<redacted>@"), "got: {debug}");
+    }
+
+    #[test]
+    fn debug_redacts_credentials_carried_in_the_query_string() {
+        // Google AI Studio takes `?key=`, Azure OpenAI takes `?api-key=`;
+        // those are the services `think.endpoint` points at, so a query
+        // credential must not survive into `Debug` just because it is not a
+        // header.
+        for (url, secret) in [
+            (
+                "https://generativelanguage.googleapis.com/v1/x?key=AIzaSECRET",
+                "AIzaSECRET",
+            ),
+            (
+                "https://acme.openai.azure.com/v1/chat?api-key=azSECRET",
+                "azSECRET",
+            ),
+            ("https://fn.internal/charge?token=FNSECRET&id=7", "FNSECRET"),
+            ("https://s3.example/obj?signature=SIGSECRET", "SIGSECRET"),
+            ("https://llm.internal/v1?Api_Key=MIXEDSECRET", "MIXEDSECRET"),
+        ] {
+            let debug = format!("{:?}", Endpoint::new(url));
+            assert!(!debug.contains(secret), "leaked {secret} in: {debug}");
+            assert!(debug.contains("<redacted>"), "got: {debug}");
+        }
+    }
+
+    #[test]
+    fn debug_keeps_non_secret_query_parameters_and_the_rest_of_the_url() {
+        // Redaction is per-parameter: everything a reader needs to identify
+        // the endpoint stays.
+        let debug = format!(
+            "{:?}",
+            Endpoint::new("https://llm.internal/v1/chat?model=gpt-4o&api-key=SECRET&stream=true")
+        );
+        assert!(!debug.contains("SECRET"), "got: {debug}");
+        assert!(debug.contains("model=gpt-4o"), "got: {debug}");
+        assert!(debug.contains("stream=true"), "got: {debug}");
+        assert!(debug.contains("api-key=<redacted>"), "got: {debug}");
+        assert!(
+            debug.contains("https://llm.internal/v1/chat?"),
+            "got: {debug}"
+        );
+    }
+
+    #[test]
+    fn debug_redacts_userinfo_and_a_query_secret_together() {
+        let debug = format!(
+            "{:?}",
+            Endpoint::new("https://alice:s3cret@llm.internal/v1/chat?api-key=qSECRET#frag")
+        );
+        assert!(!debug.contains("s3cret"), "got: {debug}");
+        assert!(!debug.contains("qSECRET"), "got: {debug}");
+        assert!(debug.contains("<redacted>@"), "got: {debug}");
+        assert!(debug.contains("api-key=<redacted>"), "got: {debug}");
+        // The fragment is not part of the query and survives.
+        assert!(debug.contains("#frag"), "got: {debug}");
     }
 
     #[test]

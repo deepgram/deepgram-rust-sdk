@@ -15,6 +15,12 @@ use crate::agent::endpoint::REDACTED;
 /// any subset, so consumers building Bedrock configs may want to wrap the
 /// whole struct in `Option<>` rather than supplying partial credentials.
 ///
+/// Build one with [`AwsCredentials::iam`] or [`AwsCredentials::sts`], or
+/// with [`AwsCredentials::new`] plus the `with_*` setters for a partial
+/// Bedrock block. The struct is `#[non_exhaustive]`, so a struct literal
+/// does not compile outside this crate and a constructor is the only way
+/// in.
+///
 /// The `Debug` output redacts `access_key_id`, `secret_access_key`, and
 /// `session_token` (printing `"<redacted>"` when set) so that logging a
 /// `Settings`, `ThinkSettings`, or `SpeakSettings` never leaks AWS
@@ -42,6 +48,82 @@ pub struct AwsCredentials {
     /// AWS session token. Required for STS credentials.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_token: Option<String>,
+}
+
+impl AwsCredentials {
+    /// Long-lived IAM credentials.
+    ///
+    /// ```
+    /// use deepgram::agent::aws_credentials::AwsCredentials;
+    ///
+    /// let credentials = AwsCredentials::iam("us-east-1", "AKIAEXAMPLE", "secret");
+    /// ```
+    pub fn iam(
+        region: impl Into<String>,
+        access_key_id: impl Into<String>,
+        secret_access_key: impl Into<String>,
+    ) -> Self {
+        Self {
+            credentials_type: AwsCredentialsType::Iam,
+            region: Some(region.into()),
+            access_key_id: Some(access_key_id.into()),
+            secret_access_key: Some(secret_access_key.into()),
+            session_token: None,
+        }
+    }
+
+    /// Short-lived AWS Security Token Service credentials, which carry a
+    /// `session_token`.
+    pub fn sts(
+        region: impl Into<String>,
+        access_key_id: impl Into<String>,
+        secret_access_key: impl Into<String>,
+        session_token: impl Into<String>,
+    ) -> Self {
+        Self {
+            credentials_type: AwsCredentialsType::Sts,
+            region: Some(region.into()),
+            access_key_id: Some(access_key_id.into()),
+            secret_access_key: Some(secret_access_key.into()),
+            session_token: Some(session_token.into()),
+        }
+    }
+
+    /// An empty credentials block of the given type, for AWS Bedrock, which
+    /// accepts any subset of the fields. Pair with the `with_*` setters.
+    pub fn new(credentials_type: AwsCredentialsType) -> Self {
+        Self {
+            credentials_type,
+            region: None,
+            access_key_id: None,
+            secret_access_key: None,
+            session_token: None,
+        }
+    }
+
+    /// Set the AWS region.
+    pub fn with_region(mut self, region: impl Into<String>) -> Self {
+        self.region = Some(region.into());
+        self
+    }
+
+    /// Set the access key ID.
+    pub fn with_access_key_id(mut self, access_key_id: impl Into<String>) -> Self {
+        self.access_key_id = Some(access_key_id.into());
+        self
+    }
+
+    /// Set the secret access key.
+    pub fn with_secret_access_key(mut self, secret_access_key: impl Into<String>) -> Self {
+        self.secret_access_key = Some(secret_access_key.into());
+        self
+    }
+
+    /// Set the session token, required for STS credentials.
+    pub fn with_session_token(mut self, session_token: impl Into<String>) -> Self {
+        self.session_token = Some(session_token.into());
+        self
+    }
 }
 
 impl fmt::Debug for AwsCredentials {
@@ -76,6 +158,55 @@ pub enum AwsCredentialsType {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// `AwsCredentials` is `#[non_exhaustive]`, so a downstream crate cannot
+    /// use a struct literal. These constructors are the only way for a
+    /// consumer to reach `AwsPollySpeakProvider::new`, which takes the
+    /// credentials by value — without them the AWS providers are
+    /// unconstructible outside this crate. Written with no struct literal
+    /// on purpose, so it exercises the same path a consumer has.
+    #[test]
+    fn constructors_are_the_downstream_path() {
+        let iam = AwsCredentials::iam("us-east-1", "AKIAEXAMPLE", "iam-secret");
+        assert_eq!(iam.credentials_type, AwsCredentialsType::Iam);
+        assert_eq!(iam.region.as_deref(), Some("us-east-1"));
+        assert_eq!(iam.session_token, None);
+        assert_eq!(
+            serde_json::to_value(&iam).unwrap(),
+            json!({
+                "type": "iam",
+                "region": "us-east-1",
+                "access_key_id": "AKIAEXAMPLE",
+                "secret_access_key": "iam-secret",
+            })
+        );
+
+        let sts = AwsCredentials::sts("us-west-2", "AKIASTS", "sts-secret", "session");
+        assert_eq!(sts.credentials_type, AwsCredentialsType::Sts);
+        assert_eq!(sts.session_token.as_deref(), Some("session"));
+
+        // The Bedrock shape: any subset.
+        let partial = AwsCredentials::new(AwsCredentialsType::Iam).with_region("eu-west-1");
+        assert_eq!(partial.region.as_deref(), Some("eu-west-1"));
+        assert_eq!(partial.access_key_id, None);
+        assert_eq!(
+            serde_json::to_value(&partial).unwrap(),
+            json!({ "type": "iam", "region": "eu-west-1" })
+        );
+    }
+
+    /// The constructors must not defeat the redaction the struct promises.
+    #[test]
+    fn constructed_credentials_still_redact_in_debug() {
+        let debug = format!(
+            "{:?}",
+            AwsCredentials::sts("us-west-2", "AKIALEAK", "SECRETLEAK", "TOKENLEAK")
+        );
+        assert!(!debug.contains("AKIALEAK"), "got: {debug}");
+        assert!(!debug.contains("SECRETLEAK"), "got: {debug}");
+        assert!(!debug.contains("TOKENLEAK"), "got: {debug}");
+        assert!(debug.contains("us-west-2"), "got: {debug}");
+    }
 
     #[test]
     fn iam_round_trip() {

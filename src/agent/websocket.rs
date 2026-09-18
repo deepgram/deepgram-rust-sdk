@@ -66,7 +66,7 @@ use bytes::Bytes;
 use core::fmt;
 use futures::channel::mpsc::{self, Receiver, Sender};
 use futures::stream::StreamExt;
-use futures::{select, SinkExt, Stream};
+use futures::{future::poll_fn, pin_mut, select, FutureExt, SinkExt, Stream};
 use http::Request;
 use pin_project::pin_project;
 use serde::Serialize;
@@ -560,94 +560,127 @@ where
 {
     let mut ws_recv = ws_recv.fuse();
     let mut is_open = true;
+    // A dedicated sender for the one terminal error. A `futures` mpsc
+    // channel's capacity is `buffer + num_senders`, so this clone carries its
+    // own guaranteed slot: forwarding the error through it neither blocks (the
+    // slot is never consumed by events) nor drops it, even when the consumer
+    // has not drained a single event.
+    let mut error_tx = response_tx.clone();
+
+    /// One scheduling decision per loop iteration.
+    enum Step {
+        /// An inbound frame arrived, with response-channel capacity already
+        /// reserved for forwarding it.
+        Inbound(Option<std::result::Result<Message, tungstenite::Error>>),
+        /// An outbound command is ready to be written to the socket (`None`
+        /// once every sender has been dropped).
+        Outbound(Option<WsMessage>),
+        /// The consumer dropped the event stream.
+        ResponsesClosed,
+        /// After the Close frame, the server sent nothing for
+        /// `close_drain_idle_timeout`.
+        DrainTimedOut,
+    }
 
     loop {
-        if is_open {
-            // Unbiased `select!`: when both the inbound WebSocket and the
-            // outbound command channel are ready, the branch is chosen at
-            // random, so a server streaming audio continuously cannot
-            // starve outgoing audio, function responses, KeepAlives, or
-            // the Close request. (`select_biased!` preferring `ws_recv`
-            // did exactly that under sustained inbound load.)
-            select! {
-                inbound = ws_recv.next() => {
-                    if let std::ops::ControlFlow::Break(stop) =
-                        handle_agent_inbound(inbound, &mut ws_send, &mut response_tx).await
-                    {
-                        if matches!(stop, InboundStop::TransportGone) {
-                            is_open = false;
-                        }
-                        break;
-                    }
-                }
-                outbound = message_rx.next() => {
-                    match outbound {
-                        Some(WsMessage::Json(json)) => {
-                            if let Err(err) = ws_send.send(Message::Text(json.into())).await {
-                                // A failed write is terminal for the
-                                // transport: forward it once and end the
-                                // worker, matching the Flux TTS worker.
-                                // Continuing here would park on the read
-                                // half with the command channel still
-                                // open, so a retained handle's send would
-                                // return `Ok` into a channel nobody
-                                // drains — the silent drop the worker
-                                // contract forbids.
-                                let _ = response_tx.send(Err(err.into())).await;
-                                is_open = false;
-                                break;
-                            }
-                        }
-                        Some(WsMessage::Audio(audio)) => {
-                            if let Err(err) =
-                                ws_send.send(Message::Binary(Bytes::from(audio))).await
-                            {
-                                // Terminal, as above.
-                                let _ = response_tx.send(Err(err.into())).await;
-                                is_open = false;
-                                break;
-                            }
-                        }
-                        Some(WsMessage::Close) | None => {
-                            let _ = ws_send.send(Message::Close(None)).await;
-                            is_open = false;
+        // Reserve response-channel capacity *before* reading an inbound
+        // frame, then forward it with `start_send`. Awaiting the forward
+        // inside the selection instead parks this loop the moment the
+        // consumer falls behind, and `message_rx` stops being polled — so
+        // outgoing audio, function responses, KeepAlive and even the Close
+        // request stall behind a slow consumer however fair the selection
+        // is. Reserving first turns that into ordinary socket backpressure:
+        // inbound reads pause while the outbound direction keeps reaching
+        // the wire. The streaming TTS worker uses the same structure.
+        //
+        // The inbound future borrows `response_tx`, `ws_recv` and
+        // `is_open`, so it is scoped to the selection and dropped before
+        // the step is handled.
+        let step = {
+            let inbound = async {
+                match poll_fn(|cx| response_tx.poll_ready(cx)).await {
+                    Err(_) => Step::ResponsesClosed,
+                    Ok(()) if !is_open => {
+                        // Input is closed and the Close frame is already
+                        // written, so bound the wait for the server's half of
+                        // the closing handshake: a server that never answers
+                        // it but keeps the connection open would otherwise
+                        // park this task and leave the consumer's
+                        // `AgentEventStream` never ending.
+                        match tokio::time::timeout(close_drain_idle_timeout, ws_recv.next()).await {
+                            Ok(inbound) => Step::Inbound(inbound),
+                            Err(_elapsed) => Step::DrainTimedOut,
                         }
                     }
+                    Ok(()) => Step::Inbound(ws_recv.next().await),
                 }
             }
-        } else {
-            // Input is closed: only drain server messages until the connection
-            // closes. We must NOT keep selecting on `message_rx` here — it now
-            // yields `Ready(None)` synchronously, which would busy-spin the task
-            // (and hang a current-thread runtime).
-            //
-            // Every path that reaches this branch has already written the
-            // Close frame, so the wait is bounded: a server that never
-            // answers the close handshake but keeps the connection open
-            // would otherwise park this task and leave the consumer's
-            // `AgentEventStream` never ending. `is_open` is already
-            // `false` here, so terminal cleanup will not write a second
-            // Close frame whichever way we leave the loop.
-            let inbound = match tokio::time::timeout(close_drain_idle_timeout, ws_recv.next()).await
-            {
-                Ok(inbound) => inbound,
-                Err(_elapsed) => {
-                    let _ = response_tx
-                        .send(Err(DeepgramError::UnexpectedServerResponse(anyhow!(
-                            "the Voice Agent server sent nothing for {}s after the Close frame \
-                             and did not complete the closing handshake; dropping the \
-                             connection",
-                            close_drain_idle_timeout.as_secs_f64()
-                        ))))
-                        .await;
+            .fuse();
+            pin_mut!(inbound);
+            if is_open {
+                // Unbiased `select!`: when both the inbound WebSocket and the
+                // outbound command channel are ready, the branch is chosen at
+                // random, so neither direction can starve the other.
+                select! {
+                    step = inbound => step,
+                    message = message_rx.next() => Step::Outbound(message),
+                }
+            } else {
+                // Only drain server messages. We must NOT keep selecting on
+                // `message_rx` here — it now yields `Ready(None)`
+                // synchronously, which would busy-spin the task (and hang a
+                // current-thread runtime).
+                inbound.await
+            }
+        };
+
+        match step {
+            Step::ResponsesClosed => break,
+            Step::DrainTimedOut => {
+                // Capacity was reserved above, so this does not block.
+                let _ =
+                    response_tx.start_send(Err(DeepgramError::UnexpectedServerResponse(anyhow!(
+                        "the Voice Agent server sent nothing for {}s after the Close frame \
+                         and did not complete the closing handshake; dropping the \
+                         connection",
+                        close_drain_idle_timeout.as_secs_f64()
+                    ))));
+                break;
+            }
+            Step::Inbound(inbound) => {
+                if let std::ops::ControlFlow::Break(stop) =
+                    handle_agent_inbound(inbound, &mut ws_send, &mut response_tx).await
+                {
+                    if matches!(stop, InboundStop::TransportGone) {
+                        is_open = false;
+                    }
                     break;
                 }
-            };
-            if handle_agent_inbound(inbound, &mut ws_send, &mut response_tx)
-                .await
-                .is_break()
-            {
-                break;
+            }
+            Step::Outbound(Some(WsMessage::Json(json))) => {
+                if let Err(err) = ws_send.send(Message::Text(json.into())).await {
+                    // A failed write is terminal for the transport: forward it
+                    // once through the reserved slot and end the worker.
+                    // Continuing here would park on the read half with the
+                    // command channel still open, so a retained handle's send
+                    // would return `Ok` into a channel nobody drains — the
+                    // silent drop the worker contract forbids.
+                    let _ = error_tx.try_send(Err(err.into()));
+                    is_open = false;
+                    break;
+                }
+            }
+            Step::Outbound(Some(WsMessage::Audio(audio))) => {
+                if let Err(err) = ws_send.send(Message::Binary(Bytes::from(audio))).await {
+                    // Terminal, as above.
+                    let _ = error_tx.try_send(Err(err.into()));
+                    is_open = false;
+                    break;
+                }
+            }
+            Step::Outbound(Some(WsMessage::Close)) | Step::Outbound(None) => {
+                let _ = ws_send.send(Message::Close(None)).await;
+                is_open = false;
             }
         }
     }
@@ -662,6 +695,12 @@ where
     message_rx.close();
     // 2. Discard anything buffered. Non-blocking: `try_recv` returns `Err`
     //    once the (closed) channel is empty rather than waiting on senders.
+    //    `try_recv` landed in futures 0.3.32 (and deprecated `try_next` in
+    //    the same release), which is why this crate's `futures` floor is
+    //    `^0.3.32` — see `Cargo.toml`. Do not swap in `try_next` to lower
+    //    that floor: it is deprecated, so `-D warnings` rejects it, and the
+    //    obvious `while message_rx.try_next().is_ok()` also accepts the
+    //    `Ok(None)` that means closed-and-empty and would spin forever.
     while message_rx.try_recv().is_ok() {}
     // 3. If we stopped while the connection was still open (e.g. the
     //    consumer dropped the event stream), tell the peer we're going away.
@@ -686,7 +725,9 @@ enum InboundStop {
     TransportGone,
 }
 
-/// Handle a single inbound WebSocket message. Returns [`ControlFlow::Break`]
+/// Handle a single inbound WebSocket message. Response-channel capacity
+/// must already be reserved (see the worker loop), so forwarding uses
+/// `start_send` and never blocks. Returns [`ControlFlow::Break`]
 /// when the worker should stop (connection closed, a terminal read error, or
 /// the consumer dropped the event stream), carrying whether the socket is
 /// still writable.
@@ -703,14 +744,13 @@ where
         Some(Ok(Message::Text(text))) => {
             let parsed: std::result::Result<AgentResponse, _> = serde_json::from_str(&text);
             let event = parsed.map(AgentEvent::Json).map_err(DeepgramError::from);
-            if response_tx.send(event).await.is_err() {
+            if response_tx.start_send(event).is_err() {
                 return ControlFlow::Break(InboundStop::TransportUsable);
             }
         }
         Some(Ok(Message::Binary(bytes))) => {
             if response_tx
-                .send(Ok(AgentEvent::Audio(bytes)))
-                .await
+                .start_send(Ok(AgentEvent::Audio(bytes)))
                 .is_err()
             {
                 return ControlFlow::Break(InboundStop::TransportUsable);
@@ -730,12 +770,10 @@ where
             // 2-hour session cap). Only abnormal close codes reach the
             // consumer, matching the streaming TTS worker.
             if u16::from(frame.code) != 1000 {
-                let _ = response_tx
-                    .send(Err(DeepgramError::WebsocketClose {
-                        code: frame.code.into(),
-                        reason: frame.reason.to_string(),
-                    }))
-                    .await;
+                let _ = response_tx.start_send(Err(DeepgramError::WebsocketClose {
+                    code: frame.code.into(),
+                    reason: frame.reason.to_string(),
+                }));
             }
             return ControlFlow::Break(InboundStop::TransportUsable);
         }
@@ -749,7 +787,7 @@ where
             // socket (which can surface duplicate errors) or accept
             // further commands doomed to fail. Matches the Flux TTS
             // worker.
-            let _ = response_tx.send(Err(err.into())).await;
+            let _ = response_tx.start_send(Err(err.into()));
             return ControlFlow::Break(InboundStop::TransportGone);
         }
         None => return ControlFlow::Break(InboundStop::TransportGone),
