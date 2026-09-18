@@ -21,7 +21,7 @@ in and can be enabled on its own.
 
 ```toml
 [dependencies]
-deepgram = { default-features = false, features = ["read"] }
+deepgram = { version = "0.12", default-features = false, features = ["read"] }
 tokio = { version = "1", features = ["full"] }
 ```
 

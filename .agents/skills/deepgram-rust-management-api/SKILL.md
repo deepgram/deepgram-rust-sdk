@@ -19,7 +19,7 @@ For a management-only install:
 
 ```toml
 [dependencies]
-deepgram = { default-features = false, features = ["manage"] }
+deepgram = { version = "0.12", default-features = false, features = ["manage"] }
 tokio = { version = "1", features = ["full"] }
 ```
 
