@@ -80,29 +80,38 @@ pub struct Details {
     #[allow(missing_docs)]
     pub usd: Option<f64>,
 
-    /// Billed audio duration, in seconds.
+    /// Billed audio duration, in seconds, from the `response.details` meter
+    /// group.
     ///
-    /// `None` for requests that meter no audio: the API omits this field for
+    /// `None` means only that the API omitted that group. It omits it for
     /// `/v1/read`, `/v1/speak`, `/v2/speak`, and `/v1/agent/converse` records,
-    /// and for `/v1/listen` and `/v2/listen` records that never carried audio.
+    /// and for `/v1/listen` and `/v2/listen` records that carried no audio. An
+    /// absent group does not mean the request metered no audio: Voice Agent
+    /// records report their duration in a separate `sts_details` object that
+    /// this type does not model. Decide deliberately what `None` means for
+    /// your accounting rather than reading it as zero.
     pub duration: Option<f64>,
 
-    /// Total audio submitted with the request, in seconds.
+    /// Total audio submitted with the request, in seconds, from the
+    /// `response.details` meter group.
     ///
     /// `None` whenever [`Details::duration`] is `None`; the API omits the whole
-    /// audio-metering group together.
+    /// group together. See [`Details::duration`] for what an absent group does
+    /// and does not imply.
     pub total_audio: Option<f64>,
 
-    /// Number of audio channels.
+    /// Number of audio channels, from the `response.details` meter group.
     ///
     /// `None` whenever [`Details::duration`] is `None`; the API omits the whole
-    /// audio-metering group together.
+    /// group together. See [`Details::duration`] for what an absent group does
+    /// and does not imply.
     pub channels: Option<usize>,
 
-    /// Number of audio streams.
+    /// Number of audio streams, from the `response.details` meter group.
     ///
     /// `None` whenever [`Details::duration`] is `None`; the API omits the whole
-    /// audio-metering group together.
+    /// group together. See [`Details::duration`] for what an absent group does
+    /// and does not imply.
     pub streams: Option<usize>,
 
     #[allow(missing_docs)]
