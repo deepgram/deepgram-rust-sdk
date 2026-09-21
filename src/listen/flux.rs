@@ -534,6 +534,15 @@ async fn run_flux_worker(
     mut message_rx: Receiver<WsMessage>,
     mut response_tx: Sender<Result<FluxResponse>>,
 ) -> Result<()> {
+    // A sender reserved for the terminal transport error. A `futures` mpsc
+    // channel holds `buffer + num_senders` messages, so a fresh clone brings
+    // its own guaranteed slot: forwarding the error through it neither waits
+    // for room — which would park this worker while a caller that is not
+    // draining responses is parked on the full command channel — nor drops
+    // the error, which forwarding through `response_tx` would do whenever
+    // that sender is the one parked on a full response channel. The slot is
+    // used at most once, on the single terminal path that ends the worker.
+    let mut error_tx = response_tx.clone();
     // We use Vec<u8> for partial frames because we don't know if a fragment of a string is valid utf-8.
     let mut partial_frame: Vec<u8> = Vec::new();
     let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
@@ -684,13 +693,16 @@ async fn run_flux_worker(
                         // A failed write means the transport is broken: forward
                         // the first terminal error and end the worker, rather
                         // than accept further commands doomed to fail the same
-                        // way.
+                        // way. The forward goes through `error_tx` and its
+                        // guaranteed slot, so a consumer that is behind on
+                        // responses still receives the error and the worker
+                        // never waits for room to deliver it.
                         Some(WsMessage::Audio(audio)) => {
                             if let Err(err) = ws_stream_send
                                 .send(Message::Binary(Bytes::from(audio)))
                                 .await
                             {
-                                let _ = response_tx.send(Err(err.into())).await;
+                                let _ = error_tx.try_send(Err(err.into()));
                                 is_open = false;
                                 break;
                             }
@@ -700,7 +712,7 @@ async fn run_flux_worker(
                                 .send(Message::Text(Utf8Bytes::from(json)))
                                 .await
                             {
-                                let _ = response_tx.send(Err(err.into())).await;
+                                let _ = error_tx.try_send(Err(err.into()));
                                 is_open = false;
                                 break;
                             }
@@ -713,7 +725,7 @@ async fn run_flux_worker(
                                 )))
                                 .await
                             {
-                                let _ = response_tx.send(Err(err.into())).await;
+                                let _ = error_tx.try_send(Err(err.into()));
                                 is_open = false;
                                 break;
                             }
@@ -727,7 +739,7 @@ async fn run_flux_worker(
                                 )))
                                 .await
                             {
-                                let _ = response_tx.send(Err(err.into())).await;
+                                let _ = error_tx.try_send(Err(err.into()));
                                 break;
                             }
                         }
@@ -744,8 +756,10 @@ async fn run_flux_worker(
             )))
             .await
         {
-            // If the response channel is closed, there's nothing to be done about it now.
-            let _ = response_tx.send(Err(err.into())).await;
+            // `error_tx`'s guaranteed slot delivers this even when the
+            // consumer is behind; if the consumer has dropped the stream
+            // there is nothing to be done about it now.
+            let _ = error_tx.try_send(Err(err.into()));
         }
     }
     response_tx.close_channel();
