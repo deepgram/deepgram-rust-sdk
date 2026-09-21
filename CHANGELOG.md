@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- WebSocket handshakes (live transcription, Flux speech-to-text, Flux text-to-speech) now send the URL's full authority in the `Host` header, so a base URL on a non-default port (`https://dg.internal.example:8443`, `http://127.0.0.1:54321`) produces `Host: dg.internal.example:8443` rather than `Host: dg.internal.example`. Strict reverse proxies and virtual-host routing on self-hosted deployments could reject or misroute the old value. Default ports are still omitted, so requests to `api.deepgram.com` are unchanged.
+- `cargo doc` with a single Cargo feature (for example `--no-default-features --features manage`) no longer reports unresolved intra-doc links from the crate-level feature list and the `with_base_url*` docs to modules that are compiled only under other features. Documentation builds with all features are unchanged.
+
 ## [0.11.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.10.1...0.11.0)
 
 ### Added
