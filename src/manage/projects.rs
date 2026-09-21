@@ -4,6 +4,8 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#projects
 
+use url::Url;
+
 use crate::{send_and_translate_response, Deepgram};
 
 use options::{Options, SerializableOptions};
@@ -70,7 +72,7 @@ impl Projects<'_> {
     /// # }
     /// ```
     pub async fn list(&self) -> crate::Result<response::Projects> {
-        let request = self.0.client.get("https://api.deepgram.com/v1/projects");
+        let request = self.0.client.get(self.projects_url()?);
 
         send_and_translate_response(request).await
     }
@@ -107,7 +109,7 @@ impl Projects<'_> {
     /// # }
     /// ```
     pub async fn get(&self, project_id: &str) -> crate::Result<Project> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}");
+        let url = self.project_url(project_id)?;
 
         send_and_translate_response(self.0.client.get(url)).await
     }
@@ -149,7 +151,7 @@ impl Projects<'_> {
     /// # }
     /// ```
     pub async fn update(&self, project_id: &str, options: &Options) -> crate::Result<Message> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}");
+        let url = self.project_url(project_id)?;
         let request = self
             .0
             .client
@@ -191,9 +193,72 @@ impl Projects<'_> {
     /// # }
     /// ```
     pub async fn delete(&self, project_id: &str) -> crate::Result<Message> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}");
+        let url = self.project_url(project_id)?;
         let request = self.0.client.delete(url);
 
         send_and_translate_response(request).await
+    }
+
+    fn projects_url(&self) -> crate::Result<Url> {
+        self.0.api_url("v1/projects")
+    }
+
+    fn project_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0.api_url(&format!("v1/projects/{project_id}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Deepgram;
+
+    #[test]
+    fn urls_default_base() {
+        let dg = Deepgram::new("token").unwrap();
+
+        assert_eq!(
+            dg.projects().projects_url().unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects"
+        );
+        assert_eq!(
+            dg.projects().project_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj"
+        );
+    }
+
+    #[test]
+    fn urls_custom_base() {
+        let dg = Deepgram::with_base_url("http://deepgram.internal").unwrap();
+
+        assert_eq!(
+            dg.projects().projects_url().unwrap().as_str(),
+            "http://deepgram.internal/v1/projects"
+        );
+        assert_eq!(
+            dg.projects().project_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj"
+        );
+    }
+
+    /// A base URL that carries a path prefix keeps it, the same way
+    /// `Transcription`'s `/v1/listen` URL does. The trailing slash matters:
+    /// without it the last path segment is replaced, per RFC 3986 relative
+    /// resolution. Both forms are pinned here because the difference is what
+    /// the `Deepgram::with_base_url*` rustdoc tells developers to expect.
+    #[test]
+    fn urls_custom_base_with_path_prefix() {
+        let dg = Deepgram::with_base_url("http://gateway.internal/deepgram/").unwrap();
+
+        assert_eq!(
+            dg.projects().projects_url().unwrap().as_str(),
+            "http://gateway.internal/deepgram/v1/projects"
+        );
+
+        let dg = Deepgram::with_base_url("http://gateway.internal/deepgram").unwrap();
+
+        assert_eq!(
+            dg.projects().projects_url().unwrap().as_str(),
+            "http://gateway.internal/v1/projects"
+        );
     }
 }
