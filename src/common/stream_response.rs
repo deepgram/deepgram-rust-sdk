@@ -168,4 +168,47 @@ pub enum StreamResponse {
         #[allow(missing_docs)]
         last_word_end: f64,
     },
+    /// An unrecognized server message.
+    ///
+    /// This final fallback preserves raw JSON frames, including server error
+    /// frames, so new message types do not end a streaming session in older
+    /// SDK releases.
+    Unknown(serde_json::Value),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_frame_deserializes_as_unknown() {
+        let json = r#"{"type":"Error","err_code":"INVALID_AUTH","err_msg":"invalid API key","request_id":"request-123","details":{"retryable":false}}"#;
+        let expected: serde_json::Value = serde_json::from_str(json).unwrap();
+
+        let response: StreamResponse = serde_json::from_str(json).unwrap();
+        match &response {
+            StreamResponse::Unknown(value) => {
+                assert_eq!(value, &expected);
+                assert_eq!(value["type"], "Error");
+                assert_eq!(value["err_code"], "INVALID_AUTH");
+                assert_eq!(value["err_msg"], "invalid API key");
+                assert_eq!(value["details"]["retryable"], false);
+            }
+            _ => panic!("expected Unknown response"),
+        }
+    }
+
+    #[test]
+    fn unknown_response_serialization_preserves_fields() {
+        let expected = serde_json::json!({
+            "type": "Error",
+            "err_code": "INVALID_AUTH",
+            "err_msg": "invalid API key",
+            "request_id": "request-123",
+            "details": {"retryable": false},
+        });
+        let response = StreamResponse::Unknown(expected.clone());
+
+        assert_eq!(serde_json::to_value(response).unwrap(), expected);
+    }
 }
