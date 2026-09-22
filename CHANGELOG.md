@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `/v1/listen` streaming responses now preserve unrecognized JSON frames as `StreamResponse::Unknown`, including server `Error` frames and all of their provider fields, rather than failing deserialization and ending the response stream.
+
 ### Changed
 
 - **BREAKING**: `send_data`, `finalize`, `keep_alive`, and `close_stream` on a `/v1/listen` streaming handle now return `Err` once the session has ended, where 0.11.0 returned `Ok(())` indefinitely. Code that called one of them on a handle whose session had already failed, and propagated the result with `?`, now surfaces an error where it previously carried on. Handle the error, or stop sending once `receive()` has yielded an `Err` or `None`. Cause: the worker used to drain its command channel after the loop ended, accepting audio that had nowhere to go; the first failed write now ends the session, so every later send reports the failure instead of appearing to succeed. The same write failure is also reported exactly once now — a failed write used to leave the worker running, so each later send to the same dead socket produced another `Err` on the stream and the shutdown path could add one more.
