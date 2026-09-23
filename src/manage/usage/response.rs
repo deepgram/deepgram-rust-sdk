@@ -85,11 +85,13 @@ pub struct Details {
     ///
     /// `None` means only that the API omitted that group. It omits it for
     /// `/v1/read`, `/v1/speak`, `/v2/speak`, and `/v1/agent/converse` records,
-    /// and for `/v1/listen` and `/v2/listen` records that carried no audio. An
-    /// absent group does not mean the request metered no audio: Voice Agent
-    /// records report their duration in a separate `sts_details` object that
-    /// this type does not model. Decide deliberately what `None` means for
-    /// your accounting rather than reading it as zero.
+    /// which report what they meter elsewhere in the payload. An absent group
+    /// does not mean the request metered no audio: Voice Agent records report
+    /// their duration in a separate `sts_details` object that this type does
+    /// not model. A `/v1/listen` or `/v2/listen` request that carried no audio
+    /// is a separate case — the API sends the group with zeroes, which decodes
+    /// as `Some(0.0)`. Decide deliberately what `None` means for your
+    /// accounting rather than reading it as zero.
     pub duration: Option<f64>,
 
     /// Total audio submitted with the request, in seconds, from the
