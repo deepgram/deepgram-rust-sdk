@@ -83,15 +83,24 @@ pub struct Details {
     /// Billed audio duration, in seconds, from the `response.details` meter
     /// group.
     ///
-    /// `None` means only that the API omitted that group. It omits it for
-    /// `/v1/read`, `/v1/speak`, `/v2/speak`, and `/v1/agent/converse` records,
-    /// which report what they meter elsewhere in the payload. An absent group
-    /// does not mean the request metered no audio: Voice Agent records report
-    /// their duration in a separate `sts_details` object that this type does
-    /// not model. A `/v1/listen` or `/v2/listen` request that carried no audio
-    /// is a separate case — the API sends the group with zeroes, which decodes
-    /// as `Some(0.0)`. Decide deliberately what `None` means for your
-    /// accounting rather than reading it as zero.
+    /// `None` means only that the API omitted that group from this record.
+    /// `/v1/read`, `/v1/speak`, `/v2/speak`, and `/v1/agent/converse` records
+    /// always omit it, and Flux speech-to-text (`/v2/listen`) records
+    /// sometimes do.
+    ///
+    /// An absent group does not mean the request metered no audio. Those
+    /// endpoints report what they meter elsewhere in the payload, in fields
+    /// this type does not model: Voice Agent records carry
+    /// `sts_details.duration`, text-to-speech records carry
+    /// `tts_details.speech_segments[].characters`, and `/v1/read` records
+    /// carry `token_details`.
+    ///
+    /// A request that carried no audio is a different case: `/v1/listen` and
+    /// `/v2/listen` send the group with zeroes, which decodes as `Some(0.0)`,
+    /// not `None`.
+    ///
+    /// Decide deliberately what `None` means for your accounting rather than
+    /// reading it as zero.
     pub duration: Option<f64>,
 
     /// Total audio submitted with the request, in seconds, from the
@@ -412,6 +421,33 @@ mod tests {
         "callback": null
     }"#;
 
+    /// A Flux speech-to-text session that ran no model. The upgrade succeeds
+    /// (code 101), `models` is empty, and the API omits the whole meter group
+    /// — unlike [`LISTEN_STREAMING_ZERO_AUDIO`], where it is present and
+    /// zeroed. Both shapes occur on `/v2/listen`.
+    const FLUX_STREAMING_WITHOUT_METER_GROUP: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333339",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-15T10:31:02.101002Z",
+        "path": "/v2/listen?model=flux-general-en&encoding=linear16&sample_rate=16000&numerals=true",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": {
+            "details": {
+                "usd": 0.0,
+                "models": [],
+                "method": "streaming",
+                "tags": [],
+                "features": [],
+                "config": {}
+            },
+            "token_details": [],
+            "code": 101,
+            "completed": "2026-09-15T10:31:02.180411Z",
+            "deployment": "hosted:us"
+        },
+        "callback": null
+    }"#;
+
     /// A rejected request. The API sends no `details` at all and moves `method`
     /// up next to `message`.
     const FAILED_WITHOUT_DETAILS: &str = r#"{
@@ -596,6 +632,19 @@ mod tests {
         assert_eq!(details.channels, Some(1));
         assert_eq!(details.streams, Some(1));
         assert_eq!(details.method, "streaming");
+    }
+
+    /// The same endpoint sends both shapes, so an absent meter group cannot be
+    /// inferred from the endpoint alone.
+    #[test]
+    fn deserialize_flux_streaming_without_meter_group() {
+        let details = details(FLUX_STREAMING_WITHOUT_METER_GROUP);
+        assert_eq!(details.duration, None);
+        assert_eq!(details.total_audio, None);
+        assert_eq!(details.channels, None);
+        assert_eq!(details.streams, None);
+        assert_eq!(details.method, "streaming");
+        assert!(details.models.is_empty());
     }
 
     #[test]
