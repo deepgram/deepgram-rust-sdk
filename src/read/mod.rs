@@ -1,0 +1,45 @@
+//! Analyze text with Deepgram's Text Intelligence (`/v1/read`) API.
+//!
+//! Text Intelligence applies the same sentiment, summarization, topic, and
+//! intent analyses as [Audio Intelligence][audio], but to text you already
+//! have (a transcript, document, chat log, or email) rather than to audio.
+//!
+//! Construct a [`TextIntelligence`] with [`Deepgram::text_intelligence`].
+//!
+//! The API supports English only; the request builder sends `language=en`
+//! automatically because the endpoint requires it.
+//!
+//! See the [Deepgram Text Intelligence docs][docs] for more info.
+//!
+//! [docs]: https://developers.deepgram.com/docs/text-intelligence
+//! [audio]: https://developers.deepgram.com/docs/audio-intelligence
+
+use crate::Deepgram;
+
+pub mod options;
+pub mod response;
+pub mod rest;
+
+/// Analyze text using Deepgram's Text Intelligence API.
+///
+/// Constructed using [`Deepgram::text_intelligence`].
+///
+/// See the [Deepgram Text Intelligence docs][docs] for more info.
+///
+/// [docs]: https://developers.deepgram.com/docs/text-intelligence
+#[derive(Debug, Clone)]
+pub struct TextIntelligence<'a>(&'a Deepgram);
+
+impl Deepgram {
+    /// Construct a new [`TextIntelligence`] from a [`Deepgram`].
+    pub fn text_intelligence(&self) -> TextIntelligence<'_> {
+        self.into()
+    }
+}
+
+impl<'a> From<&'a Deepgram> for TextIntelligence<'a> {
+    /// Construct a new [`TextIntelligence`] from a [`Deepgram`].
+    fn from(deepgram: &'a Deepgram) -> Self {
+        Self(deepgram)
+    }
+}

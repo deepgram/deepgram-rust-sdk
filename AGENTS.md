@@ -12,10 +12,11 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 
 | Path | What lives there |
 | --- | --- |
-| `src/lib.rs` | The `Deepgram` client, `DeepgramError`, the `Transcription` and `Speak` handles, base URL, and `User-Agent` |
+| `src/lib.rs` | The `Deepgram` client, `DeepgramError`, the `Transcription`, `Speak`, and `TextIntelligence` handles, the `TranscriptionStream` re-export, base URL, and `User-Agent` |
 | `src/listen/` | `rest.rs` (pre-recorded), `websocket.rs` (Nova streaming over `/v1/listen`), `flux.rs` (Flux STT over `/v2/listen`) |
 | `src/speak/` | `rest.rs` (Aura over `/v1/speak`), `options.rs`, `response.rs` (`SpeakMetadata`, the `/v1/speak` response headers), `flux/` (Flux TTS over `/v2/speak`: `rest.rs`, `websocket.rs`, `options.rs`, `response.rs`) |
-| `src/manage/` | Management API: `billing`, `invitations`, `keys`, `members`, `projects`, `scopes`, `usage`. Each has response types; `keys` and `projects` have `options.rs`, and `usage` has operation-specific option modules. |
+| `src/read/` | Text Intelligence over `POST /v1/read`: `rest.rs` (requests), `options.rs` (query builder), `response.rs` |
+| `src/manage/` | Management API: `billing`, `invitations`, `keys`, `members`, `models`, `projects`, `scopes`, `usage`. Each has response types; `keys` and `projects` have `options.rs`, and `usage` has operation-specific option modules. |
 | `src/auth/` | `grant` for temporary tokens |
 | `src/common/` | Shared `Options` builder, `Model` enum, audio sources, the batch, stream, and Flux STT response types, and `captions.rs` (the SRT/WebVTT helper) |
 | `src/diagnostics.rs` | Opt-in per-phase connect timing for `/v1/listen` (feature `connect-diagnostics`) |
@@ -27,11 +28,11 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 
 ## Cargo features
 
-`default = ["manage", "listen", "speak"]`. `listen` and `speak` each pull in `tungstenite` and `tokio-tungstenite` plus the internal `__tls` feature (`rustls`, `rustls-pki-types`, `tokio-rustls`, `webpki-roots`, `tracing`), so every `wss://` surface shares one rustls connector; `rustls-tls-native-roots` adds `rustls-native-certs` and enables the same-named `tokio-tungstenite` feature to trust the OS certificate store on top of the bundled roots; `connect-diagnostics` implies `listen` and adds `uuid/v4`. `auth` is always compiled. Gate a new module with `#[cfg(feature = "...")]` in `src/lib.rs` and add a `cargo check --no-default-features --features=<name>` line to `ci.yaml` if you add a feature.
+`default = ["manage", "listen", "speak", "read"]`. `listen` and `speak` each pull in `tungstenite` and `tokio-tungstenite` plus the internal `__tls` feature (`rustls`, `rustls-pki-types`, `tokio-rustls`, `webpki-roots`, `tracing`), so every `wss://` surface shares one rustls connector; `rustls-tls-native-roots` adds `rustls-native-certs` and enables the same-named `tokio-tungstenite` feature to trust the OS certificate store on top of the bundled roots; `connect-diagnostics` implies `listen` and adds `uuid/v4`. `read` and `manage` are HTTP-only and pull in no extra dependencies. `auth` has no feature gate and is always compiled; `src/common/` is gated `#[cfg(any(feature = "listen", feature = "read"))]`, because both surfaces share its `Options` builder and response types. Gate a new module with `#[cfg(feature = "...")]` in `src/lib.rs` and add a `cargo check --no-default-features --features=<name>` line to `ci.yaml` if you add a feature.
 
 ## Client surfaces
 
-Every row below was checked against `src/` on 2026-09-13.
+Every row below was checked against `src/` on 2026-09-15.
 
 | Product | Endpoint | Entry point | Status |
 | --- | --- | --- | --- |
@@ -43,8 +44,8 @@ Every row below was checked against `src/` on 2026-09-13.
 | Flux TTS, batch | `POST /v2/speak` | `dg.text_to_speech().flux_speak_to_file(...)`, `flux_speak_to_stream(...)` | Shipped (`speak`) since 0.10.1 |
 | Flux TTS, streaming | `wss /v2/speak` | `dg.text_to_speech().flux_request(options).handle()` for a `FluxSpeakHandle` (`speak`, `flush`, `interrupt`, `configure_speed`, `close`, `receive`); events arrive as `FluxSpeakResponse` | Shipped (`speak`) since 0.10.1 |
 | Voice Agent | `wss agent.deepgram.com/v1/agent/converse` | none | Not shipped (in progress on `origin/feat/agent-websocket` and `origin/feat/phase-4-voice-agent`) |
-| Text intelligence | `POST /v1/read` | none | Not shipped (in progress on `origin/feat/phase-2-read-stream-models`) |
-| Management API | `/v1/projects/...` | `dg.projects()`, `dg.keys()`, `dg.members()`, `dg.scopes()`, `dg.invitations()`, `dg.usage()`, `dg.billing()` | Shipped (`manage`); no `models` endpoint |
+| Text intelligence | `POST /v1/read` | `dg.text_intelligence()` for a `TextIntelligence` (`analyze_text`, `analyze_url`, `analyze_text_callback`, `analyze_url_callback`, `make_read_request_builder`, `make_read_callback_request_builder`) | Shipped (`read`) |
+| Management API | `/v1/projects/...` | `dg.projects()`, `dg.keys()`, `dg.members()`, `dg.scopes()`, `dg.invitations()`, `dg.usage()`, `dg.billing()`, and `dg.models()` for a `Models` (`get_models`, `get_models_including_outdated`, `get_model`, `get_project_models`, `get_project_models_including_outdated`, `get_project_model`) | Shipped (`manage`) |
 | Self-hosted credentials | `/v1/projects/{id}/onprem/...` | none | Not shipped |
 | Auth (grant token) | `POST /v1/auth/grant` | `dg.auth().grant(options)` | Shipped |
 
@@ -61,11 +62,11 @@ CI runs every job on every push and pull request with `RUSTFLAGS=-D warnings` an
 | CI job | Command | Notes |
 | --- | --- | --- |
 | Format | `cargo fmt --check --all` | Run `cargo fmt --all` to fix |
-| Features | `cargo check --all-targets --no-default-features`, then the same with `--features=listen`, `--features=speak`, `--features=manage`, `--features=connect-diagnostics`, `--features=listen,rustls-tls-native-roots`, `--features=speak,rustls-tls-native-roots`, `--features=connect-diagnostics,rustls-tls-native-roots`, then `cargo test --tests` with default features | Each feature must compile alone, and the native-roots feature with each surface it applies to |
+| Features | `cargo check --all-targets --no-default-features`, then the same with `--features=listen`, `--features=speak`, `--features=manage`, `--features=read`, `--features=connect-diagnostics`, `--features=listen,rustls-tls-native-roots`, `--features=speak,rustls-tls-native-roots`, `--features=connect-diagnostics,rustls-tls-native-roots`, then `cargo test --tests` with default features | Each feature must compile alone, and the native-roots feature with each surface it applies to |
 | Build | `cargo build --all-targets --all-features` | About 3 minutes from a cold cache |
 | Clippy | `cargo clippy --all-targets --all-features` | Zero warnings at 0.10.1; `#![warn(clippy::cargo)]` is on in `lib.rs` |
 | Test | `cargo test --all --all-features` | At 0.10.1: 105 unit tests pass, 2 are ignored, the `*_local.rs` integration tests pass, and the `*_e2e.rs` tests are ignored. No network access needed |
-| Documentation | `cargo doc --workspace --all-features` | `missing_docs` is a warning and warnings are errors, so every public item needs a doc comment |
+| Documentation | `cargo doc --workspace --all-features`, then `cargo doc --no-deps --no-default-features --features <f>` for each of `listen`, `speak`, `manage`, `read`, `connect-diagnostics` | `missing_docs` is a warning and warnings are errors, so every public item needs a doc comment. The per-feature runs catch intra-doc links into modules that another feature gates; write those as a `#[cfg_attr(feature = "...", doc = "...")]` pair (see `src/common/options.rs`) so the link survives on docs.rs, which builds all features |
 | Audit | `cargo install --locked cargo-audit cargo-hack && cargo hack --remove-dev-deps && cargo generate-lockfile && cargo audit` | Run in a throwaway checkout; it rewrites `Cargo.toml` and `Cargo.lock`. Not run for this file |
 | Minimal-Versions | Run the full sequence below | Lower bounds in `Cargo.toml` must be real; the crates under "specified only to satisfy minimal-versions" exist for this job. Not run for this file |
 | SemVer | `cargo install --locked cargo-semver-checks && cargo semver-checks check-release --verbose` | Fails a pull request that breaks the public API without a version bump. Not run for this file |

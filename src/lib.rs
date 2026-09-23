@@ -11,6 +11,7 @@
 //! - `listen` (default): speech-to-text, REST and WebSocket, including Flux.
 //! - `speak` (default): text-to-speech, REST and WebSocket, including Flux.
 //! - `manage` (default): project, key, and usage management.
+//! - `read` (default): Text Intelligence over `/v1/read`; see the `read` module.
 //! - `connect-diagnostics`: per-phase connect timings for `/v1/listen`
 //!   WebSocket connections; see the `diagnostics` module.
 //! - `rustls-tls-native-roots`: also trust the operating system's certificate
@@ -38,7 +39,7 @@ use thiserror::Error;
 use url::Url;
 
 pub mod auth;
-#[cfg(feature = "listen")]
+#[cfg(any(feature = "listen", feature = "read"))]
 pub mod common;
 #[cfg(feature = "connect-diagnostics")]
 pub mod diagnostics;
@@ -46,6 +47,8 @@ pub mod diagnostics;
 pub mod listen;
 #[cfg(feature = "manage")]
 pub mod manage;
+#[cfg(feature = "read")]
+pub mod read;
 #[cfg(feature = "speak")]
 pub mod speak;
 #[cfg(any(feature = "listen", feature = "speak"))]
@@ -59,6 +62,11 @@ pub mod tls;
 /// bump will be a breaking change for this crate as well.
 #[cfg(any(feature = "listen", feature = "speak"))]
 pub use rustls;
+
+#[cfg(feature = "listen")]
+pub use listen::websocket::TranscriptionStream;
+#[cfg(feature = "read")]
+pub use read::TextIntelligence;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 
@@ -392,6 +400,9 @@ impl Deepgram {
     ///
     /// Admin features, such as billing, usage, and key management will
     /// still go through the hosted site at `https://api.deepgram.com`.
+    /// The one exception is the model-listing API: `models()` builds its
+    /// requests against the base URL given here, so `get_models` reaches
+    /// `/v1/models` on your own instance.
     ///
     /// Self-hosted instances do not in general authenticate incoming
     /// requests, so unlike in [`Deepgram::new`], so no api key needs to be
@@ -440,6 +451,9 @@ impl Deepgram {
     ///
     /// Admin features, such as billing, usage, and key management will
     /// still go through the hosted site at `https://api.deepgram.com`.
+    /// The one exception is the model-listing API: `models()` builds its
+    /// requests against the base URL given here, so `get_models` reaches
+    /// `/v1/models` on your own instance.
     ///
     /// The base URL's scheme decides how WebSocket connections are made:
     /// `https://` gives `wss://`, with TLS and certificate verification (see
