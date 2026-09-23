@@ -40,8 +40,14 @@ async fn main() -> Result<(), DeepgramError> {
     if let Some(sentiments) = &response.results.sentiments {
         println!("average sentiment: {:?}", sentiments.average);
     }
-    if let Some(summary) = &response.results.summary {
-        println!("summary: {}", summary.text);
+    // `text` is optional in the `/v1/read` contract, so handle its absence.
+    if let Some(text) = response
+        .results
+        .summary
+        .as_ref()
+        .and_then(|s| s.text.as_deref())
+    {
+        println!("summary: {text}");
     }
     if let Some(topics) = &response.results.topics {
         println!("topic segments: {}", topics.segments.len());
