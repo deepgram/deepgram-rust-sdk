@@ -455,7 +455,15 @@ mod tests {
     #[test]
     fn create_sends_provider_comment_scopes_in_json_body_with_no_query() {
         // The API server reads `provider`, `comment`, and `scopes` from the
-        // JSON body (all required) and does not read any query parameters.
+        // JSON body and does not read any query parameters. Verified against
+        // `api.deepgram.com` and `api.staging.deepgram.com` on 2026-09-23:
+        // all three are required, and omitting any one of them answers
+        // HTTP 400 with `Json deserialize error: missing field <name>` even
+        // when the same value is supplied as a query parameter. `provider`
+        // is an enum with a single accepted value; any other string answers
+        // `unknown variant ..., expected `quay``. The published reference
+        // documents `scopes` and `provider` as query parameters and
+        // `comment` as an optional body field, which the server contradicts.
         let dg = Deepgram::new("token").unwrap();
         let request = CreateDistributionCredentials::new("my deployment");
         let built = dg
