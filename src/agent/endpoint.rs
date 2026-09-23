@@ -17,11 +17,14 @@ use serde::{Deserialize, Serialize};
 /// manage those LLMs) and optional for `open_ai`, `anthropic`, and
 /// `google`, where omitting it selects Deepgram's managed LLM.
 ///
-/// The `Debug` output redacts header values (header names are kept) and
-/// any `user:pass@` userinfo in the URL, so that logging a `Settings`,
-/// `ThinkSettings`, or `SpeakSettings` never leaks an `Authorization`
-/// header, an API-key header, or a credential embedded in the endpoint
-/// URL. Serialization is unaffected.
+/// The `Debug` output redacts header values (header names are kept), any
+/// `user:pass@` userinfo in the URL, and the value of any query- or
+/// fragment-parameter whose name names a credential, so that logging a
+/// `Settings`, `ThinkSettings`, or `SpeakSettings` never leaks an
+/// `Authorization` header, an API-key header, or a credential embedded in
+/// the endpoint URL. A percent-encoded parameter name is decoded before it
+/// is matched, so `?api%2Dkey=` redacts exactly as `?api-key=` does.
+/// Serialization is unaffected.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Endpoint {
@@ -79,8 +82,10 @@ impl fmt::Debug for RedactedHeaders<'_> {
 
 /// `Debug` adapter for a URL that prints everything except the parts that
 /// carry a credential — `user:pass@` userinfo in the authority, and the
-/// value of any query parameter whose name names a secret — each replaced
-/// with `"<redacted>"`.
+/// value of any query- or fragment-parameter whose name names a secret —
+/// each replaced with `"<redacted>"`. A percent-encoded parameter name is
+/// decoded before it is matched, so encoding the name does not evade the
+/// redaction.
 ///
 /// A credential can live in a URL (`https://user:pass@llm.internal`) or in
 /// its query string (`?api-key=…`), so printing `url` verbatim would defeat
@@ -135,8 +140,9 @@ fn redact_userinfo(url: &str) -> Option<String> {
     Some(format!("{prefix}{REDACTED}@{}", &rest[at + 1..]))
 }
 
-/// Replace the value of any query parameter whose name names a credential
-/// with `<redacted>`, or return `None` when there is nothing to redact.
+/// Replace the value of any query- or fragment-parameter whose name names
+/// a credential with `<redacted>`, or return `None` when there is nothing
+/// to redact.
 ///
 /// A credential is routinely a query parameter rather than a header — Google
 /// AI Studio takes `?key=`, Azure OpenAI takes `?api-key=`, and a pre-signed
@@ -145,23 +151,55 @@ fn redact_userinfo(url: &str) -> Option<String> {
 /// userinfo and the header values would print such a key in full, right next
 /// to a header value that reads as redacted.
 ///
+/// The fragment gets the same treatment as the query: an OAuth implicit-flow
+/// redirect carries `#access_token=…`, which is a bearer credential wherever
+/// it sits in the URL. A fragment that is not a `name=value` list is left
+/// verbatim.
+///
 /// Deliberately string-based, for the same reason as [`redact_userinfo`]:
 /// the field is a free-form `String` that may not parse as a URL.
 fn redact_query_secrets(url: &str) -> Option<String> {
-    let (before, query) = url.split_once('?')?;
-    // A fragment is not part of the query.
-    let (query, fragment) = match query.split_once('#') {
-        Some((query, fragment)) => (query, Some(fragment)),
-        None => (query, None),
+    // The fragment is the last component, so split it off before the query:
+    // a `?` inside a fragment does not start a query string.
+    let (head, fragment) = match url.split_once('#') {
+        Some((head, fragment)) => (head, Some(fragment)),
+        None => (url, None),
     };
+    let (before, query) = match head.split_once('?') {
+        Some((before, query)) => (before, Some(query)),
+        None => (head, None),
+    };
+    let redacted_query = query.and_then(redact_pairs);
+    let redacted_fragment = fragment.and_then(redact_pairs);
+    if redacted_query.is_none() && redacted_fragment.is_none() {
+        return None;
+    }
+    let mut out = String::from(before);
+    if let Some(query) = redacted_query.as_deref().or(query) {
+        out.push('?');
+        out.push_str(query);
+    }
+    if let Some(fragment) = redacted_fragment.as_deref().or(fragment) {
+        out.push('#');
+        out.push_str(fragment);
+    }
+    Some(out)
+}
+
+/// Redact the secret-named entries of an `a=1&b=2` list, or return `None`
+/// when none of the names is a credential.
+///
+/// The name is reproduced exactly as it was written — percent-encoding and
+/// all — so the printed URL still says which parameter was dropped.
+fn redact_pairs(pairs: &str) -> Option<String> {
     let mut redacted_any = false;
-    let mut out = String::with_capacity(query.len());
-    for (index, pair) in query.split('&').enumerate() {
+    let mut out = String::with_capacity(pairs.len());
+    for (index, pair) in pairs.split('&').enumerate() {
         if index > 0 {
             out.push('&');
         }
         match pair.split_once('=') {
-            Some((name, _)) if is_secret_param(name) => {
+            Some((name, _)) if names_secret(name) => {
                 redacted_any = true;
                 out.push_str(name);
                 out.push('=');
@@ -170,18 +208,87 @@ fn redact_query_secrets(url: &str) -> Option<String> {
             _ => out.push_str(pair),
         }
     }
-    if !redacted_any {
-        return None;
-    }
-    Some(match fragment {
-        Some(fragment) => format!("{before}?{out}#{fragment}"),
-        None => format!("{before}?{out}"),
-    })
+    redacted_any.then_some(out)
 }
 
-/// Whether a query-parameter name names a credential. Compared with `-` and
-/// `_` removed and ignoring case, so `api-key`, `api_key` and `apiKey` all
-/// match the same entry.
+/// How many rounds of percent-decoding [`names_secret`] will undo before it
+/// gives up. Three covers the plain name, a once-encoded name, and a
+/// doubly-encoded one, which is as far as a proxy chain realistically
+/// re-encodes.
+const MAX_PERCENT_DECODE_ROUNDS: usize = 3;
+
+/// Whether a parameter name names a credential, looking through any
+/// percent-encoding in the name itself.
+///
+/// A name is compared raw first and then after each round of decoding, so
+/// `api%2Dkey` and `%6Bey` are recognized as `api-key` and `key` rather than
+/// slipping past the list as literal text. Decoding more rounds than a
+/// server would can only redact a parameter that was not a credential, which
+/// is the harmless direction for a `Debug` impl.
+fn names_secret(name: &str) -> bool {
+    if is_secret_param(name) {
+        return true;
+    }
+    let mut candidate = name.to_owned();
+    for _ in 0..MAX_PERCENT_DECODE_ROUNDS {
+        let Some(decoded) = percent_decode(&candidate) else {
+            return false;
+        };
+        if is_secret_param(&decoded) {
+            return true;
+        }
+        candidate = decoded;
+    }
+    false
+}
+
+/// Undo one round of percent-decoding, or return `None` when the input holds
+/// no decodable `%XX` escape (or decodes to something that is not UTF-8).
+///
+/// The hex digits are matched in either case, so `%2d` and `%2D` both decode
+/// to `-`.
+fn percent_decode(value: &str) -> Option<String> {
+    if !value.contains('%') {
+        return None;
+    }
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut decoded_any = false;
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' && index + 2 < bytes.len() {
+            if let (Some(high), Some(low)) =
+                (hex_digit(bytes[index + 1]), hex_digit(bytes[index + 2]))
+            {
+                out.push(high * 16 + low);
+                index += 3;
+                decoded_any = true;
+                continue;
+            }
+        }
+        out.push(bytes[index]);
+        index += 1;
+    }
+    if !decoded_any {
+        return None;
+    }
+    String::from_utf8(out).ok()
+}
+
+/// Numeric value of one ASCII hex digit, in either case.
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+/// Whether a decoded parameter name names a credential. Compared with `-`
+/// and `_` removed and ignoring case, so `api-key`, `api_key` and `apiKey`
+/// all match the same entry. Callers go through [`names_secret`], which
+/// also looks through percent-encoding.
 fn is_secret_param(name: &str) -> bool {
     let normalized: String = name
         .chars()
@@ -410,6 +517,116 @@ mod tests {
             let debug = format!("{:?}", Endpoint::new(url));
             assert!(debug.contains(url), "got: {debug}");
         }
+    }
+
+    #[test]
+    fn debug_redacts_a_percent_encoded_credential_parameter_name() {
+        // The name is compared after percent-decoding, so encoding a
+        // character of the name does not smuggle the value past the list.
+        // The printed name keeps its original spelling.
+        for (url, secret, name) in [
+            // `-` encoded.
+            (
+                "https://example.test/?api%2Dkey=SECRET1",
+                "SECRET1",
+                "api%2Dkey",
+            ),
+            // Lowercase hex digits.
+            (
+                "https://example.test/?api%2dkey=SECRET2",
+                "SECRET2",
+                "api%2dkey",
+            ),
+            // A letter of the name itself encoded.
+            ("https://example.test/?%6Bey=SECRET3", "SECRET3", "%6Bey"),
+            // Mixed case in the encoded sequence and in the name.
+            (
+                "https://example.test/?Api%5Fkey=SECRET4",
+                "SECRET4",
+                "Api%5Fkey",
+            ),
+            // Doubly encoded: `%252D` decodes to `%2D`, then to `-`.
+            (
+                "https://example.test/?api%252Dkey=SECRET5",
+                "SECRET5",
+                "api%252Dkey",
+            ),
+            // Fully encoded name.
+            (
+                "https://example.test/?%61%70%69%2d%6b%65%79=SECRET6",
+                "SECRET6",
+                "%61%70%69%2d%6b%65%79",
+            ),
+        ] {
+            let debug = format!("{:?}", Endpoint::new(url));
+            assert!(!debug.contains(secret), "leaked {secret} in: {debug}");
+            assert!(
+                debug.contains(&format!("{name}={REDACTED}")),
+                "expected the original name in: {debug}"
+            );
+        }
+    }
+
+    #[test]
+    fn debug_redacts_a_credential_carried_in_the_fragment() {
+        // An OAuth implicit-flow redirect puts the bearer token after the
+        // `#`, where it is exactly as sensitive as a query parameter.
+        for (url, secret) in [
+            (
+                "https://example.test/cb#access_token=FRAGSECRET&state=xyz",
+                "FRAGSECRET",
+            ),
+            (
+                "https://example.test/cb#api%2Dkey=FRAGSECRET2",
+                "FRAGSECRET2",
+            ),
+            (
+                "https://example.test/cb?model=gpt-4o#token=FRAGSECRET3",
+                "FRAGSECRET3",
+            ),
+        ] {
+            let debug = format!("{:?}", Endpoint::new(url));
+            assert!(!debug.contains(secret), "leaked {secret} in: {debug}");
+            assert!(debug.contains(REDACTED), "got: {debug}");
+        }
+        // Non-secret fragment entries and the rest of the URL survive.
+        let debug = format!(
+            "{:?}",
+            Endpoint::new("https://example.test/cb#access_token=FRAGSECRET&state=xyz")
+        );
+        assert!(debug.contains("state=xyz"), "got: {debug}");
+        assert!(debug.contains("https://example.test/cb#"), "got: {debug}");
+    }
+
+    #[test]
+    fn debug_keeps_a_percent_encoded_non_secret_parameter_verbatim() {
+        // Decoding is only a lens for the secret check; a parameter that is
+        // not a credential is printed exactly as written, value included.
+        for url in [
+            "https://llm.internal/v1/chat?mo%64el=gpt-4o",
+            // An invalid escape is not an escape.
+            "https://llm.internal/v1/chat?api%2key=notdecodable",
+            // A `%` with nothing after it must not panic or truncate.
+            "https://llm.internal/v1/chat?model=gpt-4o%",
+        ] {
+            let debug = format!("{:?}", Endpoint::new(url));
+            assert!(debug.contains(url), "got: {debug}");
+        }
+    }
+
+    #[test]
+    fn debug_redacts_a_percent_encoded_credential_next_to_a_plain_one() {
+        let debug = format!(
+            "{:?}",
+            Endpoint::new(
+                "https://llm.internal/v1?model=gpt-4o&api%2Dkey=ENCSECRET&token=PLAINSECRET"
+            )
+        );
+        assert!(!debug.contains("ENCSECRET"), "got: {debug}");
+        assert!(!debug.contains("PLAINSECRET"), "got: {debug}");
+        assert!(debug.contains("model=gpt-4o"), "got: {debug}");
+        assert!(debug.contains("api%2Dkey=<redacted>"), "got: {debug}");
+        assert!(debug.contains("token=<redacted>"), "got: {debug}");
     }
 
     #[test]
