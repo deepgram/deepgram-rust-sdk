@@ -22,8 +22,8 @@ use anyhow::anyhow;
 use bytes::Bytes;
 use futures::{
     channel::mpsc::{self, Receiver, Sender},
-    future::{pending, FutureExt},
-    select_biased,
+    future::{pending, poll_fn, FutureExt},
+    pin_mut, select_biased,
     stream::StreamExt,
     SinkExt, Stream,
 };
@@ -493,12 +493,17 @@ impl WebsocketBuilder<'_> {
 }
 
 macro_rules! send_message {
-    ($stream:expr, $response_tx:expr, $msg:expr) => {
+    ($stream:expr, $error_tx:expr, $is_open:ident, $msg:expr) => {
         if let Err(err) = $stream.send($msg).await {
-            if $response_tx.send(Err(err.into())).await.is_err() {
-                // Responses are no longer being received; close the stream.
-                break;
-            }
+            // A failed write means the transport is broken: forward the
+            // terminal error once and end the worker, rather than keep
+            // accepting commands doomed to fail the same way. The forward
+            // goes through `error_tx` and its guaranteed slot, so a consumer
+            // that is behind on responses still receives the error and the
+            // worker never waits for room to deliver it.
+            let _ = $error_tx.try_send(Err(err.into()));
+            $is_open = false;
+            break;
         }
     };
 }
@@ -509,18 +514,80 @@ async fn run_worker(
     mut response_tx: Sender<Result<StreamResponse>>,
     keep_alive: bool,
 ) -> Result<()> {
+    // A sender reserved for the terminal transport error, as in
+    // `run_flux_worker`. A `futures` mpsc channel holds `buffer +
+    // num_senders` messages, so a fresh clone brings its own guaranteed slot
+    // (raising this channel's real capacity from 257 to 258): forwarding the
+    // error through it neither waits for room — which would park this worker
+    // while a caller that is not draining responses is parked on the full
+    // command channel — nor drops the error, which forwarding through
+    // `response_tx` would do whenever that sender is the one parked on a
+    // full response channel. The slot is used at most once, on the single
+    // terminal path that ends the worker.
+    let mut error_tx = response_tx.clone();
     // We use Vec<u8> for partial frames because we don't know if a fragment of a string is valid utf-8.
     let mut partial_frame: Vec<u8> = Vec::new();
     let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
+    // False once `message_rx` is exhausted (all senders dropped or the
+    // channel closed): a closed-and-drained channel reports `Ready(None)`
+    // on every poll, so keeping it in the select would busy-spin while
+    // draining the final inbound responses.
+    let mut commands_open: bool = true;
     let mut last_sent_message = tokio::time::Instant::now();
+
+    /// One scheduling decision per loop iteration.
+    enum Step {
+        /// The keep-alive timer elapsed.
+        KeepAlive,
+        /// An inbound frame arrived, with response-channel capacity already
+        /// reserved for forwarding it.
+        Inbound(Option<std::result::Result<Message, tungstenite::Error>>),
+        /// An outbound message is ready to be written to the socket.
+        Outbound(Option<WsMessage>),
+        /// The response consumer went away.
+        ResponsesClosed,
+    }
+
     loop {
         // eprintln!("<worker> loop");
         let sleep = tokio::time::sleep_until(last_sent_message + Duration::from_secs(3));
-        // Primary event loop.
-        select_biased! {
-            _ = sleep.fuse() => {
+        // Reserve response-channel capacity *before* reading an inbound
+        // frame: when the consumer is backpressured, inbound reads pause
+        // (backpressure propagates to the socket) instead of blocking this
+        // loop mid-forward. Blocking there parks the worker on a live
+        // socket, so it stops writing audio, stops noticing that the
+        // transport has broken, and never reaches the terminal error path at
+        // all — while the caller fills the bounded command channel and parks
+        // in `send_data` too. The inbound future borrows `response_tx` and
+        // `ws_stream_recv`, so it is scoped to the selection and dropped
+        // before the step is handled.
+        let step = {
+            let inbound = async {
+                match poll_fn(|cx| response_tx.poll_ready(cx)).await {
+                    Ok(()) => Step::Inbound(ws_stream_recv.next().await),
+                    Err(_) => Step::ResponsesClosed,
+                }
+            }
+            .fuse();
+            pin_mut!(inbound);
+            if commands_open {
+                select_biased! {
+                    _ = sleep.fuse() => Step::KeepAlive,
+                    step = inbound => step,
+                    message = message_rx.next() => Step::Outbound(message),
+                }
+            } else {
+                select_biased! {
+                    _ = sleep.fuse() => Step::KeepAlive,
+                    step = inbound => step,
+                }
+            }
+        };
+
+        match step {
+            Step::KeepAlive => {
                 // eprintln!("<worker> sleep");
                 if keep_alive && is_open {
                     // Ignore send errors: the channel may have been closed by
@@ -528,29 +595,27 @@ async fn run_worker(
                     // processes the pending CloseStream message. In that case
                     // the next iteration will handle CloseStream, stop sending new
                     // messages, and proceed toward shutdown.
-                    let _ = message_tx.send(WsMessage::ControlMessage(ControlMessage::KeepAlive)).await;
+                    let _ = message_tx
+                        .send(WsMessage::ControlMessage(ControlMessage::KeepAlive))
+                        .await;
                     last_sent_message = tokio::time::Instant::now();
                 } else {
                     pending::<()>().await;
                 }
             }
-            response = ws_stream_recv.next() => {
+            Step::ResponsesClosed => {
+                // Responses are no longer being received; close the stream.
+                break;
+            }
+            Step::Inbound(response) => {
                 match response {
                     Some(Ok(Message::Text(response))) => {
                         // eprintln!("<worker> received dg response");
-                        match serde_json::from_str(&response) {
-                            Ok(response) => {
-                                if (response_tx.send(Ok(response)).await).is_err() {
-                                    // Responses are no longer being received; close the stream.
-                                    break;
-                                }
-                            }
-                            Err(err) =>{
-                                if (response_tx.send(Err(err.into())).await).is_err() {
-                                    // Responses are no longer being received; close the stream.
-                                    break;
-                                }
-                            }
+                        let response = serde_json::from_str(&response).map_err(DeepgramError::from);
+                        // Capacity was reserved above, so this does not block.
+                        if response_tx.start_send(response).is_err() {
+                            // Responses are no longer being received; close the stream.
+                            break;
                         }
                     }
                     Some(Ok(Message::Ping(value))) => {
@@ -570,8 +635,7 @@ async fn run_worker(
                     }
 
                     Some(Ok(Message::Frame(frame))) => {
-                        match frame.header().opcode
-                        {
+                        match frame.header().opcode {
                             OpCode::Data(Data::Text) => {
                                 partial_frame.extend(frame.payload());
                             }
@@ -586,10 +650,12 @@ async fn run_worker(
                         }
                         if frame.header().is_final {
                             let response = std::mem::take(&mut partial_frame);
-                            let response = serde_json::from_slice(&response).map_err(|err| err.into());
-                            if (response_tx.send(response).await).is_err() {
+                            let response =
+                                serde_json::from_slice(&response).map_err(|err| err.into());
+                            // Capacity was reserved above, so this does not block.
+                            if response_tx.start_send(response).is_err() {
                                 // Responses are no longer being received; close the stream.
-                                break
+                                break;
                             }
                         }
                     }
@@ -599,32 +665,48 @@ async fn run_worker(
                     }
 
                     Some(Err(err)) => {
-                        if (response_tx.send(Err(err.into())).await).is_err() {
-                            // Responses are no longer being received; close the stream.
-                            break;
-                        }
-
+                        // A read error is terminal for the transport: forward
+                        // it once and end the worker, rather than keep polling
+                        // a broken socket, which can surface the same failure
+                        // again. Capacity was reserved above.
+                        let _ = response_tx.start_send(Err(err.into()));
+                        is_open = false;
+                        break;
                     }
                     None => {
                         // Upstream is closed
                         // eprintln!("<worker> received None");
-                        return Ok(())
+                        return Ok(());
                     }
                 }
             }
-            message = message_rx.next() => {
+            Step::Outbound(message) => {
                 // eprintln!("<worker> received message: {message:?}, {is_open:?}");
+                if message.is_none() {
+                    // The command channel is exhausted; stop polling it so the
+                    // remaining inbound responses drain without busy-spinning.
+                    commands_open = false;
+                }
                 if is_open {
                     match message {
-                        Some(WsMessage::Audio(audio))=> {
-                            send_message!(ws_stream_send, response_tx, Message::Binary(Bytes::from(audio.0)));
+                        Some(WsMessage::Audio(audio)) => {
+                            send_message!(
+                                ws_stream_send,
+                                error_tx,
+                                is_open,
+                                Message::Binary(Bytes::from(audio.0))
+                            );
                             last_sent_message = tokio::time::Instant::now();
-
                         }
                         Some(WsMessage::ControlMessage(msg)) => {
-                            send_message!(ws_stream_send, response_tx, Message::Text(
-                                Utf8Bytes::from(serde_json::to_string(&msg).unwrap_or_default())
-                            ));
+                            send_message!(
+                                ws_stream_send,
+                                error_tx,
+                                is_open,
+                                Message::Text(Utf8Bytes::from(
+                                    serde_json::to_string(&msg).unwrap_or_default()
+                                ))
+                            );
                             last_sent_message = tokio::time::Instant::now();
                             if msg == ControlMessage::CloseStream {
                                 is_open = false;
@@ -632,35 +714,46 @@ async fn run_worker(
                         }
                         None => {
                             // Input stream is shut down.  Keep processing responses.
-                            send_message!(ws_stream_send, response_tx, Message::Text(
-                                Utf8Bytes::from(serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default())
-                            ));
+                            send_message!(
+                                ws_stream_send,
+                                error_tx,
+                                is_open,
+                                Message::Text(Utf8Bytes::from(
+                                    serde_json::to_string(&ControlMessage::CloseStream)
+                                        .unwrap_or_default()
+                                ))
+                            );
                             is_open = false;
                         }
                     }
                 }
             }
-        };
+        }
     }
     // eprintln!("<worker> post loop");
-    if let Err(err) = ws_stream_send
-        .send(Message::Text(Utf8Bytes::from(
-            serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default(),
-        )))
-        .await
-    {
-        // If the response channel is closed, there's nothing to be done about it now.
-        let _ = response_tx.send(Err(err.into())).await;
+    // Only if the session is still open. A write that already failed spent
+    // `error_tx`'s slot and set `is_open` to false, so this cannot forward a
+    // second error for the same broken transport.
+    if is_open {
+        if let Err(err) = ws_stream_send
+            .send(Message::Text(Utf8Bytes::from(
+                serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default(),
+            )))
+            .await
+        {
+            // `error_tx`'s guaranteed slot delivers this even when the
+            // consumer is behind; if the consumer has dropped the stream
+            // there is nothing to be done about it now.
+            let _ = error_tx.try_send(Err(err.into()));
+        }
     }
     response_tx.close_channel();
-    // Waiting for message_tx to be dropped before exiting
-    while message_rx.next().await.is_some() {
-        // Receiving messages after closing down. Ignore them.
-    }
+    // Return immediately, dropping `message_rx`: once the session is over,
+    // later sends from the handle fail fast instead of being silently
+    // accepted and discarded.
     // eprintln!("<worker> exit");
     Ok(())
 }
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum WsMessage {
     Audio(Audio),
@@ -701,13 +794,14 @@ impl WebsocketHandle {
     async fn new(builder: WebsocketBuilder<'_>) -> Result<WebsocketHandle> {
         let url = builder.as_url()?;
         let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
+        let host_header = crate::websocket_host_header(&url).ok_or(DeepgramError::InvalidUrl)?;
 
         let request = {
             let http_builder = Request::builder()
                 .method("GET")
                 .uri(url.to_string())
                 .header("sec-websocket-key", client::generate_key())
-                .header("host", host)
+                .header("host", host_header)
                 .header("connection", "upgrade")
                 .header("upgrade", "websocket")
                 .header("sec-websocket-version", "13")
