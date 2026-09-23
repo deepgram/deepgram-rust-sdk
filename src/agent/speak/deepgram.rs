@@ -20,7 +20,9 @@
 //! Phase 8 of the spec-coverage rollout reshapes the top-level model list;
 //! this enum will be kept in sync at that time.
 
-use serde::de::Error as DeError;
+use core::fmt;
+
+use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Deepgram TTS as the Voice Agent's Speak provider.
@@ -101,10 +103,18 @@ pub enum DeepgramSpeakVersion {
 
 /// Expressive range of Flux TTS speech, on a calm-to-animated axis.
 ///
-/// Serializes as the integer `-2`…`2`. [`DeepgramSpeakExpressivity::Zero`]
-/// (the default) is the voice's tuned delivery and the only value validated
-/// for production; negative values are calmer, positive values more
-/// animated. Beta — behavior may change in future model versions.
+/// Serializes as the JSON integer `-2`…`2`, which is the form the live
+/// Voice Agent service accepts under `agent.speak.provider.expressivity`;
+/// the string form the published AsyncAPI declares
+/// (`DeepgramSpeakProviderExpressivity`, `type: string`, `enum: ['-2'…'2']`)
+/// is rejected by the service with `UNPARSABLE_CLIENT_MESSAGE`. Deserialization
+/// accepts both forms, so a `Settings` written against either reading of the
+/// contract parses.
+///
+/// [`DeepgramSpeakExpressivity::Zero`] (the default) is the voice's tuned
+/// delivery and the only value validated for production; negative values are
+/// calmer, positive values more animated. Flux TTS (`v2`) only, and fixed for
+/// the session. Beta — behavior may change in future model versions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[non_exhaustive]
 pub enum DeepgramSpeakExpressivity {
@@ -147,22 +157,56 @@ impl DeepgramSpeakExpressivity {
 }
 
 impl Serialize for DeepgramSpeakExpressivity {
+    /// Always the JSON integer: the string form fails the session.
     fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
         ser.serialize_i8(self.as_i8())
     }
 }
 
 impl<'de> Deserialize<'de> for DeepgramSpeakExpressivity {
+    /// Accepts the JSON integer the service uses and the JSON string the
+    /// AsyncAPI declares, so neither reading of the contract fails to parse.
     fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-        let value = i64::deserialize(de)?;
-        i8::try_from(value)
-            .ok()
-            .and_then(Self::from_i8)
-            .ok_or_else(|| {
-                D::Error::custom(format!(
-                    "expressivity must be a whole number from -2 to 2, got {value}"
-                ))
-            })
+        struct Wire;
+
+        impl Visitor<'_> for Wire {
+            type Value = DeepgramSpeakExpressivity;
+
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("a whole number from -2 to 2, or a string holding one")
+            }
+
+            fn visit_i64<E: de::Error>(self, value: i64) -> Result<Self::Value, E> {
+                i8::try_from(value)
+                    .ok()
+                    .and_then(DeepgramSpeakExpressivity::from_i8)
+                    .ok_or_else(|| out_of_range::<E>(&value.to_string()))
+            }
+
+            fn visit_u64<E: de::Error>(self, value: u64) -> Result<Self::Value, E> {
+                i8::try_from(value)
+                    .ok()
+                    .and_then(DeepgramSpeakExpressivity::from_i8)
+                    .ok_or_else(|| out_of_range::<E>(&value.to_string()))
+            }
+
+            fn visit_str<E: de::Error>(self, value: &str) -> Result<Self::Value, E> {
+                value
+                    .trim()
+                    .parse::<i8>()
+                    .ok()
+                    .and_then(DeepgramSpeakExpressivity::from_i8)
+                    .ok_or_else(|| out_of_range::<E>(value))
+            }
+        }
+
+        fn out_of_range<E: de::Error>(value: &str) -> E {
+            E::custom(format!(
+                "expressivity must be a whole number from -2 to 2, got {value}"
+            ))
+        }
+
+        de.deserialize_any(Wire)
     }
 }
 
@@ -639,9 +683,75 @@ mod tests {
 
     #[test]
     fn expressivity_rejects_out_of_range_and_fractional() {
-        for bad in [json!(3), json!(-3), json!(1.5), json!("1")] {
+        for bad in [
+            json!(3),
+            json!(-3),
+            json!(1.5),
+            // The string form is accepted, but only for the five valid
+            // values — a quoted out-of-range or non-numeric value is not a
+            // way in.
+            json!("3"),
+            json!("1.5"),
+            json!("high"),
+            json!(""),
+            json!(null),
+        ] {
             let err = serde_json::from_value::<DeepgramSpeakExpressivity>(bad.clone());
             assert!(err.is_err(), "expected {bad} to be rejected");
+        }
+    }
+
+    #[test]
+    fn expressivity_serializes_as_a_json_integer_and_accepts_both_forms() {
+        // The published AsyncAPI declares `DeepgramSpeakProviderExpressivity`
+        // as `type: string` with `enum: ['-2','-1','0','1','2']`, but the
+        // live Voice Agent service rejects the quoted form under
+        // `agent.speak` with `UNPARSABLE_CLIENT_MESSAGE` and accepts the
+        // integer. So the SDK writes the integer, and reads either.
+        for (variant, number, string) in [
+            (DeepgramSpeakExpressivity::NegativeTwo, -2, "-2"),
+            (DeepgramSpeakExpressivity::NegativeOne, -1, "-1"),
+            (DeepgramSpeakExpressivity::Zero, 0, "0"),
+            (DeepgramSpeakExpressivity::One, 1, "1"),
+            (DeepgramSpeakExpressivity::Two, 2, "2"),
+        ] {
+            let written = serde_json::to_value(variant).unwrap();
+            assert!(written.is_number(), "expected an integer, got {written}");
+            assert_eq!(written, json!(number));
+            assert_eq!(
+                serde_json::from_value::<DeepgramSpeakExpressivity>(json!(string)).unwrap(),
+                variant
+            );
+            assert_eq!(
+                serde_json::from_value::<DeepgramSpeakExpressivity>(json!(number)).unwrap(),
+                variant
+            );
+        }
+    }
+
+    #[test]
+    fn speak_settings_expressivity_exact_wire_json_for_every_value() {
+        for (variant, expected) in [
+            (DeepgramSpeakExpressivity::NegativeTwo, "-2"),
+            (DeepgramSpeakExpressivity::NegativeOne, "-1"),
+            (DeepgramSpeakExpressivity::Zero, "0"),
+            (DeepgramSpeakExpressivity::One, "1"),
+            (DeepgramSpeakExpressivity::Two, "2"),
+        ] {
+            let settings = SpeakSettings::new(SpeakProvider::Deepgram(
+                DeepgramSpeakProvider::v2(DeepgramSpeakModel::FluxAlexisEn)
+                    .with_expressivity(variant),
+            ));
+            assert_eq!(
+                serde_json::to_string(&settings).unwrap(),
+                format!(
+                    concat!(
+                        r#"{{"provider":{{"type":"deepgram","version":"v2","#,
+                        r#""model":"flux-alexis-en","expressivity":{}}}}}"#,
+                    ),
+                    expected
+                )
+            );
         }
     }
 

@@ -384,7 +384,10 @@ mod tests {
     use crate::agent::listen::{
         AgentListenProvider, AgentListenSettings, DeepgramListenV2Provider,
     };
-    use crate::agent::speak::{DeepgramSpeakModel, DeepgramSpeakProvider, SpeakProvider};
+    use crate::agent::speak::{
+        DeepgramSpeakExpressivity, DeepgramSpeakModel, DeepgramSpeakProvider, SpeakProvider,
+        SpeakSettings,
+    };
     use crate::agent::think::{OpenAiModel, OpenAiThinkProvider, ThinkProvider};
     use serde_json::json;
 
@@ -549,6 +552,46 @@ mod tests {
         assert_eq!(value["experimental"], json!(true));
         assert_eq!(value["flags"]["history"], json!(false));
         assert_eq!(value["mip_opt_out"], json!(true));
+    }
+
+    #[test]
+    fn settings_with_flux_tts_expressivity_exact_wire_json() {
+        // The whole `Settings` frame a Flux TTS agent sends, byte for byte.
+        // `expressivity` is a JSON integer: the live service answers the
+        // quoted form with `UNPARSABLE_CLIENT_MESSAGE`.
+        let msg = SettingsMessage::new(
+            AudioConfig::new(
+                Some(AudioInput::new(AudioInputEncoding::Linear16, 16_000)),
+                None,
+            ),
+            AgentConfig::inline(InlineAgentConfig::from_parts(
+                sample_listen(),
+                sample_think(),
+                SpeakSettings::new(SpeakProvider::Deepgram(
+                    DeepgramSpeakProvider::v2(DeepgramSpeakModel::FluxAlexisEn)
+                        .with_expressivity(DeepgramSpeakExpressivity::Two),
+                )),
+            )),
+        );
+        assert_eq!(
+            serde_json::to_string(&msg).unwrap(),
+            concat!(
+                r#"{"type":"Settings","#,
+                r#""audio":{"input":{"encoding":"linear16","sample_rate":16000}},"#,
+                r#""agent":{"#,
+                r#""listen":{"provider":{"type":"deepgram","version":"v2","model":"flux-general-en"}},"#,
+                r#""think":{"provider":{"type":"open_ai","model":"gpt-4o-mini"}},"#,
+                r#""speak":{"provider":{"type":"deepgram","version":"v2","model":"flux-alexis-en","expressivity":2}}"#,
+                r#"}}"#,
+            )
+        );
+        // The value is a JSON number, not a quoted string.
+        let value = serde_json::to_value(&msg).unwrap();
+        assert_eq!(
+            value["agent"]["speak"]["provider"]["expressivity"],
+            json!(2)
+        );
+        assert!(value["agent"]["speak"]["provider"]["expressivity"].is_number());
     }
 
     #[test]
