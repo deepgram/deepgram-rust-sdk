@@ -1,5 +1,9 @@
 //! Websocket Flux TTS module — streaming, turn-based text-to-speech
-//! over the `/v2/speak` WebSocket.
+//! over the `/v2/speak` WebSocket (`flux-*` models).
+//!
+//! For continuous streaming synthesis with Aura (`aura-*`) models over the
+//! `/v1/speak` WebSocket, see [`Speak::speak_stream`](crate::Speak::speak_stream)
+//! in [`crate::speak::websocket`].
 //!
 //! See the [Deepgram Flux TTS API Reference][api] for more info.
 //!
@@ -340,6 +344,12 @@ async fn run_flux_speak_worker(
     let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
+    // A dedicated sender for the terminal write error. A `futures` mpsc
+    // channel's capacity is `buffer + num_senders`, so this clone carries its
+    // own guaranteed slot: forwarding the error through it neither blocks (the
+    // slot is never consumed by audio) nor drops it (the slot is always
+    // there), even when the consumer has not drained a single event.
+    let mut error_tx = response_tx.clone();
     // False once `message_rx` is exhausted (all senders dropped or the
     // channel closed): a closed-and-drained channel reports `Ready(None)`
     // on every poll, so keeping it in the select would busy-spin while
@@ -511,17 +521,29 @@ async fn run_flux_speak_worker(
                                 .await
                             {
                                 // A failed write means the transport is broken:
-                                // forward the first terminal error and end the
-                                // worker, rather than accept further commands
-                                // doomed to fail the same way.
-                                let _ = response_tx.send(Err(err.into())).await;
+                                // forward the terminal error exactly once and
+                                // end the worker, rather than accept further
+                                // commands doomed to fail the same way.
+                                // `error_tx` is a dedicated clone, so it has
+                                // its own reserved slot: the forward cannot
+                                // park the worker behind undrained audio
+                                // (which would deadlock a caller that sends
+                                // without draining), and it cannot be dropped
+                                // for want of room either.
+                                let _ = error_tx.try_send(Err(err.into()));
                                 is_open = false;
                                 break;
                             }
                         }
                         Err(err) => {
-                            if response_tx.send(Err(err.into())).await.is_err() {
-                                break;
+                            // Serializing a `ClientMessage` cannot fail in
+                            // practice. Forward without blocking for the same
+                            // reason as above; only a gone consumer ends the
+                            // worker, a merely-full channel does not.
+                            if let Err(send_err) = response_tx.try_send(Err(err.into())) {
+                                if send_err.is_disconnected() {
+                                    break;
+                                }
                             }
                         }
                     }
@@ -537,8 +559,10 @@ async fn run_flux_speak_worker(
             )))
             .await
         {
-            // If the response channel is closed, there's nothing to be done about it now.
-            let _ = response_tx.send(Err(err.into())).await;
+            // The dedicated slot is still unused here (the loop exited
+            // without a write failure), so this terminal error is delivered
+            // even if the consumer never drained the audio ahead of it.
+            let _ = error_tx.try_send(Err(err.into()));
         }
     }
     response_tx.close_channel();
