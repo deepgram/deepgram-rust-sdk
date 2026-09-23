@@ -381,6 +381,92 @@ pub struct CancelledFunctionCall {
     pub name: String,
 }
 
+// ---------- Latency values ----------
+
+/// Deserializers for a latency measurement in seconds that the server may
+/// encode either as a JSON number or as a JSON string.
+///
+/// The published Voice Agent AsyncAPI declares every latency property of
+/// `AgentStartedSpeaking` and `LatencyReport` as `type: string` with
+/// `title: float`, while the live service sends JSON numbers
+/// (`{"type":"AgentStartedSpeaking","tts_latency":0.105614436,…}`).
+/// Accepting both keeps the field a typed `f64` whichever form arrives, so
+/// neither a spec-conformant message nor the one the server sends today
+/// turns into a deserialization error.
+mod latency_seconds {
+    use core::fmt;
+
+    use serde::de::{self, Deserializer, Visitor};
+
+    /// Accepts a float, an integer, or a string holding either.
+    struct Seconds;
+
+    impl Visitor<'_> for Seconds {
+        type Value = f64;
+
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str("a latency in seconds, as a JSON number or as a string holding one")
+        }
+
+        fn visit_f64<E: de::Error>(self, value: f64) -> Result<f64, E> {
+            Ok(value)
+        }
+
+        fn visit_i64<E: de::Error>(self, value: i64) -> Result<f64, E> {
+            Ok(value as f64)
+        }
+
+        fn visit_u64<E: de::Error>(self, value: u64) -> Result<f64, E> {
+            Ok(value as f64)
+        }
+
+        fn visit_str<E: de::Error>(self, value: &str) -> Result<f64, E> {
+            value
+                .trim()
+                .parse()
+                .map_err(|_| E::invalid_value(de::Unexpected::Str(value), &self))
+        }
+    }
+
+    /// Deserialize a required latency field.
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<f64, D::Error> {
+        de.deserialize_any(Seconds)
+    }
+
+    /// Accepts `null`, a number, or a string; a missing field is handled by
+    /// `#[serde(default)]` on the field itself.
+    struct MaybeSeconds;
+
+    impl<'de> Visitor<'de> for MaybeSeconds {
+        type Value = Option<f64>;
+
+        fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(
+                "an optional latency in seconds, as a JSON number or as a string holding one",
+            )
+        }
+
+        fn visit_none<E: de::Error>(self) -> Result<Option<f64>, E> {
+            Ok(None)
+        }
+
+        fn visit_unit<E: de::Error>(self) -> Result<Option<f64>, E> {
+            Ok(None)
+        }
+
+        fn visit_some<D: Deserializer<'de>>(self, de: D) -> Result<Option<f64>, D::Error> {
+            de.deserialize_any(Seconds).map(Some)
+        }
+    }
+
+    /// Deserialize an optional latency field.
+    pub(super) fn deserialize_option<'de, D: Deserializer<'de>>(
+        de: D,
+    ) -> Result<Option<f64>, D::Error> {
+        de.deserialize_option(MaybeSeconds)
+    }
+}
+
 // ---------- AgentStartedSpeaking ----------
 
 /// Marker for the `"AgentStartedSpeaking"` discriminator value.
@@ -403,12 +489,22 @@ pub struct AgentStartedSpeakingEvent {
 
     /// Total seconds from receiving the user utterance to the start of
     /// the agent's reply.
+    ///
+    /// Accepts the JSON number the service sends and the JSON string the
+    /// AsyncAPI declares.
+    #[serde(deserialize_with = "latency_seconds::deserialize")]
     pub total_latency: f64,
 
     /// Portion of total latency attributable to text-to-speech.
+    ///
+    /// Accepts a JSON number or a JSON string, as `total_latency` does.
+    #[serde(deserialize_with = "latency_seconds::deserialize")]
     pub tts_latency: f64,
 
     /// Portion of total latency attributable to text-to-text (typically the LLM).
+    ///
+    /// Accepts a JSON number or a JSON string, as `total_latency` does.
+    #[serde(deserialize_with = "latency_seconds::deserialize")]
     pub ttt_latency: f64,
 }
 
@@ -500,7 +596,9 @@ pub enum LatencyReportType {
 ///
 /// All latency fields are seconds and optional; the server omits any that
 /// don't apply to the turn (e.g. `ttt_tool_latency` when no tool was
-/// called).
+/// called), and in practice sends one field per message. Each accepts the
+/// JSON number the service sends and the JSON string the AsyncAPI
+/// declares.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct LatencyReportEvent {
@@ -509,31 +607,59 @@ pub struct LatencyReportEvent {
     pub message_type: LatencyReportType,
 
     /// Speech-to-text: audio received → transcript produced.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "latency_seconds::deserialize_option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub stt_latency: Option<f64>,
 
     /// Time to first token of any type (text, tool call, or thinking).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "latency_seconds::deserialize_option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ttt_token_latency: Option<f64>,
 
     /// Time to first text token from the LLM.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "latency_seconds::deserialize_option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ttt_text_latency: Option<f64>,
 
     /// Time to first tool-call token from the LLM.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "latency_seconds::deserialize_option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ttt_tool_latency: Option<f64>,
 
     /// Time to first thinking token from the LLM.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "latency_seconds::deserialize_option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ttt_thinking_latency: Option<f64>,
 
     /// Text-to-speech: first text token → first audio byte.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "latency_seconds::deserialize_option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tts_latency: Option<f64>,
 
     /// End-to-end: user utterance end → first audio byte.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "latency_seconds::deserialize_option",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub total_latency: Option<f64>,
 }
 
@@ -906,6 +1032,127 @@ mod tests {
             _ => panic!("expected AgentStartedSpeaking"),
         }
         assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+    }
+
+    #[test]
+    fn agent_started_speaking_accepts_string_encoded_latencies() {
+        // The AsyncAPI declares every latency property as `type: string`
+        // with `title: float`, so a spec-conformant message quotes them.
+        let raw = json!({
+            "type": "AgentStartedSpeaking",
+            "total_latency": "0.83",
+            "tts_latency": "0.105614436",
+            "ttt_latency": "2"
+        });
+        match serde_json::from_value::<AgentResponse>(raw).unwrap() {
+            AgentResponse::AgentStartedSpeaking(e) => {
+                assert!((e.total_latency - 0.83).abs() < 1e-9);
+                assert!((e.tts_latency - 0.105_614_436).abs() < 1e-9);
+                assert!((e.ttt_latency - 2.0).abs() < 1e-9);
+            }
+            other => panic!("expected AgentStartedSpeaking, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn agent_started_speaking_string_and_number_forms_agree() {
+        // Exactly the frame the live service sends, next to its
+        // string-encoded twin: both must land on the same typed event.
+        let numbers = json!({
+            "type": "AgentStartedSpeaking",
+            "tts_latency": 0.105614436,
+            "ttt_latency": 0.645568172,
+            "total_latency": 0.75118354
+        });
+        let strings = json!({
+            "type": "AgentStartedSpeaking",
+            "tts_latency": "0.105614436",
+            "ttt_latency": "0.645568172",
+            "total_latency": "0.75118354"
+        });
+        assert_eq!(
+            serde_json::from_value::<AgentResponse>(numbers).unwrap(),
+            serde_json::from_value::<AgentResponse>(strings).unwrap()
+        );
+    }
+
+    #[test]
+    fn agent_started_speaking_rejects_a_non_numeric_latency_string() {
+        // Tolerating the string form must not turn every value into a
+        // silent default.
+        let raw = json!({
+            "type": "AgentStartedSpeaking",
+            "total_latency": "fast",
+            "tts_latency": 0.4,
+            "ttt_latency": 0.83
+        });
+        assert!(serde_json::from_value::<AgentResponse>(raw).is_err());
+    }
+
+    #[test]
+    fn latency_report_accepts_string_encoded_latencies() {
+        let raw = json!({
+            "type": "LatencyReport",
+            "stt_latency": "0.21",
+            "ttt_token_latency": "0.35",
+            "ttt_text_latency": "0.4",
+            "ttt_tool_latency": "0.38",
+            "ttt_thinking_latency": "0.36",
+            "tts_latency": "0.12",
+            "total_latency": "0.9"
+        });
+        match serde_json::from_value::<AgentResponse>(raw).unwrap() {
+            AgentResponse::LatencyReport(e) => {
+                assert_eq!(e.stt_latency, Some(0.21));
+                assert_eq!(e.ttt_token_latency, Some(0.35));
+                assert_eq!(e.ttt_text_latency, Some(0.4));
+                assert_eq!(e.ttt_tool_latency, Some(0.38));
+                assert_eq!(e.ttt_thinking_latency, Some(0.36));
+                assert_eq!(e.tts_latency, Some(0.12));
+                assert_eq!(e.total_latency, Some(0.9));
+            }
+            other => panic!("expected LatencyReport, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn latency_report_string_and_number_forms_agree() {
+        // The service sends one field per `LatencyReport`, so the
+        // single-field frame is the shape that actually arrives.
+        for (numbers, strings) in [
+            (
+                json!({ "type": "LatencyReport", "stt_latency": 0.039999961853027344 }),
+                json!({ "type": "LatencyReport", "stt_latency": "0.039999961853027344" }),
+            ),
+            (
+                json!({ "type": "LatencyReport", "total_latency": 0.83 }),
+                json!({ "type": "LatencyReport", "total_latency": "0.83" }),
+            ),
+            (
+                json!({ "type": "LatencyReport", "tts_latency": 0 }),
+                json!({ "type": "LatencyReport", "tts_latency": "0" }),
+            ),
+        ] {
+            assert_eq!(
+                serde_json::from_value::<AgentResponse>(numbers).unwrap(),
+                serde_json::from_value::<AgentResponse>(strings).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn latency_report_null_latency_is_absent() {
+        let raw = json!({ "type": "LatencyReport", "stt_latency": null });
+        match serde_json::from_value::<AgentResponse>(raw).unwrap() {
+            AgentResponse::LatencyReport(e) => assert!(e.stt_latency.is_none()),
+            other => panic!("expected LatencyReport, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn latency_report_rejects_a_non_numeric_latency_string() {
+        let raw = json!({ "type": "LatencyReport", "total_latency": "quick" });
+        assert!(serde_json::from_value::<AgentResponse>(raw).is_err());
     }
 
     #[test]
