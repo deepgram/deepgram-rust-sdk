@@ -80,17 +80,50 @@ pub struct Details {
     #[allow(missing_docs)]
     pub usd: Option<f64>,
 
-    #[allow(missing_docs)]
-    pub duration: f64,
+    /// Billed audio duration, in seconds, from the `response.details` meter
+    /// group.
+    ///
+    /// `None` means only that the API omitted that group from this record.
+    /// `/v1/read`, `/v1/speak`, `/v2/speak`, and `/v1/agent/converse` records
+    /// always omit it, and Flux speech-to-text (`/v2/listen`) records
+    /// sometimes do.
+    ///
+    /// An absent group does not mean the request metered no audio. Those
+    /// endpoints report what they meter elsewhere in the payload, in fields
+    /// this type does not model: Voice Agent records carry
+    /// `sts_details.duration`, text-to-speech records carry
+    /// `tts_details.speech_segments[].characters`, and `/v1/read` records
+    /// carry `token_details`.
+    ///
+    /// A request that carried no audio is a different case: `/v1/listen` and
+    /// `/v2/listen` send the group with zeroes, which decodes as `Some(0.0)`,
+    /// not `None`.
+    ///
+    /// Decide deliberately what `None` means for your accounting rather than
+    /// reading it as zero.
+    pub duration: Option<f64>,
 
-    #[allow(missing_docs)]
-    pub total_audio: f64,
+    /// Total audio submitted with the request, in seconds, from the
+    /// `response.details` meter group.
+    ///
+    /// `None` whenever [`Details::duration`] is `None`; the API omits the whole
+    /// group together. See [`Details::duration`] for what an absent group does
+    /// and does not imply.
+    pub total_audio: Option<f64>,
 
-    #[allow(missing_docs)]
-    pub channels: usize,
+    /// Number of audio channels, from the `response.details` meter group.
+    ///
+    /// `None` whenever [`Details::duration`] is `None`; the API omits the whole
+    /// group together. See [`Details::duration`] for what an absent group does
+    /// and does not imply.
+    pub channels: Option<usize>,
 
-    #[allow(missing_docs)]
-    pub streams: usize,
+    /// Number of audio streams, from the `response.details` meter group.
+    ///
+    /// `None` whenever [`Details::duration`] is `None`; the API omits the whole
+    /// group together. See [`Details::duration`] for what an absent group does
+    /// and does not imply.
+    pub streams: Option<usize>,
 
     #[allow(missing_docs)]
     pub models: Vec<Uuid>,
@@ -279,4 +312,410 @@ pub struct ModelDetail {
 
     #[allow(missing_docs)]
     pub model_id: Uuid,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Every fixture below is a real `GET /v1/projects/{id}/requests` record
+    // captured from the live API on 2026-09-15, with the project, API key, and
+    // model identifiers replaced by placeholders. Which fields are present and
+    // which are absent is exactly as the API sent them.
+
+    /// A `/v1/listen` record. The API sends the audio-metering group
+    /// (`duration`, `total_audio`, `channels`, `streams`) only for records that
+    /// actually metered audio.
+    const LISTEN_SYNC_WITH_AUDIO: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333331",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-15T11:32:22.678047Z",
+        "path": "/v1/listen?model=nova-3&smart_format=true&language=en",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": {
+            "details": {
+                "usd": 0.00257,
+                "duration": 25.933,
+                "total_audio": 25.933,
+                "channels": 1,
+                "streams": 1,
+                "tier": "nova-3",
+                "metadata": {},
+                "models": ["44444441-4444-4444-8444-444444444441"],
+                "method": "sync",
+                "tags": [],
+                "features": ["punctuate", "smart_format"],
+                "config": {}
+            },
+            "token_details": [],
+            "code": 200,
+            "completed": "2026-09-15T11:32:24.022065Z",
+            "deployment": "hosted:us"
+        },
+        "callback": null
+    }"#;
+
+    /// A `/v1/read` record. Text requests meter no audio, so the API omits the
+    /// whole audio-metering group. Decoding this record is what regressed:
+    /// the model required `duration`, so `list_requests` failed to decode with
+    /// serde's "missing field duration".
+    const READ_SYNC_NO_AUDIO: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333332",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-15T11:33:24.776079Z",
+        "path": "/v1/read?sentiment=true&summarize=true&language=en",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": {
+            "details": {
+                "usd": 9e-05,
+                "models": ["44444442-4444-4444-8444-444444444442"],
+                "method": "sync",
+                "tags": [],
+                "features": ["sentiment", "summarize"],
+                "config": {}
+            },
+            "token_details": [
+                {
+                    "feature": "summarize",
+                    "input": 0,
+                    "output": 0,
+                    "model": "44444442-4444-4444-8444-444444444442"
+                }
+            ],
+            "code": 200,
+            "completed": "2026-09-15T11:33:25.376901Z",
+            "deployment": "hosted:us"
+        },
+        "callback": null
+    }"#;
+
+    /// A `/v2/listen` (Flux STT) streaming record that carried no audio. The
+    /// metering group is present with zeroes, which must decode to `Some(0.0)`
+    /// rather than `None`.
+    const LISTEN_STREAMING_ZERO_AUDIO: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333333",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-15T10:26:45.473534Z",
+        "path": "/v2/listen?model=flux-general-en&encoding=linear16&sample_rate=16000",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": {
+            "details": {
+                "usd": 0.00011,
+                "duration": 0.0,
+                "total_audio": 0.0,
+                "channels": 1,
+                "streams": 1,
+                "tier": "flux",
+                "metadata": {"eot_threshold": 1.0, "eot_timeout_ms": 60000},
+                "models": ["44444444-4444-4444-8444-444444444444"],
+                "method": "streaming",
+                "tags": [],
+                "features": [],
+                "config": {}
+            },
+            "token_details": [],
+            "code": 101,
+            "completed": "2026-09-15T10:26:45.533148Z",
+            "deployment": "hosted:us"
+        },
+        "callback": null
+    }"#;
+
+    /// A Flux speech-to-text session that ran no model. The upgrade succeeds
+    /// (code 101), `models` is empty, and the API omits the whole meter group
+    /// — unlike [`LISTEN_STREAMING_ZERO_AUDIO`], where it is present and
+    /// zeroed. Both shapes occur on `/v2/listen`.
+    const FLUX_STREAMING_WITHOUT_METER_GROUP: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333339",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-15T10:31:02.101002Z",
+        "path": "/v2/listen?model=flux-general-en&encoding=linear16&sample_rate=16000&numerals=true",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": {
+            "details": {
+                "usd": 0.0,
+                "models": [],
+                "method": "streaming",
+                "tags": [],
+                "features": [],
+                "config": {}
+            },
+            "token_details": [],
+            "code": 101,
+            "completed": "2026-09-15T10:31:02.180411Z",
+            "deployment": "hosted:us"
+        },
+        "callback": null
+    }"#;
+
+    /// A rejected request. The API sends no `details` at all and moves `method`
+    /// up next to `message`.
+    const FAILED_WITHOUT_DETAILS: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333334",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-14T13:12:15.148883Z",
+        "path": "/v1/speak?model=aura-2-perseo-it",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": {
+            "method": "sync",
+            "message": "No such model/version combination found.",
+            "code": 400,
+            "completed": "2026-09-14T13:12:15.169230Z"
+        },
+        "callback": null
+    }"#;
+
+    /// A `/v1/speak` record. TTS meters characters, not audio, so the metering
+    /// group is absent and the counts arrive in an undocumented
+    /// `tts_details` object that this SDK does not model yet.
+    const SPEAK_WITH_TTS_DETAILS: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333335",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-15T10:24:52.593348Z",
+        "path": "/v1/speak?model=aura-2-thalia-en&encoding=linear16&sample_rate=16000",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": {
+            "details": {
+                "usd": 0.0018,
+                "models": ["44444446-4444-4444-8444-444444444446"],
+                "method": "sync",
+                "tags": [],
+                "features": [],
+                "config": {}
+            },
+            "token_details": [],
+            "tts_details": {
+                "audio_metadata": {
+                    "bit_rate": null,
+                    "break_tokens_applied": 0,
+                    "container": null,
+                    "content_type": "audio/wav",
+                    "encoding": "linear16",
+                    "pronunciation_tokens_applied": 0,
+                    "sample_rate": 16000
+                },
+                "speech_segments": [
+                    {
+                        "characters": 60,
+                        "model": "44444446-4444-4444-8444-444444444446",
+                        "tier": "aura-2"
+                    }
+                ]
+            },
+            "code": 200,
+            "completed": "2026-09-15T10:24:53.486336Z",
+            "deployment": "hosted:us"
+        },
+        "callback": null
+    }"#;
+
+    /// A Voice Agent record. Audio is metered inside an undocumented
+    /// `sts_details` object, so the usual metering group is absent.
+    const AGENT_WITH_STS_DETAILS: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333336",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-15T10:26:46.413349Z",
+        "path": "/v1/agent/converse?",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": {
+            "details": {
+                "usd": 9e-05,
+                "models": [],
+                "method": "streaming",
+                "tags": [],
+                "features": [],
+                "config": {}
+            },
+            "token_details": [],
+            "sts_details": {
+                "llms": [],
+                "custom_llm": false,
+                "tier": "standard",
+                "input_audio": {"encoding": "linear16", "sample_rate": 16000},
+                "output_audio": {
+                    "bitrate": null,
+                    "container": null,
+                    "encoding": null,
+                    "sample_rate": null,
+                    "stream": true
+                },
+                "metadata": {
+                    "llm_input_tokens": 0,
+                    "llm_output_tokens": 0,
+                    "tts_characters": 0
+                },
+                "duration": 0.071
+            },
+            "code": 101,
+            "completed": "2026-09-15T10:26:46.487925Z",
+            "deployment": "hosted:us"
+        },
+        "callback": null
+    }"#;
+
+    /// A record the API never resolved: `response` is explicitly `null`.
+    const RESPONSE_NULL: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333337",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-12T10:09:32.177802Z",
+        "path": "/v1/listen?model=whisper",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": null,
+        "callback": null
+    }"#;
+
+    /// An async `/v1/listen` record with a callback. The API sends only
+    /// `attempts` inside `callback`; `code` and `completed` are absent.
+    const ASYNC_WITH_CALLBACK: &str = r#"{
+        "request_id": "33333333-3333-4333-8333-333333333338",
+        "project_uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2026-09-12T19:30:12.197116Z",
+        "path": "/v1/listen?callback=https%3A%2F%2Fexampleco.com%2Fhook&model=nova-3",
+        "api_key_id": "22222222-2222-4222-8222-222222222222",
+        "response": {
+            "details": {
+                "usd": 0.00188,
+                "duration": 25.933,
+                "total_audio": 25.933,
+                "channels": 1,
+                "streams": 1,
+                "tier": "nova-3",
+                "metadata": {},
+                "models": ["44444441-4444-4444-8444-444444444441"],
+                "method": "async",
+                "tags": [],
+                "features": [],
+                "config": {}
+            },
+            "token_details": [],
+            "code": 200,
+            "completed": "2026-09-12T19:30:13.265238Z",
+            "deployment": "hosted:us"
+        },
+        "callback": {"attempts": 10}
+    }"#;
+
+    fn details(json: &str) -> Details {
+        let request: Request = serde_json::from_str(json).unwrap();
+        request.response.unwrap().details.unwrap()
+    }
+
+    #[test]
+    fn deserialize_request_with_audio_metering() {
+        let details = details(LISTEN_SYNC_WITH_AUDIO);
+        assert_eq!(details.duration, Some(25.933));
+        assert_eq!(details.total_audio, Some(25.933));
+        assert_eq!(details.channels, Some(1));
+        assert_eq!(details.streams, Some(1));
+        assert_eq!(details.usd, Some(0.00257));
+        assert_eq!(details.method, "sync");
+        assert_eq!(details.models.len(), 1);
+    }
+
+    #[test]
+    fn deserialize_request_without_audio_metering() {
+        let details = details(READ_SYNC_NO_AUDIO);
+        assert_eq!(details.duration, None);
+        assert_eq!(details.total_audio, None);
+        assert_eq!(details.channels, None);
+        assert_eq!(details.streams, None);
+        assert_eq!(details.usd, Some(9e-05));
+        assert_eq!(details.method, "sync");
+        assert_eq!(details.features, ["sentiment", "summarize"]);
+    }
+
+    #[test]
+    fn deserialize_zero_audio_is_some_not_none() {
+        let details = details(LISTEN_STREAMING_ZERO_AUDIO);
+        assert_eq!(details.duration, Some(0.0));
+        assert_eq!(details.total_audio, Some(0.0));
+        assert_eq!(details.channels, Some(1));
+        assert_eq!(details.streams, Some(1));
+        assert_eq!(details.method, "streaming");
+    }
+
+    /// The same endpoint sends both shapes, so an absent meter group cannot be
+    /// inferred from the endpoint alone.
+    #[test]
+    fn deserialize_flux_streaming_without_meter_group() {
+        let details = details(FLUX_STREAMING_WITHOUT_METER_GROUP);
+        assert_eq!(details.duration, None);
+        assert_eq!(details.total_audio, None);
+        assert_eq!(details.channels, None);
+        assert_eq!(details.streams, None);
+        assert_eq!(details.method, "streaming");
+        assert!(details.models.is_empty());
+    }
+
+    #[test]
+    fn deserialize_failed_request_without_details() {
+        let request: Request = serde_json::from_str(FAILED_WITHOUT_DETAILS).unwrap();
+        let response = request.response.unwrap();
+        assert!(response.details.is_none());
+        assert_eq!(
+            response.message.as_deref(),
+            Some("No such model/version combination found.")
+        );
+        assert_eq!(response.code, 400);
+    }
+
+    #[test]
+    fn deserialize_speak_request() {
+        let details = details(SPEAK_WITH_TTS_DETAILS);
+        assert_eq!(details.duration, None);
+        assert_eq!(details.channels, None);
+        assert_eq!(details.usd, Some(0.0018));
+    }
+
+    #[test]
+    fn deserialize_agent_request() {
+        let details = details(AGENT_WITH_STS_DETAILS);
+        assert_eq!(details.duration, None);
+        assert_eq!(details.streams, None);
+        assert!(details.models.is_empty());
+    }
+
+    #[test]
+    fn deserialize_request_with_null_response() {
+        let request: Request = serde_json::from_str(RESPONSE_NULL).unwrap();
+        assert!(request.response.is_none());
+        assert!(request.callback.is_none());
+    }
+
+    #[test]
+    fn deserialize_async_request_with_callback() {
+        let request: Request = serde_json::from_str(ASYNC_WITH_CALLBACK).unwrap();
+        let callback = request.callback.unwrap();
+        assert_eq!(callback.attempts, 10);
+        assert_eq!(callback.code, None);
+        assert_eq!(callback.completed, None);
+        assert_eq!(
+            request.response.unwrap().details.unwrap().duration,
+            Some(25.933)
+        );
+    }
+
+    #[test]
+    fn deserialize_requests_page_with_mixed_records() {
+        let json = format!(
+            r#"{{"page": 0, "limit": 10, "requests": [{READ_SYNC_NO_AUDIO}, {LISTEN_SYNC_WITH_AUDIO}, {FAILED_WITHOUT_DETAILS}]}}"#
+        );
+        let requests: Requests = serde_json::from_str(&json).unwrap();
+        assert_eq!(requests.page, 0);
+        assert_eq!(requests.limit, 10);
+        assert_eq!(requests.requests.len(), 3);
+
+        let durations: Vec<Option<f64>> = requests
+            .requests
+            .iter()
+            .map(|request| {
+                request
+                    .response
+                    .as_ref()
+                    .and_then(|response| response.details.as_ref())
+                    .and_then(|details| details.duration)
+            })
+            .collect();
+        assert_eq!(durations, [None, Some(25.933), None]);
+    }
 }
