@@ -105,7 +105,14 @@ pub struct ReadResults {
 #[non_exhaustive]
 pub struct Summary {
     /// A short summary of the submitted text.
-    pub text: String,
+    ///
+    /// The `/v1/read` reference marks this optional, so it is an [`Option`]:
+    /// a contract-valid response carrying an empty `summary` object still
+    /// deserializes rather than failing the whole request. When checked on
+    /// 2026-09-23 the live endpoint sent it on every successful response,
+    /// including for inputs too short to summarize, where it echoed the
+    /// input back; treat that as the common case, not a guarantee.
+    pub text: Option<String>,
 }
 
 #[cfg(test)]
@@ -165,7 +172,10 @@ mod tests {
             Some(22)
         );
         assert_eq!(response.metadata.language.as_deref(), Some("en"));
-        assert_eq!(response.results.summary.unwrap().text, "A short summary.");
+        assert_eq!(
+            response.results.summary.unwrap().text.as_deref(),
+            Some("A short summary.")
+        );
         let sentiments = response.results.sentiments.unwrap();
         assert_eq!(sentiments.average.sentiment, "positive");
         assert_eq!(sentiments.segments.len(), 1);
@@ -197,5 +207,119 @@ mod tests {
         assert!(summary_info.model_uuid.is_none());
         assert!(summary_info.input_tokens.is_none());
         assert!(summary_info.output_tokens.is_none());
+    }
+
+    #[test]
+    fn deserializes_summary_with_omitted_text() {
+        // The `/v1/read` reference marks `results.summary.text` optional, so a
+        // successful response carrying an empty `summary` object must
+        // deserialize into `Summary { text: None }` rather than failing the
+        // whole request before the caller can inspect any other result.
+        let json = serde_json::json!({
+            "metadata": {},
+            "results": { "summary": {} }
+        });
+
+        let response: Response = serde_json::from_value(json).unwrap();
+        let summary = response.results.summary.expect("summary present");
+        assert!(summary.text.is_none());
+    }
+
+    #[test]
+    fn deserializes_live_response_with_every_feature() {
+        // Shape captured from a live `POST /v1/read` on 2026-09-23 with
+        // `language=en&summarize=true&sentiment=true&topics=true&intents=true`
+        // (identifiers replaced). Every feature was requested, so every
+        // `results` member and every `*_info` block is populated.
+        let json = serde_json::json!({
+            "metadata": {
+                "request_id": "00000000-0000-4000-8000-000000000000",
+                "created": "2026-09-23T13:56:35.206Z",
+                "language": "en",
+                "summary_info": {
+                    "model_uuid": "11111111-1111-4111-8111-111111111111",
+                    "input_tokens": 93,
+                    "output_tokens": 52
+                },
+                "sentiment_info": {
+                    "model_uuid": "22222222-2222-4222-8222-222222222222",
+                    "input_tokens": 95,
+                    "output_tokens": 95
+                },
+                "topics_info": {
+                    "model_uuid": "33333333-3333-4333-8333-333333333333",
+                    "input_tokens": 95,
+                    "output_tokens": 14
+                },
+                "intents_info": {
+                    "model_uuid": "44444444-4444-4444-8444-444444444444",
+                    "input_tokens": 95,
+                    "output_tokens": 12
+                }
+            },
+            "results": {
+                "summary": {
+                    "text": "The customer calls about a cracked phone screen."
+                },
+                "topics": {
+                    "segments": [{
+                        "text": "my phone screen cracked last week",
+                        "start_word": 26,
+                        "end_word": 82,
+                        "topics": [{
+                            "topic": "Phone screen repair/replacement options",
+                            "confidence_score": 0.014938718
+                        }]
+                    }]
+                },
+                "intents": {
+                    "segments": [{
+                        "text": "my phone screen cracked last week",
+                        "start_word": 26,
+                        "end_word": 82,
+                        "intents": [{
+                            "intent": "Request repair/replacement information",
+                            "confidence_score": 1.25285105e-05
+                        }]
+                    }]
+                },
+                "sentiments": {
+                    "segments": [{
+                        "text": "Hi, thank you for calling Premier Phone Service.",
+                        "start_word": 0,
+                        "end_word": 7,
+                        "sentiment": "positive",
+                        "sentiment_score": 0.6423379778862
+                    }],
+                    "average": {
+                        "sentiment": "neutral",
+                        "sentiment_score": 0.3200141191482544
+                    }
+                }
+            }
+        });
+
+        let response: Response = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            response
+                .results
+                .summary
+                .as_ref()
+                .and_then(|summary| summary.text.as_deref()),
+            Some("The customer calls about a cracked phone screen.")
+        );
+        assert_eq!(response.results.topics.unwrap().segments.len(), 1);
+        assert_eq!(response.results.intents.unwrap().segments.len(), 1);
+        assert_eq!(
+            response.results.sentiments.unwrap().average.sentiment,
+            "neutral"
+        );
+        assert_eq!(
+            response
+                .metadata
+                .intents_info
+                .and_then(|info| info.output_tokens),
+            Some(12)
+        );
     }
 }
