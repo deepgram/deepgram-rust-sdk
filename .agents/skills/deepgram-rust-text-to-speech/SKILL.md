@@ -11,6 +11,7 @@ Use this skill when generating audio from text with the Rust SDK's `Speak` surfa
 
 - Converting text into audio files with `speak_to_file(...)`.
 - Streaming TTS bytes with `speak_to_stream(...)`.
+- Capturing the `dg-request-id` Deepgram support asks for (plus model name/uuid, character count, content type) with `speak_to_file_with_metadata(...)` / `speak_to_stream_with_metadata(...)`, which return a `SpeakMetadata` alongside the audio. Every field is optional, so read it through `metadata.request_id()`.
 - Selecting Aura voices and output encodings with `speak::options::Options`.
 - Synthesizing with Flux TTS (`/v2/speak`) in batch with `flux_speak_to_file(...)` or `flux_speak_to_stream(...)`, or turn by turn over the WebSocket with `flux_request(options).handle()`.
 
@@ -20,7 +21,7 @@ For a TTS-only install:
 
 ```toml
 [dependencies]
-deepgram = { version = "0.10.1", default-features = false, features = ["speak"] }
+deepgram = { version = "0.12", default-features = false, features = ["speak"] }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 # Only add `bytes = "1"` if you need to name `bytes::Bytes` in your own signatures.

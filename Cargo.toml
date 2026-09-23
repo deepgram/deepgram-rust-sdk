@@ -1,6 +1,6 @@
 [package]
 name = "deepgram"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Deepgram <developers@deepgram.com>"]
 edition = "2021"
 description = "Community Rust SDK for Deepgram's automated speech recognition APIs."
@@ -126,6 +126,11 @@ path = "examples/transcription/rest/prerecorded_from_url.rs"
 required-features = ["listen"]
 
 [[example]]
+name = "captions"
+path = "examples/transcription/rest/captions.rs"
+required-features = ["listen"]
+
+[[example]]
 name = "simple_stream"
 path = "examples/transcription/websocket/simple_stream.rs"
 required-features = ["listen"]
@@ -198,4 +203,9 @@ required-features = ["speak"]
 [[example]]
 name = "flux_tts_websocket"
 path = "examples/speak/flux/websocket_synthesize.rs"
+required-features = ["speak"]
+
+[[example]]
+name = "text_to_speech_request_id"
+path = "examples/speak/rest/text_to_speech_request_id.rs"
 required-features = ["speak"]
