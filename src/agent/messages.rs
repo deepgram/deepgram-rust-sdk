@@ -584,7 +584,10 @@ mod tests {
         AgentListenProvider, AgentListenSettings, DeepgramListenV2Provider,
     };
     use crate::agent::settings::{AgentConfig, InlineAgentConfig};
-    use crate::agent::speak::{DeepgramSpeakModel, DeepgramSpeakProvider, SpeakProvider};
+    use crate::agent::speak::{
+        DeepgramSpeakExpressivity, DeepgramSpeakModel, DeepgramSpeakProvider, SpeakProvider,
+        SpeakSettings,
+    };
     use crate::agent::think::{OpenAiModel, OpenAiThinkProvider, ThinkProvider};
     use serde_json::json;
 
@@ -632,6 +635,43 @@ mod tests {
             panic!("expected UpdateSpeak");
         }
         assert_eq!(serde_json::to_value(&msg).unwrap(), raw);
+    }
+
+    #[test]
+    fn update_speak_with_flux_tts_expressivity_exact_wire_json() {
+        // `expressivity` rides `UpdateSpeak` in the same JSON-integer form
+        // it takes in `Settings`.
+        let msg = ClientMessage::update_speak_one(SpeakSettings::new(SpeakProvider::Deepgram(
+            DeepgramSpeakProvider::v2(DeepgramSpeakModel::FluxAlexisEn)
+                .with_speed(1.05)
+                .with_expressivity(DeepgramSpeakExpressivity::NegativeTwo),
+        )));
+        assert_eq!(
+            serde_json::to_string(&msg).unwrap(),
+            concat!(
+                r#"{"type":"UpdateSpeak","speak":{"provider":{"type":"deepgram","#,
+                r#""version":"v2","model":"flux-alexis-en","speed":1.05,"expressivity":-2}}}"#,
+            )
+        );
+        let value = serde_json::to_value(&msg).unwrap();
+        assert!(value["speak"]["provider"]["expressivity"].is_number());
+
+        // Deserialization also accepts the string form the AsyncAPI
+        // declares, and normalizes it to the same typed value.
+        let quoted = json!({
+            "type": "UpdateSpeak",
+            "speak": { "provider": {
+                "type": "deepgram",
+                "version": "v2",
+                "model": "flux-alexis-en",
+                "speed": 1.05,
+                "expressivity": "-2"
+            }}
+        });
+        assert_eq!(
+            serde_json::from_value::<ClientMessage>(quoted).unwrap(),
+            msg
+        );
     }
 
     #[test]
