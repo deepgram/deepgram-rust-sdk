@@ -60,8 +60,8 @@ async fn main() -> Result<(), DeepgramError> {
         )
         .await?;
 
-    if let Some(summary) = &response.results.summary {
-        println!("summary: {}", summary.text);
+    if let Some(text) = response.results.summary.as_ref().and_then(|s| s.text.as_deref()) {
+        println!("summary: {text}");
     }
     if let Some(sentiments) = &response.results.sentiments {
         println!("average sentiment: {:?}", sentiments.average);
@@ -146,7 +146,7 @@ parameters the typed options do not cover yet.
 ## Gotchas
 
 1. **This is different from audio intelligence.** Audio intelligence is piggybacked on STT and configured through the transcription `Options`; text intelligence is its own `/v1/read` API with its own `read::options::Options`. The two `Options` types are not interchangeable.
-2. **Every analysis result is optional.** `results.sentiments`, `summary`, `topics`, and `intents` are `Option`, populated only for the flags you enabled. Match on them rather than unwrapping.
+2. **Every analysis result is optional.** `results.sentiments`, `summary`, `topics`, and `intents` are `Option`, populated only for the flags you enabled. Match on them rather than unwrapping. `Summary::text` is itself an `Option<String>`, because the reference marks it optional, so reaching the summary text means unwrapping twice.
 3. **Every metadata field is optional too.** Each field of `ReadMetadata` (including `request_id`, an `Option<Uuid>`, and `created`) and every field of `AnalysisInfo` is an `Option`, matching the reference, so logging the request id means unwrapping first rather than reading it straight off `response.metadata`.
 4. **English only.** `/v1/read` accepts English; the builder sends `language=en` by default because the endpoint rejects a request without it.
 5. **`read` can be enabled alone.** If a consumer has `default-features = false`, text intelligence needs `features = ["read"]` — it is not covered by `listen`.
