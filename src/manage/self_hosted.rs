@@ -49,8 +49,10 @@ impl<'a> From<&'a Deepgram> for SelfHosted<'a> {
 /// The default distribution provider.
 pub const DEFAULT_PROVIDER: &str = "quay";
 
-/// The default permission scope granted to new distribution credentials:
-/// [`Scope::Products`] (`self-hosted:products`).
+/// The default permission scope requested for new distribution credentials:
+/// [`Scope::Products`] (`self-hosted:products`). The server expands it to the
+/// self-hosted product scopes the calling account holds, and rejects the
+/// request with `400 Bad Request` if the account holds none.
 pub const DEFAULT_SCOPE: Scope = Scope::Products;
 
 /// A permission scope granted to a set of distribution credentials. It
@@ -209,7 +211,9 @@ pub struct CreateDistributionCredentials {
     pub provider: String,
 
     /// A comment describing the credentials (required by the API). Use it to
-    /// record which deployment the credentials are for.
+    /// record which deployment the credentials are for. The server trims it
+    /// and rejects an empty comment, or one longer than 128 characters, with
+    /// `400 Bad Request`.
     pub comment: String,
 
     /// The permission scopes to grant. Defaults to [`DEFAULT_SCOPE`]
@@ -303,6 +307,11 @@ impl SelfHosted<'_> {
     /// the registry `username` and `secret`; **the secret is returned exactly
     /// once** and cannot be retrieved again, so store it as soon as this call
     /// returns. See [`CreatedDistributionCredentials`].
+    ///
+    /// The calling key needs the `keys:write` scope and every self-hosted
+    /// product scope it requests; otherwise the server answers
+    /// `403 Forbidden` (`INSUFFICIENT_PERMISSIONS`). The project `owner` role
+    /// alone does not include the product scopes.
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///

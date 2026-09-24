@@ -78,7 +78,9 @@ pub struct DistributionCredentials {
     pub comment: Option<String>,
 
     /// The permission scopes granted to the credentials, deciding which
-    /// container images they may pull. A scope this version of the SDK does
+    /// container images they may pull. Each scope is listed under both its
+    /// `self-hosted:` and `onprem:` prefixes, so each named variant typically
+    /// appears twice (see [`Scope`]). A scope this version of the SDK does
     /// not name arrives as [`Scope::Unknown`].
     #[serde(default)]
     pub scopes: Vec<Scope>,

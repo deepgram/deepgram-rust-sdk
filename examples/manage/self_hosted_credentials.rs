@@ -65,6 +65,8 @@ async fn main() -> Result<(), DeepgramError> {
 
     println!("\nCreated {}", created.distribution_credentials_id);
     println!("  provider: {}", created.provider);
+    // The server lists each granted scope under both its `self-hosted:` and
+    // legacy `onprem:` names, so `[Api, Engine]` prints as each one twice.
     println!("  scopes:   {:?}", created.scopes);
     println!("  username: {}", created.username);
     // The secret is returned exactly once and cannot be retrieved again. It
