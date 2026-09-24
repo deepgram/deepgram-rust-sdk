@@ -56,6 +56,13 @@ pub const DEFAULT_SCOPE: Scope = Scope::Products;
 /// A permission scope granted to a set of distribution credentials. It
 /// decides which container images the credentials may pull.
 ///
+/// The server also accepts and returns each scope under the legacy `onprem:`
+/// prefix (`onprem:product:api` for `self-hosted:product:api`), and it lists
+/// every scope it grants under *both* prefixes. [`Scope::from`] resolves an
+/// `onprem:` string to the same named variant, so a response's `scopes`
+/// typically holds each variant twice; a named variant always serializes with
+/// the `self-hosted:` prefix.
+///
 /// This is an open enum: the API may add scopes over time, so a value this
 /// version of the SDK does not name deserializes as [`Scope::Unknown`], which
 /// preserves the wire string and re-serializes to it exactly. `Unknown` is
@@ -69,8 +76,12 @@ pub const DEFAULT_SCOPE: Scope = Scope::Products;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Scope {
-    /// `self-hosted:products`: every self-hosted product image. This is the
-    /// scope the API grants when a create request names none.
+    /// `self-hosted:products`: a request shorthand for every self-hosted
+    /// product scope the calling account holds. The server expands it when
+    /// the credentials are created, so it never appears in a response; the
+    /// response lists the individual product scopes instead. If the caller
+    /// holds no self-hosted product scopes, it expands to nothing and the
+    /// create request is rejected with `400 Bad Request`.
     Products,
 
     /// `self-hosted:product:api`: the API container image only.
@@ -132,18 +143,23 @@ impl AsRef<str> for Scope {
 }
 
 impl From<&str> for Scope {
-    /// Resolve a wire string (for example `"self-hosted:product:api"`) to its
-    /// named variant, or [`Scope::Unknown`] if it is not recognized.
+    /// Resolve a wire string (for example `"self-hosted:product:api"`, or its
+    /// legacy alias `"onprem:product:api"`) to its named variant, or
+    /// [`Scope::Unknown`] if it is not recognized.
     fn from(value: &str) -> Self {
         match value {
-            "self-hosted:products" => Scope::Products,
-            "self-hosted:product:api" => Scope::Api,
-            "self-hosted:product:engine" => Scope::Engine,
-            "self-hosted:product:license-proxy" => Scope::LicenseProxy,
-            "self-hosted:product:dgtools" => Scope::Dgtools,
-            "self-hosted:product:billing" => Scope::Billing,
-            "self-hosted:product:hotpepper" => Scope::Hotpepper,
-            "self-hosted:product:metrics-server" => Scope::MetricsServer,
+            "self-hosted:products" | "onprem:products" => Scope::Products,
+            "self-hosted:product:api" | "onprem:product:api" => Scope::Api,
+            "self-hosted:product:engine" | "onprem:product:engine" => Scope::Engine,
+            "self-hosted:product:license-proxy" | "onprem:product:license-proxy" => {
+                Scope::LicenseProxy
+            }
+            "self-hosted:product:dgtools" | "onprem:product:dgtools" => Scope::Dgtools,
+            "self-hosted:product:billing" | "onprem:product:billing" => Scope::Billing,
+            "self-hosted:product:hotpepper" | "onprem:product:hotpepper" => Scope::Hotpepper,
+            "self-hosted:product:metrics-server" | "onprem:product:metrics-server" => {
+                Scope::MetricsServer
+            }
             other => Scope::Unknown(other.to_string()),
         }
     }
@@ -197,7 +213,8 @@ pub struct CreateDistributionCredentials {
     pub comment: String,
 
     /// The permission scopes to grant. Defaults to [`DEFAULT_SCOPE`]
-    /// ([`Scope::Products`]), which covers every product image. See
+    /// ([`Scope::Products`]), which grants every self-hosted product scope
+    /// the calling account holds. See
     /// [`Scope`] for the accepted values.
     pub scopes: Vec<Scope>,
 
@@ -433,6 +450,27 @@ mod tests {
                 serde_json::from_value::<Scope>(serde_json::json!(wire)).unwrap(),
                 scope
             );
+        }
+    }
+
+    #[test]
+    fn onprem_aliases_resolve_to_the_named_variant() {
+        // The server lists every granted scope under both prefixes; the
+        // legacy `onprem:` form must not land in `Unknown`.
+        for (alias, scope) in [
+            ("onprem:products", Scope::Products),
+            ("onprem:product:api", Scope::Api),
+            ("onprem:product:engine", Scope::Engine),
+            ("onprem:product:license-proxy", Scope::LicenseProxy),
+            ("onprem:product:dgtools", Scope::Dgtools),
+            ("onprem:product:billing", Scope::Billing),
+            ("onprem:product:hotpepper", Scope::Hotpepper),
+            ("onprem:product:metrics-server", Scope::MetricsServer),
+        ] {
+            let parsed: Scope = serde_json::from_value(serde_json::json!(alias)).unwrap();
+            assert_eq!(parsed, scope, "{alias}");
+            // Named variants always serialize with the `self-hosted:` prefix.
+            assert!(parsed.as_str().starts_with("self-hosted:"), "{alias}");
         }
     }
 

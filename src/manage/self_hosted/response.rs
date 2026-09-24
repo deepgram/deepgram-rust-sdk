@@ -115,19 +115,24 @@ pub struct CreatedDistributionCredentials {
     /// The provider of the distribution service (e.g. `quay`).
     pub provider: String,
 
-    /// The registry username to log in with. Only returned on create.
-    pub username: Option<String>,
+    /// The registry username to log in with (for example `deepgram+<id>`).
+    /// Only returned on create.
+    pub username: String,
 
     /// The registry password to log in with. Only returned on create, and
     /// never retrievable again.
-    pub secret: Option<SecretString>,
+    pub secret: SecretString,
 
     /// A comment describing the credentials.
     pub comment: Option<String>,
 
     /// The permission scopes granted to the credentials, deciding which
-    /// container images they may pull. A scope this version of the SDK does
-    /// not name arrives as [`Scope::Unknown`].
+    /// container images they may pull. This is the expanded list the server
+    /// granted, not the request as sent: [`Scope::Products`] never appears,
+    /// and each scope is listed under both its `self-hosted:` and `onprem:`
+    /// prefixes, so each named variant typically appears twice (see
+    /// [`Scope`]). A scope this version of the SDK does not name arrives as
+    /// [`Scope::Unknown`].
     #[serde(default)]
     pub scopes: Vec<Scope>,
 
@@ -288,7 +293,7 @@ mod tests {
             "username": "deepgram+8b36cfd0",
             "secret": "s3cr3t-registry-password",
             "comment": "created from the rust sdk",
-            "scopes": ["self-hosted:products"],
+            "scopes": ["self-hosted:product:api", "onprem:product:api"],
             "created": "2023-06-28T15:36:59.609841Z"
         });
 
@@ -298,16 +303,13 @@ mod tests {
             "8b36cfd0-472f-4a21-833f-2d6343c3a2f3"
         );
         assert_eq!(created.provider, "quay");
-        assert_eq!(created.username.as_deref(), Some("deepgram+8b36cfd0"));
-        assert_eq!(
-            created.secret.as_ref().map(SecretString::expose_secret),
-            Some("s3cr3t-registry-password")
-        );
+        assert_eq!(created.username, "deepgram+8b36cfd0");
+        assert_eq!(created.secret.expose_secret(), "s3cr3t-registry-password");
         assert_eq!(
             created.comment.as_deref(),
             Some("created from the rust sdk")
         );
-        assert_eq!(created.scopes, [Scope::Products]);
+        assert_eq!(created.scopes, [Scope::Api, Scope::Api]);
         assert!(created.tags.is_empty());
 
         // The secret must never reach Debug output.
@@ -339,6 +341,77 @@ mod tests {
         let created: CreatedDistributionCredentials = serde_json::from_value(json).unwrap();
         assert_eq!(created.tags, ["staging"]);
         assert_eq!(created.scopes, [Scope::Api, Scope::Engine]);
+    }
+
+    #[test]
+    fn deserializes_create_response_for_the_products_shorthand() {
+        // A create that sends `["self-hosted:products"]` from an account
+        // holding every product scope. The server stores the expanded grant,
+        // emitting each product under the `self-hosted:` and then the
+        // `onprem:` prefix, and omits `tags` when there are none.
+        let products = [
+            "api",
+            "engine",
+            "license-proxy",
+            "billing",
+            "dgtools",
+            "hotpepper",
+            "metrics-server",
+        ];
+        let scopes: Vec<String> = products
+            .iter()
+            .flat_map(|p| {
+                [
+                    format!("self-hosted:product:{p}"),
+                    format!("onprem:product:{p}"),
+                ]
+            })
+            .collect();
+        let json = serde_json::json!({
+            "distribution_credentials_id": "8b36cfd0-472f-4a21-833f-2d6343c3a2f3",
+            "provider": "quay",
+            "username": "deepgram+8b36cfd0-472f-4a21-833f-2d6343c3a2f3",
+            "secret": "s3cr3t",
+            "comment": "every product",
+            "scopes": scopes,
+            "created": "2023-06-28T15:36:59.609841Z"
+        });
+
+        let created: CreatedDistributionCredentials = serde_json::from_value(json).unwrap();
+        assert_eq!(created.scopes.len(), 14);
+        assert!(
+            !created
+                .scopes
+                .iter()
+                .any(|s| matches!(s, Scope::Unknown(_) | Scope::Products)),
+            "every expanded scope resolves to a named product variant: {:?}",
+            created.scopes
+        );
+        for scope in [
+            Scope::Api,
+            Scope::Engine,
+            Scope::LicenseProxy,
+            Scope::Billing,
+            Scope::Dgtools,
+            Scope::Hotpepper,
+            Scope::MetricsServer,
+        ] {
+            assert_eq!(created.scopes.iter().filter(|s| **s == scope).count(), 2);
+        }
+    }
+
+    #[test]
+    fn create_response_without_a_secret_is_an_error() {
+        // The server always returns `username` and `secret` on create; a body
+        // without them is not a create response.
+        let json = serde_json::json!({
+            "distribution_credentials_id": "8b36cfd0-472f-4a21-833f-2d6343c3a2f3",
+            "provider": "quay",
+            "comment": "",
+            "scopes": [],
+            "created": "2023-06-28T15:36:59.609841Z"
+        });
+        assert!(serde_json::from_value::<CreatedDistributionCredentials>(json).is_err());
     }
 
     #[test]

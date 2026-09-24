@@ -66,19 +66,13 @@ async fn main() -> Result<(), DeepgramError> {
     println!("\nCreated {}", created.distribution_credentials_id);
     println!("  provider: {}", created.provider);
     println!("  scopes:   {:?}", created.scopes);
-    println!(
-        "  username: {}",
-        created.username.as_deref().unwrap_or("<none>")
-    );
+    println!("  username: {}", created.username);
     // The secret is returned exactly once and cannot be retrieved again. It
     // is redacted in Debug output; expose it explicitly to use it.
-    match &created.secret {
-        Some(secret) => println!(
-            "  secret:   {}  <- shown once; store it now, it cannot be retrieved again",
-            secret.expose_secret()
-        ),
-        None => println!("  secret:   <not returned>"),
-    }
+    println!(
+        "  secret:   {}  <- shown once; store it now, it cannot be retrieved again",
+        created.secret.expose_secret()
+    );
 
     let id = created.distribution_credentials_id;
 
