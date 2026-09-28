@@ -392,10 +392,15 @@ mod tests {
     }
 
     #[test]
-    fn malformed_known_response_is_an_error() {
-        let json = r#"{"type":"Results","channel_index":[0]}"#;
-
-        assert!(serde_json::from_str::<StreamResponse>(json).is_err());
+    fn malformed_known_responses_are_errors() {
+        for json in [
+            r#"{"type":"Results","channel_index":[0]}"#,
+            r#"{"type":"Metadata","request_id":"request-123"}"#,
+            r#"{"type":"SpeechStarted","channel":[0]}"#,
+            r#"{"type":"UtteranceEnd","channel":[0]}"#,
+        ] {
+            assert!(serde_json::from_str::<StreamResponse>(json).is_err());
+        }
     }
 
     #[test]
