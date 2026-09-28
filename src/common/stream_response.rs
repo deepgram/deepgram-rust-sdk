@@ -404,12 +404,13 @@ mod tests {
 
         let response: StreamResponse = serde_json::from_str(json).unwrap();
         assert!(matches!(&response, StreamResponse::TerminalResponse { .. }));
+        let serialized = serde_json::to_string(&response).unwrap();
         assert_eq!(
-            serde_json::to_value(&response).unwrap(),
+            serde_json::from_str::<serde_json::Value>(&serialized).unwrap(),
             serde_json::from_str::<serde_json::Value>(json).unwrap()
         );
 
-        let round_trip: StreamResponse = serde_json::from_str(json).unwrap();
+        let round_trip: StreamResponse = serde_json::from_str(&serialized).unwrap();
         assert!(matches!(
             round_trip,
             StreamResponse::TerminalResponse { .. }
