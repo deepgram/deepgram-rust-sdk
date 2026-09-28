@@ -307,6 +307,7 @@ impl Serialize for StreamResponse {
                 duration,
                 channels,
             } => serde_json::json!({
+                "type": "Metadata",
                 "request_id": request_id,
                 "created": created,
                 "duration": duration,
@@ -395,5 +396,23 @@ mod tests {
         let json = r#"{"type":"Results","channel_index":[0]}"#;
 
         assert!(serde_json::from_str::<StreamResponse>(json).is_err());
+    }
+
+    #[test]
+    fn metadata_round_trips_as_terminal_response() {
+        let json = r#"{"type":"Metadata","request_id":"request-123","created":"2026-09-28T00:00:00Z","duration":1.0,"channels":1}"#;
+
+        let response: StreamResponse = serde_json::from_str(json).unwrap();
+        assert!(matches!(&response, StreamResponse::TerminalResponse { .. }));
+        assert_eq!(
+            serde_json::to_value(&response).unwrap(),
+            serde_json::from_str::<serde_json::Value>(json).unwrap()
+        );
+
+        let round_trip: StreamResponse = serde_json::from_str(json).unwrap();
+        assert!(matches!(
+            round_trip,
+            StreamResponse::TerminalResponse { .. }
+        ));
     }
 }
