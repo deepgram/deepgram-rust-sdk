@@ -552,7 +552,18 @@ async fn run_worker(
 
     loop {
         // eprintln!("<worker> loop");
-        let sleep = tokio::time::sleep_until(last_sent_message + Duration::from_secs(3));
+        // The keep-alive timer only matters while keep-alives are enabled and
+        // the session is open. Otherwise it must never fire: waking with
+        // nothing to do would either busy-spin or, if the branch parked the
+        // worker, stop it reading responses and writing audio.
+        let keep_alive_armed = keep_alive && is_open;
+        let sleep = async {
+            if keep_alive_armed {
+                tokio::time::sleep_until(last_sent_message + Duration::from_secs(3)).await;
+            } else {
+                pending::<()>().await;
+            }
+        };
         // Reserve response-channel capacity *before* reading an inbound
         // frame: when the consumer is backpressured, inbound reads pause
         // (backpressure propagates to the socket) instead of blocking this
@@ -589,19 +600,15 @@ async fn run_worker(
         match step {
             Step::KeepAlive => {
                 // eprintln!("<worker> sleep");
-                if keep_alive && is_open {
-                    // Ignore send errors: the channel may have been closed by
-                    // close_stream() (via close_channel()) before the worker
-                    // processes the pending CloseStream message. In that case
-                    // the next iteration will handle CloseStream, stop sending new
-                    // messages, and proceed toward shutdown.
-                    let _ = message_tx
-                        .send(WsMessage::ControlMessage(ControlMessage::KeepAlive))
-                        .await;
-                    last_sent_message = tokio::time::Instant::now();
-                } else {
-                    pending::<()>().await;
-                }
+                // Ignore send errors: the channel may have been closed by
+                // close_stream() (via close_channel()) before the worker
+                // processes the pending CloseStream message. In that case
+                // the next iteration will handle CloseStream, stop sending new
+                // messages, and proceed toward shutdown.
+                let _ = message_tx
+                    .send(WsMessage::ControlMessage(ControlMessage::KeepAlive))
+                    .await;
+                last_sent_message = tokio::time::Instant::now();
             }
             Step::ResponsesClosed => {
                 // Responses are no longer being received; close the stream.
