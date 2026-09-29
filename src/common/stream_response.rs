@@ -165,11 +165,11 @@ pub enum StreamResponse {
         #[allow(missing_docs)]
         last_word_end: f64,
     },
-    /// An unrecognized server message.
+    /// A server message whose `type` this release does not model.
     ///
-    /// This final fallback preserves raw JSON frames, including server error
-    /// frames, so new message types do not end a streaming session in older
-    /// SDK releases.
+    /// The raw JSON frame is preserved, so a frame such as the server's
+    /// `Error` frame (`type`, `variant`, `description`, and `message`) reaches
+    /// your code as-is instead of a deserialization error.
     Unknown(serde_json::Value),
 }
 
@@ -420,5 +420,42 @@ mod tests {
             round_trip,
             StreamResponse::TerminalResponse { .. }
         ));
+    }
+
+    #[test]
+    fn known_responses_round_trip() {
+        let fixtures = [
+            (
+                r#"{"type":"Results","channel_index":[0,1],"duration":1.0,"start":0.0,"is_final":true,"speech_final":true,"from_finalize":false,"channel":{"alternatives":[{"transcript":"hello","words":[],"confidence":0.99}]},"metadata":{"request_id":"request-123","model_info":{"name":"nova-3","version":"2026-09-01","arch":"2"},"model_uuid":"model-123"}}"#,
+                "Results",
+            ),
+            (
+                r#"{"type":"SpeechStarted","channel":[0],"timestamp":1.5}"#,
+                "SpeechStarted",
+            ),
+            (
+                r#"{"type":"UtteranceEnd","channel":[0],"last_word_end":2.5}"#,
+                "UtteranceEnd",
+            ),
+        ];
+
+        for (json, type_name) in fixtures {
+            let response: StreamResponse = serde_json::from_str(json).unwrap();
+            assert!(
+                !matches!(response, StreamResponse::Unknown(_)),
+                "{type_name} deserialized as Unknown"
+            );
+
+            let serialized = serde_json::to_value(&response).unwrap();
+            assert_eq!(serialized["type"], type_name);
+
+            let round_trip: StreamResponse = serde_json::from_value(serialized.clone()).unwrap();
+            assert_eq!(
+                std::mem::discriminant(&response),
+                std::mem::discriminant(&round_trip),
+                "{type_name} changed variant on round trip"
+            );
+            assert_eq!(serde_json::to_value(&round_trip).unwrap(), serialized);
+        }
     }
 }
