@@ -22,7 +22,7 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 | `src/tls.rs` | The rustls connector every `wss://` WebSocket surface uses, `TlsTrust`, the `rustls-tls-native-roots` merge, and `Deepgram::tls_config` resolution |
 | `examples/` | Runnable example programs; registered targets are `[[example]]` entries in `Cargo.toml`, and sample audio is under `examples/audio/` |
 | `tests/` | Integration tests: `*_local.rs` run against in-process servers, `*_e2e.rs` are `#[ignore]` and need the live API |
-| `.github/workflows/ci.yaml` | The CI matrix (nine jobs, listed below); `context7.yml` refreshes the Context7 index on release |
+| `.github/workflows/` | `ci.yaml` is the CI matrix (nine jobs, listed below); `release-please.yml` creates stable releases; `context7.yml` refreshes the Context7 index on release |
 | `.agents/skills/` | Agent-agnostic skills for using this SDK (speech-to-text, conversational STT, text-to-speech, voice agent, audio intelligence, text intelligence, management API) |
 
 ## Cargo features
@@ -135,11 +135,11 @@ The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`
 
 ## Release process
 
-Releases are commits and tags on `main`; there is no release-please and no publish workflow.
+Release Please manages stable releases from `main`; do not manually create stable release tags or GitHub releases.
 
-1. Open a pull request titled `chore: release X.Y.Z` that bumps `version` in `Cargo.toml`, refreshes `Cargo.lock`, and turns the pending `CHANGELOG.md` heading into `## [X.Y.Z](https://github.com/deepgram/deepgram-rust-sdk/compare/<prev>...X.Y.Z)`. The 0.10.1 release commit (`d884c6bd`) touched exactly those three files.
-2. After the merge, tag with plain semver and no `v` prefix (`git tag -m 0.10.1 0.10.1 && git push origin 0.10.1`) and publish a GitHub release from the tag. `context7.yml` refreshes the Context7 index when the release is published.
-3. A maintainer publishes the crate from the tagged commit with `cargo publish`.
+1. Conventional commits merged to `main` cause `.github/workflows/release-please.yml` to create or update one Release Please PR. It updates `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, and `.github/.release-please-manifest.json`.
+2. Merging that release PR creates a plain-SemVer tag (for example, `0.12.0`), publishes the GitHub release, and runs `cargo publish --locked` with the `CARGO_REGISTRY_TOKEN` secret. `context7.yml` refreshes the Context7 index when the release is published.
+3. Versioning follows Conventional Commits: `fix:` bumps patch, `feat:` bumps minor, and a `!` after any type or a `BREAKING CHANGE:` footer bumps minor while the crate remains below 1.0. `docs:`, `ci:`, `chore:`, and `test:` commits do not create a release. Under squash merges the PR title is the commit message.
 
 Pull requests target `main`. Older copies of `CONTRIBUTING.md` and the pull request template named a `dev` branch; that branch no longer exists.
 
