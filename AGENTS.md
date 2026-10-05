@@ -135,11 +135,11 @@ The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`
 
 ## Release process
 
-Release Please manages stable releases from `main`; do not manually create stable release tags or GitHub releases.
+Release Please manages stable releases from `main`. `0.12.0` is the final manually tagged release; after it is published, do not manually create stable release tags or GitHub releases.
 
 1. Conventional commits merged to `main` cause `.github/workflows/release-please.yml` to create or update one Release Please PR. It updates `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, and `.github/.release-please-manifest.json`.
 2. Merging that release PR creates a plain-SemVer tag (for example, `0.13.0`), publishes the GitHub release, runs `cargo publish --locked` with the `CARGO_REGISTRY_TOKEN` secret, and explicitly dispatches `context7.yml` to refresh the Context7 index.
-3. Versioning follows Conventional Commits: `fix:` bumps patch, `feat:` bumps minor, and a `!` after any type or a `BREAKING CHANGE:` footer bumps minor while the crate remains below 1.0. `docs:`, `ci:`, `chore:`, and `test:` commits do not create a release. Squash merges use the pull request title as the commit subject and its body as the commit body, so breaking pull requests require both markers. Before merging a generated release PR, confirm its version covers every breaking item; if it does not, add a `Release-As: X.Y.Z` footer to a correction pull request and let Release Please update the release PR before merging it.
+3. Versioning follows Conventional Commits: `fix:`, `perf:`, and `revert:` bump patch, while `feat:` bumps minor. A `!` after any type or a `BREAKING CHANGE:` footer bumps minor while the crate remains below 1.0. `docs:`, `ci:`, `chore:`, and `test:` commits do not create a release. This repository must use squash-only merges: a merge commit drops the pull request title and body, including breaking-change markers. Squash merges use the pull request title as the commit subject and its body as the commit body, so breaking pull requests require both markers. Before merging a generated release PR, confirm its version covers every breaking item; if it does not, add a `Release-As: X.Y.Z` footer to a correction pull request and let Release Please update the release PR before merging it.
 4. Before enabling the workflow, ensure `CARGO_REGISTRY_TOKEN` is a repository Actions secret authorized to publish `deepgram`, and enable the repository setting that allows GitHub Actions to create and approve pull requests.
 
 Pull requests target `main`. Older copies of `CONTRIBUTING.md` and the pull request template named a `dev` branch; that branch no longer exists.
