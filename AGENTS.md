@@ -4,7 +4,7 @@ Instructions for AI coding agents (Claude Code, Cursor, Codex, Copilot) and for 
 
 ## Repository purpose
 
-This is the Rust SDK for the Deepgram API, published to crates.io as `deepgram`. `Cargo.toml` is at version `0.11.0`, which is also the latest release tag, and `Cargo.lock` is committed. The crate is hand-written: there is no code generator, no `fern/` folder, and no `.fernignore`. Edit the source directly.
+This is the Rust SDK for the Deepgram API, published to crates.io as `deepgram`. `Cargo.toml` is at version `0.12.0`, which is also the latest release tag, and `Cargo.lock` is committed. The crate is hand-written: there is no code generator, no `fern/` folder, and no `.fernignore`. Edit the source directly.
 
 Never hardcode API keys or access tokens. Examples and the ignored end-to-end tests read `DEEPGRAM_API_KEY` from the environment and construct the client with `Deepgram::new(key)`; `Deepgram::with_temp_token` takes a short-lived token from `POST /v1/auth/grant`.
 
@@ -121,8 +121,8 @@ The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`
 - Errors are `DeepgramError` variants (`thiserror`). Validate what the server would reject anyway only when the failure would otherwise be confusing (the Flux TTS WebSocket rejects REST-only options up front with `DeepgramError::InvalidOptions`); leave everything else to the server.
 - WebSocket clients run a worker task and hand the caller a handle. Sends after the session has ended return an error instead of silently dropping the message, and the worker forwards a terminal transport error exactly once. Keep that contract in any new streaming surface (`tests/flux_backpressure_local.rs` and `tests/flux_speak_backpressure_local.rs` show the pattern).
 - Keep dependency lower bounds honest. If you call an API that a newer version of a dependency introduced, raise that dependency's minimum in `Cargo.toml`, or the Minimal-Versions job fails.
-- A change to a public signature is a semver event, and so is a behavior change that makes code working on the last release fail until the consumer changes something (a Cargo feature, a config call, an environment variable). In `0.x`, either kind of breaking change needs a minor bump and a `**BREAKING**` line in `CHANGELOG.md` that leads with what breaks and what to do (the 0.10.0 and 0.11.0 entries are the model); an additive change needs a patch or minor bump. `cargo-semver-checks` enforces the signature half in CI; it cannot see behavior, so read every `Changed` and `Fixed` entry for a consequence before labeling a release a patch.
-- `CHANGELOG.md` follows Keep a Changelog with `Added`, `Changed`, and `Fixed` sections. Add your entry under the version being prepared in the same pull request as the code.
+- A change to a public signature is a semver event, and so is a behavior change that makes code working on the last release fail until the consumer changes something (a Cargo feature, a config call, an environment variable). In `0.x`, either kind of breaking change needs a minor bump; mark the source pull request with `!` in its Conventional Commit title and a `BREAKING CHANGE: <what breaks and what to do>` footer in its body. `cargo-semver-checks` enforces the signature half in CI; it cannot see behavior, so inspect behavior changes before treating a release as a patch.
+- Release Please exclusively maintains `CHANGELOG.md`. Do not edit it in feature or release pull requests; release-visible details, including breaking-change migration guidance, belong in the Conventional Commit pull request title and body.
 - Write "Flux STT" or "Flux TTS" in prose and doc comments; never bare "Flux". Identifiers such as `FluxHandle`, `flux_request`, and the `flux-general-en` model name stay as they are.
 
 ## Example: add a Flux STT query parameter
@@ -130,7 +130,7 @@ The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`
 1. Add the field to the Flux STT options in `src/common/options.rs` (or `src/listen/flux.rs` if it is WebSocket-only), with a doc comment and the `serde` attribute that matches the wire name.
 2. Add a `urlencoded()` assertion in that module's `tests` block proving the parameter serializes correctly, including the repeated-key form for list values.
 3. If the server answers with a new field, extend the matching response type in `src/common/flux_response.rs` and add a fixture-based deserialization test.
-4. Update the closest example under `examples/transcription/flux/` and add a `CHANGELOG.md` line.
+4. Update the closest example under `examples/transcription/flux/` and describe the user-facing change in the pull request.
 5. Run `cargo fmt --all`, `cargo clippy --all-targets --all-features`, `cargo test --all --all-features`, and `cargo doc --workspace --all-features`, all with `RUSTFLAGS=-D warnings RUSTDOCFLAGS=-D warnings`.
 
 ## Release process
@@ -138,8 +138,9 @@ The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`
 Release Please manages stable releases from `main`; do not manually create stable release tags or GitHub releases.
 
 1. Conventional commits merged to `main` cause `.github/workflows/release-please.yml` to create or update one Release Please PR. It updates `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, and `.github/.release-please-manifest.json`.
-2. Merging that release PR creates a plain-SemVer tag (for example, `0.13.0`), publishes the GitHub release, and runs `cargo publish --locked` with the `CARGO_REGISTRY_TOKEN` secret. `context7.yml` refreshes the Context7 index when the release is published.
-3. Versioning follows Conventional Commits: `fix:` bumps patch, `feat:` bumps minor, and a `!` after any type or a `BREAKING CHANGE:` footer bumps minor while the crate remains below 1.0. `docs:`, `ci:`, `chore:`, and `test:` commits do not create a release. Under squash merges the PR title is the commit message.
+2. Merging that release PR creates a plain-SemVer tag (for example, `0.13.0`), publishes the GitHub release, runs `cargo publish --locked` with the `CARGO_REGISTRY_TOKEN` secret, and explicitly dispatches `context7.yml` to refresh the Context7 index.
+3. Versioning follows Conventional Commits: `fix:` bumps patch, `feat:` bumps minor, and a `!` after any type or a `BREAKING CHANGE:` footer bumps minor while the crate remains below 1.0. `docs:`, `ci:`, `chore:`, and `test:` commits do not create a release. Squash merges use the pull request title as the commit subject and its body as the commit body, so breaking pull requests require both markers. Before merging a generated release PR, confirm its version covers every breaking item; if it does not, add a `Release-As: X.Y.Z` footer to a correction pull request and let Release Please update the release PR before merging it.
+4. Before enabling the workflow, ensure `CARGO_REGISTRY_TOKEN` is a repository Actions secret authorized to publish `deepgram`, and enable the repository setting that allows GitHub Actions to create and approve pull requests.
 
 Pull requests target `main`. Older copies of `CONTRIBUTING.md` and the pull request template named a `dev` branch; that branch no longer exists.
 
@@ -163,5 +164,5 @@ Pull requests target `main`. Older copies of `CONTRIBUTING.md` and the pull requ
 - Do not commit generated audio (`*.mp3`, `*.wav` outside `examples/audio/`), keys, or `.env` files.
 - Do not remove registered `[[example]]` entries or their `required-features`; `--all-targets` in CI compiles every registered example target.
 - Do not add `unsafe` code; `#![forbid(unsafe_code)]` rejects it.
-- Do not change a public signature without a version bump and a `CHANGELOG.md` entry.
+- Do not change a public signature without accurate release metadata, including the breaking-change markers when applicable.
 - Do not run `cargo hack --remove-dev-deps` in your working checkout; it rewrites `Cargo.toml`.
