@@ -65,11 +65,26 @@ jobs:
     permissions:
       actions: write
       contents: read
+    env:
+      RUSTFLAGS: -D warnings
+      PKG_CONFIG_PATH: /usr/lib/pkgconfig
     steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ needs.release-please.outputs.release_sha }}
       - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y alsa pkg-config libasound2-dev
+      # `verify` checks the pushed head, but the release is tagged at the
+      # release PR's merge commit, which can differ. Re-check that commit.
+      - name: Lint release commit
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Test release commit
+        run: cargo test --all --all-features --locked
       - name: Publish crate
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
