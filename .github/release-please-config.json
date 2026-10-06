@@ -6,7 +6,8 @@
     { "type": "feat", "section": "Added" },
     { "type": "fix", "section": "Fixed" },
     { "type": "perf", "section": "Changed" },
-    { "type": "revert", "section": "Changed" }
+    { "type": "revert", "section": "Changed" },
+    { "type": "refactor", "section": "Changed" }
   ],
   "packages": {
     ".": {
