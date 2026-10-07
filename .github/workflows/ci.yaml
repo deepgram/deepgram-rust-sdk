@@ -134,6 +134,7 @@ jobs:
     - name: Cargo Build Without Dev Dependencies
       run: rustup run nightly cargo build --all-features -Z minimal-versions
   SemVer:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
@@ -145,4 +146,11 @@ jobs:
     - name: Install cargo-semver-checks
       run: cargo install --locked cargo-semver-checks
     - name: Cargo SemVer Checks
-      run: cargo semver-checks check-release --verbose
+      env:
+        PR_TITLE: ${{ github.event.pull_request.title }}
+      run: |
+        if [[ "$PR_TITLE" == *"!"* ]]; then
+          cargo semver-checks check-release --release-type minor --verbose
+        else
+          cargo semver-checks check-release --verbose
+        fi
