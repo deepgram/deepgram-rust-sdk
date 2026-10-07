@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -25,11 +27,13 @@ jobs:
       run: cargo install --locked cargo-semver-checks
     - name: Cargo SemVer Checks
       env:
+        BASE_REF: ${{ github.base_ref }}
         PR_TITLE: ${{ github.event.pull_request.title }}
       run: |
-        # Release Please bumps 0.x breaking changes to the next minor release.
+        # Compare only this PR's API delta, not unreleased changes already on main.
+        git fetch origin "$BASE_REF"
         if [[ "$PR_TITLE" =~ ^[a-z]+(\([^\)]*\))?!: ]]; then
-          cargo semver-checks check-release --release-type major --verbose
+          cargo semver-checks check-release --baseline-rev "origin/$BASE_REF" --release-type major --verbose
         else
-          cargo semver-checks check-release --verbose
+          cargo semver-checks check-release --baseline-rev "origin/$BASE_REF" --verbose
         fi
