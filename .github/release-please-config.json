@@ -1,0 +1,25 @@
+{
+  "release-type": "rust",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "changelog-sections": [
+    { "type": "feat", "section": "Added" },
+    { "type": "fix", "section": "Fixed" },
+    { "type": "perf", "section": "Changed" },
+    { "type": "revert", "section": "Changed" },
+    { "type": "refactor", "section": "Changed", "hidden": true }
+  ],
+  "packages": {
+    ".": {
+      "release-type": "rust",
+      "package-name": "deepgram",
+      "tag-separator": "",
+      "include-component-in-tag": false,
+      "include-v-in-tag": false,
+      "changelog-path": "CHANGELOG.md",
+      "exclude-paths": [".github"],
+      "draft": false
+    }
+  },
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
+}

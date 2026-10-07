@@ -4,7 +4,7 @@ Instructions for AI coding agents (Claude Code, Cursor, Codex, Copilot) and for 
 
 ## Repository purpose
 
-This is the Rust SDK for the Deepgram API, published to crates.io as `deepgram`. `Cargo.toml` is at version `0.11.0`, which is also the latest release tag, and `Cargo.lock` is committed. The crate is hand-written: there is no code generator, no `fern/` folder, and no `.fernignore`. Edit the source directly.
+This is the Rust SDK for the Deepgram API, published to crates.io as `deepgram`. The current version is in `Cargo.toml` and `.github/.release-please-manifest.json`, and `Cargo.lock` is committed. The crate is hand-written: there is no code generator, no `fern/` folder, and no `.fernignore`. Edit the source directly.
 
 Never hardcode API keys or access tokens. Examples and the ignored end-to-end tests read `DEEPGRAM_API_KEY` from the environment and construct the client with `Deepgram::new(key)`; `Deepgram::with_temp_token` takes a short-lived token from `POST /v1/auth/grant`.
 
@@ -22,7 +22,7 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 | `src/tls.rs` | The rustls connector every `wss://` WebSocket surface uses, `TlsTrust`, the `rustls-tls-native-roots` merge, and `Deepgram::tls_config` resolution |
 | `examples/` | Runnable example programs; registered targets are `[[example]]` entries in `Cargo.toml`, and sample audio is under `examples/audio/` |
 | `tests/` | Integration tests: `*_local.rs` run against in-process servers, `*_e2e.rs` are `#[ignore]` and need the live API |
-| `.github/workflows/ci.yaml` | The CI matrix (nine jobs, listed below); `context7.yml` refreshes the Context7 index on release |
+| `.github/workflows/` | `ci.yaml` is the CI matrix (nine jobs, listed below); `release-please.yml` creates stable releases; `context7.yml` refreshes the Context7 index on release |
 | `.agents/skills/` | Agent-agnostic skills for using this SDK (speech-to-text, conversational STT, text-to-speech, voice agent, audio intelligence, text intelligence, management API) |
 
 ## Cargo features
@@ -121,8 +121,8 @@ The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`
 - Errors are `DeepgramError` variants (`thiserror`). Validate what the server would reject anyway only when the failure would otherwise be confusing (the Flux TTS WebSocket rejects REST-only options up front with `DeepgramError::InvalidOptions`); leave everything else to the server.
 - WebSocket clients run a worker task and hand the caller a handle. Sends after the session has ended return an error instead of silently dropping the message, and the worker forwards a terminal transport error exactly once. Keep that contract in any new streaming surface (`tests/flux_backpressure_local.rs` and `tests/flux_speak_backpressure_local.rs` show the pattern).
 - Keep dependency lower bounds honest. If you call an API that a newer version of a dependency introduced, raise that dependency's minimum in `Cargo.toml`, or the Minimal-Versions job fails.
-- A change to a public signature is a semver event, and so is a behavior change that makes code working on the last release fail until the consumer changes something (a Cargo feature, a config call, an environment variable). In `0.x`, either kind of breaking change needs a minor bump and a `**BREAKING**` line in `CHANGELOG.md` that leads with what breaks and what to do (the 0.10.0 and 0.11.0 entries are the model); an additive change needs a patch or minor bump. `cargo-semver-checks` enforces the signature half in CI; it cannot see behavior, so read every `Changed` and `Fixed` entry for a consequence before labeling a release a patch.
-- `CHANGELOG.md` follows Keep a Changelog with `Added`, `Changed`, and `Fixed` sections. Add your entry under the version being prepared in the same pull request as the code.
+- A change to a public signature is a semver event, and so is a behavior change that makes code working on the last release fail until the consumer changes something (a Cargo feature, a config call, an environment variable). In `0.x`, either kind of breaking change needs a minor bump; mark the source pull request with `!` in its Conventional Commit title and a `BREAKING CHANGE: <what breaks and what to do>` footer in its body (inside the override block, when the body has one). `cargo-semver-checks` enforces the signature half in CI; it cannot see behavior, so inspect behavior changes before treating a release as a patch.
+- Release Please exclusively maintains `CHANGELOG.md`. Do not edit it in feature or release pull requests. The generated changelog includes only the pull request title and the first paragraph of each `BREAKING CHANGE:` footer. To add entries, put a `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` block in the pull request body. The block replaces the title and body entirely, so its first line must repeat the pull request title (including `!` when breaking), each `BREAKING CHANGE:` footer must sit inside the block directly after the line it belongs to, and each further entry is one Conventional Commit line. Do not mix loose Conventional Commit lines into prose outside an override block.
 - Write "Flux STT" or "Flux TTS" in prose and doc comments; never bare "Flux". Identifiers such as `FluxHandle`, `flux_request`, and the `flux-general-en` model name stay as they are.
 
 ## Example: add a Flux STT query parameter
@@ -130,16 +130,17 @@ The `microphone_stream` and `microphone_flux` examples capture audio with `cpal`
 1. Add the field to the Flux STT options in `src/common/options.rs` (or `src/listen/flux.rs` if it is WebSocket-only), with a doc comment and the `serde` attribute that matches the wire name.
 2. Add a `urlencoded()` assertion in that module's `tests` block proving the parameter serializes correctly, including the repeated-key form for list values.
 3. If the server answers with a new field, extend the matching response type in `src/common/flux_response.rs` and add a fixture-based deserialization test.
-4. Update the closest example under `examples/transcription/flux/` and add a `CHANGELOG.md` line.
+4. Update the closest example under `examples/transcription/flux/` and describe the user-facing change in the pull request.
 5. Run `cargo fmt --all`, `cargo clippy --all-targets --all-features`, `cargo test --all --all-features`, and `cargo doc --workspace --all-features`, all with `RUSTFLAGS=-D warnings RUSTDOCFLAGS=-D warnings`.
 
 ## Release process
 
-Releases are commits and tags on `main`; there is no release-please and no publish workflow.
+Release Please manages stable releases from `main`. `0.12.0` is the final manually tagged release; after it is published, do not manually create stable release tags or GitHub releases.
 
-1. Open a pull request titled `chore: release X.Y.Z` that bumps `version` in `Cargo.toml`, refreshes `Cargo.lock`, and turns the pending `CHANGELOG.md` heading into `## [X.Y.Z](https://github.com/deepgram/deepgram-rust-sdk/compare/<prev>...X.Y.Z)`. The 0.10.1 release commit (`d884c6bd`) touched exactly those three files.
-2. After the merge, tag with plain semver and no `v` prefix (`git tag -m 0.10.1 0.10.1 && git push origin 0.10.1`) and publish a GitHub release from the tag. `context7.yml` refreshes the Context7 index when the release is published.
-3. A maintainer publishes the crate from the tagged commit with `cargo publish`.
+1. Conventional commits merged to `main` cause `.github/workflows/release-please.yml` to create or update one Release Please PR. It updates `Cargo.toml`, `Cargo.lock`, `CHANGELOG.md`, and `.github/.release-please-manifest.json`.
+2. Merging that release PR creates a plain-SemVer tag (for example, `0.13.0`), publishes the GitHub release, re-runs clippy and the tests on the tagged commit, runs `cargo publish --locked` with the `CARGO_REGISTRY_TOKEN` secret, and explicitly dispatches `context7.yml` to refresh the Context7 index. If the publish job fails on a transient error (registry outage, token), re-run the failed job. If it fails because the tagged commit does not pass clippy or the tests, do not move or recreate the tag: merge the fix to `main`, let Release Please cut the next patch release, and edit the unpublished version's GitHub release to say it was not published to crates.io.
+3. Versioning follows Conventional Commits: `fix:`, `perf:`, and `revert:` bump patch, while `feat:` bumps minor. A `!` after any type or a `BREAKING CHANGE:` footer bumps minor while the crate remains below 1.0. Commit types other than `feat`, `fix`, `perf`, and `revert` do not create a release unless marked breaking. This repository must use squash-only merges: a merge commit drops the pull request title and body, including breaking-change markers. Squash merges use the pull request title as the commit subject and its body as the commit body, so breaking pull requests require both markers. Before merging a generated release PR, confirm its version covers every breaking item; if it does not, add a `Release-As: X.Y.Z` footer to a correction pull request and let Release Please update the release PR before merging it. The correction pull request must change at least one file outside `.github/`; Release Please ignores commits that touch only `.github/` and empty commits.
+4. Before enabling the workflow, ensure `CARGO_REGISTRY_TOKEN` is a repository Actions secret authorized to publish `deepgram`, and enable the repository setting that allows GitHub Actions to create and approve pull requests.
 
 Pull requests target `main`. Older copies of `CONTRIBUTING.md` and the pull request template named a `dev` branch; that branch no longer exists.
 
@@ -163,5 +164,5 @@ Pull requests target `main`. Older copies of `CONTRIBUTING.md` and the pull requ
 - Do not commit generated audio (`*.mp3`, `*.wav` outside `examples/audio/`), keys, or `.env` files.
 - Do not remove registered `[[example]]` entries or their `required-features`; `--all-targets` in CI compiles every registered example target.
 - Do not add `unsafe` code; `#![forbid(unsafe_code)]` rejects it.
-- Do not change a public signature without a version bump and a `CHANGELOG.md` entry.
+- Do not change a public signature without accurate release metadata, including the breaking-change markers when applicable.
 - Do not run `cargo hack --remove-dev-deps` in your working checkout; it rewrites `Cargo.toml`.
