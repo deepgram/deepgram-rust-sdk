@@ -12,6 +12,7 @@ Use this skill for prerecorded transcription, live streaming transcription, or w
 - Transcribing local files, URLs, or in-memory audio with `Deepgram::transcription()`.
 - Streaming audio over WebSocket with `stream_request()` / `stream_request_with_options(...)`.
 - Using `common::options::Options` for STT features such as `model`, `language`, `punctuate`, `diarize`, `smart_format`, `utterances`, and streaming knobs like `endpointing`.
+- Rendering subtitles from a prerecorded response with `common::captions::srt` / `webvtt` (or `response.to_srt(&CaptionOptions::default())` / `to_webvtt(...)`). Request `utterances=true` and `diarize=true` for cues that split on utterance and speaker boundaries.
 
 This skill covers **Nova models on `/v1/listen`** — Deepgram's general-purpose STT family (nova-3, nova-2, nova, enhanced, base). Both Nova and Flux are actively maintained, industry-leading STT model families.
 
@@ -26,7 +27,7 @@ This skill covers **Nova models on `/v1/listen`** — Deepgram's general-purpose
 
 ```toml
 [dependencies]
-deepgram = { version = "0.10.0", default-features = false, features = ["listen"] }
+deepgram = { version = "0.12", default-features = false, features = ["listen"] }
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 ```
