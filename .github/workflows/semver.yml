@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v5
       with:
-        fetch-depth: 0
+        fetch-depth: 2
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -27,13 +27,14 @@ jobs:
       run: cargo install --locked cargo-semver-checks
     - name: Cargo SemVer Checks
       env:
-        BASE_REF: ${{ github.base_ref }}
         PR_TITLE: ${{ github.event.pull_request.title }}
       run: |
-        # Compare only this PR's API delta, not unreleased changes already on main.
-        git fetch origin "$BASE_REF"
+        # Compare only this PR's API delta. HEAD is GitHub's merge commit and
+        # HEAD^1 is the base-branch commit it was merged onto.
+        # Release Please bumps 0.x breaking changes to the next minor release,
+        # which cargo-semver-checks evaluates at major compatibility level.
         if [[ "$PR_TITLE" =~ ^[a-z]+(\([^\)]*\))?!: ]]; then
-          cargo semver-checks check-release --baseline-rev "origin/$BASE_REF" --release-type major --verbose
+          cargo semver-checks check-release --baseline-rev HEAD^1 --release-type major --verbose
         else
-          cargo semver-checks check-release --baseline-rev "origin/$BASE_REF" --verbose
+          cargo semver-checks check-release --baseline-rev HEAD^1 --verbose
         fi
