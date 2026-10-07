@@ -160,7 +160,6 @@ pub enum StreamResponse {
         /// parameter. [`None`] unless the [Extra Metadata feature][docs] is set.
         ///
         /// [docs]: https://developers.deepgram.com/docs/extra-metadata
-        #[serde(default, skip_serializing_if = "Option::is_none")]
         extra: Option<HashMap<String, String>>,
     },
     #[allow(missing_docs)]
@@ -212,6 +211,8 @@ enum TaggedStreamResponse {
         created: String,
         duration: f64,
         channels: u32,
+        #[serde(default)]
+        extra: Option<HashMap<String, String>>,
     },
     SpeechStarted {
         channel: Vec<u8>,
@@ -251,11 +252,13 @@ impl From<TaggedStreamResponse> for StreamResponse {
                 created,
                 duration,
                 channels,
+                extra,
             } => Self::TerminalResponse {
                 request_id,
                 created,
                 duration,
                 channels,
+                extra,
             },
             TaggedStreamResponse::SpeechStarted { channel, timestamp } => {
                 Self::SpeechStartedResponse {
@@ -326,13 +329,21 @@ impl Serialize for StreamResponse {
                 created,
                 duration,
                 channels,
-            } => serde_json::json!({
-                "type": "Metadata",
-                "request_id": request_id,
-                "created": created,
-                "duration": duration,
-                "channels": channels,
-            }),
+                extra,
+            } => {
+                let mut metadata = serde_json::json!({
+                    "type": "Metadata",
+                    "request_id": request_id,
+                    "created": created,
+                    "duration": duration,
+                    "channels": channels,
+                    "extra": extra,
+                });
+                if extra.is_none() {
+                    metadata.as_object_mut().unwrap().remove("extra");
+                }
+                metadata
+            }
             Self::SpeechStartedResponse {
                 type_field,
                 channel,
