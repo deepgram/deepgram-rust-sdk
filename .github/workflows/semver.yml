@@ -1,0 +1,35 @@
+name: SemVer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: semver-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  SemVer:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y alsa pkg-config libasound2-dev
+        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+    - name: Install cargo-semver-checks
+      run: cargo install --locked cargo-semver-checks
+    - name: Cargo SemVer Checks
+      env:
+        PR_TITLE: ${{ github.event.pull_request.title }}
+      run: |
+        # Release Please bumps 0.x breaking changes to the next minor release.
+        if [[ "$PR_TITLE" =~ ^[a-z]+(\([^\)]*\))?!: ]]; then
+          cargo semver-checks check-release --release-type major --verbose
+        else
+          cargo semver-checks check-release --verbose
+        fi
