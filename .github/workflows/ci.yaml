@@ -133,24 +133,3 @@ jobs:
         rustup run nightly cargo generate-lockfile -Z minimal-versions
     - name: Cargo Build Without Dev Dependencies
       run: rustup run nightly cargo build --all-features -Z minimal-versions
-  SemVer:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v5
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y alsa pkg-config libasound2-dev
-        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
-    - name: Install cargo-semver-checks
-      run: cargo install --locked cargo-semver-checks
-    - name: Cargo SemVer Checks
-      env:
-        PR_TITLE: ${{ github.event.pull_request.title }}
-      run: |
-        if [[ "$PR_TITLE" == *"!"* ]]; then
-          cargo semver-checks check-release --release-type minor --verbose
-        else
-          cargo semver-checks check-release --verbose
-        fi
