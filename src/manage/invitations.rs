@@ -4,6 +4,8 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#invitations
 
+use url::Url;
+
 use crate::{send_and_translate_response, Deepgram};
 
 use response::Message;
@@ -67,8 +69,37 @@ impl Invitations<'_> {
     /// # }
     /// ```
     pub async fn leave_project(&self, project_id: &str) -> crate::Result<Message> {
-        let url = format!("https://api.deepgram.com/v1/projects/{project_id}/leave",);
+        let url = self.leave_url(project_id)?;
 
         send_and_translate_response(self.0.client.delete(url)).await
+    }
+
+    fn leave_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0.api_url(&format!("v1/projects/{project_id}/leave"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Deepgram;
+
+    #[test]
+    fn urls_default_base() {
+        let dg = Deepgram::new("token").unwrap();
+
+        assert_eq!(
+            dg.invitations().leave_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/leave"
+        );
+    }
+
+    #[test]
+    fn urls_custom_base() {
+        let dg = Deepgram::with_base_url("http://deepgram.internal").unwrap();
+
+        assert_eq!(
+            dg.invitations().leave_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/leave"
+        );
     }
 }
