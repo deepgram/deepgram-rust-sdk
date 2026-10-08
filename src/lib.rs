@@ -12,6 +12,7 @@
 //! - `speak` (default): text-to-speech, REST and WebSocket, including Flux.
 //! - `manage` (default): project, key, and usage management.
 //! - `read` (default): Text Intelligence over `/v1/read`; see the `read` module.
+//! - `agent` (default): the Voice Agent WebSocket client; see the `agent` module.
 //! - `connect-diagnostics`: per-phase connect timings for `/v1/listen`
 //!   WebSocket connections; see the `diagnostics` module.
 //! - `rustls-tls-native-roots`: also trust the operating system's certificate
@@ -27,7 +28,7 @@ pub use serde_json::Error as SerdeJsonError;
 pub use serde_urlencoded::ser::Error as SerdeUrlencodedError;
 use std::io;
 use std::ops::Deref;
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub use tungstenite::Error as TungsteniteError;
 
 use reqwest::{
@@ -38,6 +39,8 @@ use serde::de::DeserializeOwned;
 use thiserror::Error;
 use url::Url;
 
+#[cfg(feature = "agent")]
+pub mod agent;
 pub mod auth;
 #[cfg(any(feature = "listen", feature = "read"))]
 pub mod common;
@@ -51,7 +54,7 @@ pub mod manage;
 pub mod read;
 #[cfg(feature = "speak")]
 pub mod speak;
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub mod tls;
 
 /// The `rustls` crate this SDK's WebSocket connections are built on,
@@ -60,7 +63,7 @@ pub mod tls;
 ///
 /// This ties the SDK's public API to rustls 0.23: a future rustls major
 /// bump will be a breaking change for this crate as well.
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub use rustls;
 
 #[cfg(feature = "listen")]
@@ -79,7 +82,7 @@ static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
 /// `127.0.0.1:54321`. Every WebSocket surface uses this so a self-hosted
 /// or proxied deployment on a non-default port is routed by its full
 /// authority.
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub(crate) fn websocket_host_header(url: &Url) -> Option<String> {
     let host = url.host_str()?;
     Some(match url.port() {
@@ -88,7 +91,7 @@ pub(crate) fn websocket_host_header(url: &Url) -> Option<String> {
     })
 }
 
-#[cfg(all(test, any(feature = "listen", feature = "speak")))]
+#[cfg(all(test, any(feature = "listen", feature = "speak", feature = "agent")))]
 mod websocket_host_header_tests {
     use super::websocket_host_header;
     use url::Url;
@@ -257,7 +260,7 @@ pub struct Deepgram {
     base_url: Url,
     #[cfg_attr(not(feature = "listen"), allow(unused))]
     client: reqwest::Client,
-    #[cfg(any(feature = "listen", feature = "speak"))]
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     tls: tls::TlsSettings,
 }
 
@@ -288,7 +291,7 @@ pub enum DeepgramError {
     #[error("Something went wrong during I/O: {0}")]
     IoError(#[from] io::Error),
 
-    #[cfg(any(feature = "listen", feature = "speak"))]
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     /// Something went wrong with WS.
     #[error("Something went wrong with WS: {0}")]
     WsError(#[from] Box<TungsteniteError>),
@@ -301,7 +304,7 @@ pub enum DeepgramError {
     /// ends with the remedy that applies to the trust roots in effect: the
     /// `rustls-tls-native-roots` cargo feature, or [`Deepgram::tls_config`].
     /// See [`tls`] for the full picture.
-    #[cfg(any(feature = "listen", feature = "speak"))]
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     #[error("TLS certificate presented by {host} is not trusted ({source}). {}", tls::untrusted_hint(.trust))]
     UntrustedTlsCertificate {
         /// The host the connection was made to.
@@ -343,6 +346,18 @@ pub enum DeepgramError {
         reason: String,
     },
 
+    /// [`Agent::start_at_url`](crate::agent::Agent::start_at_url) was
+    /// asked to open a cleartext (`ws://`) Voice Agent session to a host
+    /// that is not loopback, so the request was refused before any
+    /// connection was attempted and the credential was never sent.
+    ///
+    /// The payload's `url` field is the rejected origin only
+    /// (`scheme://host[:port]`) — path, query, and userinfo are omitted
+    /// so the error is safe to log.
+    #[cfg(feature = "agent")]
+    #[error(transparent)]
+    InsecureAgentUrl(#[from] agent::InsecureAgentUrl),
+
     /// An unexpected error occurred in the client
     #[error("an unepected error occurred in the deepgram client: {0}")]
     InternalClientError(anyhow::Error),
@@ -352,7 +367,7 @@ pub enum DeepgramError {
     UnexpectedServerResponse(anyhow::Error),
 }
 
-#[cfg(any(feature = "listen", feature = "speak"))]
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 impl From<TungsteniteError> for DeepgramError {
     fn from(err: TungsteniteError) -> Self {
         Self::from(Box::new(err))
@@ -548,7 +563,7 @@ impl Deepgram {
                 .user_agent(USER_AGENT)
                 .default_headers(authorization_header)
                 .build()?,
-            #[cfg(any(feature = "listen", feature = "speak"))]
+            #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
             tls: tls::TlsSettings::new(),
         })
     }
@@ -593,7 +608,7 @@ impl Deepgram {
     /// # Ok(())
     /// # }
     /// ```
-    #[cfg(any(feature = "listen", feature = "speak"))]
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     pub fn tls_config(mut self, config: impl Into<std::sync::Arc<rustls::ClientConfig>>) -> Self {
         self.tls = tls::TlsSettings::custom(config.into());
         self
@@ -665,12 +680,28 @@ mod tests {
         // through `{:?}` on the client or on any sub-client that holds it.
         let key = "fake-key-abc123";
         let client = Deepgram::new(key).unwrap();
-        for debug in [
+        // Every sub-client holds the same `Deepgram`, so each one is a
+        // separate way to print it. Feature-gated ones are pushed
+        // conditionally so this test covers whatever is compiled in.
+        let mut debugs = vec![
             format!("{client:?}"),
             format!("{:#?}", client),
             format!("{:?}", client.transcription()),
             format!("{:?}", client.text_to_speech()),
-        ] {
+        ];
+        #[cfg(feature = "agent")]
+        debugs.push(format!("{:?}", client.agent()));
+        #[cfg(feature = "read")]
+        debugs.push(format!("{:?}", client.text_intelligence()));
+        #[cfg(feature = "manage")]
+        {
+            debugs.push(format!("{:?}", client.self_hosted()));
+            debugs.push(format!("{:?}", client.models()));
+            debugs.push(format!("{:?}", client.projects()));
+            debugs.push(format!("{:?}", client.keys()));
+        }
+        debugs.push(format!("{:?}", client.auth()));
+        for debug in debugs {
             assert!(!debug.contains(key), "{debug}");
             assert!(!debug.contains("Token "), "{debug}");
         }
