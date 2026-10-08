@@ -7,7 +7,10 @@
 use std::time::Duration;
 
 use deepgram::{
-    speak::flux::options::{Model, Options},
+    speak::flux::{
+        options::{Model, Options},
+        response::FluxSpeakResponse,
+    },
     Deepgram,
 };
 use futures::{SinkExt, StreamExt};
@@ -22,6 +25,9 @@ const REQUEST_ID: &str = "0193b1c8-6d3f-7a4e-b8f0-1234567890ab";
 /// Far more responses than the client's bounded response channel (256) can
 /// hold, so the channel is guaranteed to be full while they remain undrained.
 const QUEUED_RESPONSES: usize = 600;
+
+/// The worker's bounded response channel, as the client sizes it.
+const RESPONSE_CHANNEL_CAPACITY: usize = 256;
 
 /// Bind a localhost listener that accepts one upgrade (with a valid
 /// `dg-request-id`), and hand the accepted WebSocket to `serve`.
@@ -202,5 +208,150 @@ async fn terminal_read_error_ends_worker_after_single_error() {
     assert!(
         handle.speak("too late").await.is_err(),
         "speak() after a terminal error must return an error"
+    );
+}
+
+/// PR #166 review, applied to the released Flux text-to-speech socket: a
+/// write failure while the response channel is *full* must not deadlock.
+/// Forwarding the terminal error with a blocking send parks the worker on
+/// the full response channel while the caller, which is not draining events,
+/// parks on the full command channel — neither side moves and the error
+/// never surfaces.
+#[tokio::test]
+async fn write_error_with_undrained_events_does_not_deadlock() {
+    let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let port = spawn_mock_server(|mut ws| async move {
+        // Just over the response channel's capacity, so the channel fills
+        // while everything still fits in the socket buffers.
+        for _ in 0..(RESPONSE_CHANNEL_CAPACITY + 50) {
+            ws.send(Message::Binary(vec![0u8; 160].into()))
+                .await
+                .expect("server send");
+        }
+        // Vanish without a closing handshake, but only once the client has
+        // filled its response channel, so the write below fails while there
+        // is provably no room to forward the error into.
+        let _ = abort_rx.await;
+        drop(ws);
+    })
+    .await;
+
+    let mut handle = connect(port).await;
+
+    // Never receive anything: let the worker forward the flood until its
+    // bounded response channel is full, then break the connection.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let _ = abort_tx.send(());
+
+    // Large payloads, so the socket's send buffer is exhausted quickly and
+    // the worker's write actually reaches the dead peer.
+    let text = "token ".repeat(1024);
+    let sending = async {
+        for _ in 0..2_000 {
+            if handle.speak(text.clone()).await.is_err() {
+                return true;
+            }
+        }
+        false
+    };
+
+    let failed = tokio::time::timeout(Duration::from_secs(15), sending)
+        .await
+        .expect("a write error with undrained events must not deadlock `speak`");
+    assert!(
+        failed,
+        "once the transport is broken the worker must end the session, so `speak` reports an \
+         error instead of hanging or succeeding forever"
+    );
+}
+
+/// PR #166 review, S3 (the delivery half of the test above, mirroring
+/// `speak_stream_local::write_error_reaches_a_slow_split_consumer`): the
+/// terminal write error must not merely unblock `speak()`, it must actually
+/// be *delivered*. Forwarding it on the shared response channel drops it
+/// when that channel is full, so a consumer that comes back to drain reads
+/// the queued audio and then nothing at all — the failure looks like a
+/// clean end of stream. `FluxSpeakHandle` cannot be split, so the channel
+/// is filled and the write is broken before anything is received, and the
+/// drain happens once `speak()` has reported the error.
+#[tokio::test]
+async fn write_error_reaches_a_consumer_that_drains_after_the_failure() {
+    let (abort_tx, abort_rx) = tokio::sync::oneshot::channel::<()>();
+
+    let port = spawn_mock_server(|mut ws| async move {
+        // More audio than the response channel holds, so it is provably
+        // full — and has no room for a terminal error — when the write
+        // below fails. The drain at the end of the test asserts this.
+        for _ in 0..(RESPONSE_CHANNEL_CAPACITY + 50) {
+            ws.send(Message::Binary(vec![0u8; 160].into()))
+                .await
+                .expect("server send");
+        }
+        // Vanish without a closing handshake, but only once the client's
+        // response channel is full.
+        let _ = abort_rx.await;
+        drop(ws);
+    })
+    .await;
+
+    let mut handle = connect(port).await;
+
+    // Receive nothing yet: let the worker fill its bounded response channel
+    // with the flood, then break the connection.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let _ = abort_tx.send(());
+
+    // Large payloads, so the socket's send buffer is exhausted quickly and
+    // the worker's write actually reaches the dead peer.
+    let text = "token ".repeat(1024);
+    let sending = async {
+        for _ in 0..2_000 {
+            if handle.speak(text.clone()).await.is_err() {
+                return true;
+            }
+        }
+        false
+    };
+    let failed = tokio::time::timeout(Duration::from_secs(15), sending)
+        .await
+        .expect("a write error with undrained events must not deadlock `speak`");
+    assert!(failed, "the broken transport must fail a later `speak`");
+
+    // Now drain everything the worker queued. The audio comes first, then
+    // the terminal error, and then the stream ends.
+    let mut audio = 0usize;
+    let mut terminal_errors = 0usize;
+    let mut error_was_last = false;
+    while let Some(response) = tokio::time::timeout(Duration::from_secs(10), handle.receive())
+        .await
+        .expect("the event stream must end after the terminal error")
+    {
+        match response {
+            Ok(FluxSpeakResponse::Audio(_)) => {
+                audio += 1;
+                error_was_last = false;
+            }
+            Ok(other) => panic!("unexpected event {other:?}"),
+            Err(_) => {
+                terminal_errors += 1;
+                error_was_last = true;
+            }
+        }
+    }
+
+    assert!(
+        audio >= RESPONSE_CHANNEL_CAPACITY,
+        "the response channel must have been full at the write failure, but only {audio} audio \
+         events were queued"
+    );
+    assert_eq!(
+        terminal_errors, 1,
+        "the terminal write error must be delivered to a consumer that drains after the failure, \
+         exactly once (drained {audio} audio events)"
+    );
+    assert!(
+        error_was_last,
+        "the terminal error must arrive after the queued audio, as the last item in the stream"
     );
 }
