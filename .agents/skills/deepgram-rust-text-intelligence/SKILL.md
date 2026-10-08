@@ -1,6 +1,6 @@
 ---
 name: deepgram-rust-text-intelligence
-description: Use when a user asks for Deepgram text intelligence from Rust. Route to raw HTTP guidance because this crate does not currently expose a dedicated /v1/read client or typed text-intelligence module.
+description: Use when a user asks for Deepgram text intelligence from Rust. The crate exposes /v1/read through a typed client behind the `read` Cargo feature.
 ---
 
 # Using Deepgram Text Intelligence (Rust SDK)
@@ -11,68 +11,128 @@ Use this skill when the request is about summarization, sentiment, topics, or in
 
 - Analyzing plain text via Deepgram's `/v1/read` API.
 - Building text summarization, topic detection, intent recognition, or sentiment analysis.
-- Explaining the gap between Deepgram product support and the current Rust crate surface.
+- Analyzing a transcript, document, chat log, or email you already have, rather than audio.
 
 ## Authentication
 
-**Not yet supported in this crate as a first-class module.** There is no `deepgram::read`, `deepgram::text_intelligence`, or equivalent typed client in `src/` today.
-
-Use raw HTTP with `reqwest`:
+Text intelligence lives behind the `read` Cargo feature. It is HTTP-only, so it
+needs none of the WebSocket dependencies the `listen` and `speak` features pull
+in and can be enabled on its own.
 
 ```toml
 [dependencies]
+deepgram = { version = "0.12", default-features = false, features = ["read"] }
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
-serde_json = "1"
 ```
 
-## Quick start
-
-## Quick start: call `/v1/read` with `reqwest`
+`read` is also part of the crate's default features, so a plain
+`cargo add deepgram` includes it.
 
 ```rust
-use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
-use serde_json::json;
+use deepgram::Deepgram;
+
+let dg_client = Deepgram::new(&std::env::var("DEEPGRAM_API_KEY")?)?;
+let text_intelligence = dg_client.text_intelligence();
+```
+
+## Quick start: analyze a block of text
+
+```rust
+use deepgram::{read::options::Options, Deepgram, DeepgramError};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let api_key = std::env::var("DEEPGRAM_API_KEY")?;
+async fn main() -> Result<(), DeepgramError> {
+    let api_key = std::env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY");
+    let dg_client = Deepgram::new(&api_key)?;
 
-    let client = reqwest::Client::new();
-    let response = client
-        .post("https://api.deepgram.com/v1/read")
-        .header(AUTHORIZATION, format!("Token {api_key}"))
-        .header(CONTENT_TYPE, "application/json")
-        .json(&json!({
-            "text": "Customer is asking to cancel the subscription next month.",
-            "language": "en",
-            "summarize": true,
-            "topics": true,
-            "intents": true,
-            "sentiment": true
-        }))
-        .send()
-        .await?
-        .error_for_status()?;
+    let options = Options::builder()
+        .sentiment(true)
+        .summarize(true)
+        .topics(true)
+        .intents(true)
+        .build();
 
-    let body: serde_json::Value = response.json().await?;
-    println!("{body:#}");
+    let response = dg_client
+        .text_intelligence()
+        .analyze_text(
+            "Customer is asking to cancel the subscription next month.",
+            &options,
+        )
+        .await?;
+
+    if let Some(text) = response.results.summary.as_ref().and_then(|s| s.text.as_deref()) {
+        println!("summary: {text}");
+    }
+    if let Some(sentiments) = &response.results.sentiments {
+        println!("average sentiment: {:?}", sentiments.average);
+    }
+    if let Some(topics) = &response.results.topics {
+        println!("topic segments: {}", topics.segments.len());
+    }
+    if let Some(intents) = &response.results.intents {
+        println!("intent segments: {}", intents.segments.len());
+    }
+
     Ok(())
 }
 ```
 
+## Analyze a hosted document
+
+`analyze_url` takes the URL of a plain-text document; everything else is the
+same as `analyze_text`.
+
+```rust
+let response = dg_client
+    .text_intelligence()
+    .analyze_url("https://example.com/transcript.txt", &options)
+    .await?;
+```
+
+## Callbacks
+
+For long inputs, have Deepgram deliver the result to a webhook instead of
+holding the connection open. The call returns as soon as the request is
+accepted, with the `request_id` to correlate against; the full analysis arrives
+at the callback URL.
+
+```rust
+use deepgram::read::options::{CallbackMethod, Options};
+
+let options = Options::builder()
+    .sentiment(true)
+    .callback_method(CallbackMethod::POST)
+    .build();
+
+let ack = dg_client
+    .text_intelligence()
+    .analyze_text_callback(text, &options, "https://example.com/hook")
+    .await?;
+println!("request id: {}", ack.request_id);
+```
+
+`analyze_url_callback` is the hosted-document equivalent.
+
 ## Key parameters
 
-- Request body: `text` or hosted `url`.
-- Required for current text-intelligence docs: `language: "en"`.
-- Analysis flags: `summarize`, `topics`, `intents`, `sentiment`.
-- Optional callback fields exist in the HTTP API, but the Rust crate does not provide typed helpers for them.
+- Input: `analyze_text(text, &options)` for inline text, `analyze_url(url, &options)` for a hosted plain-text document.
+- Analysis flags on `Options::builder()`: `sentiment`, `summarize`, `topics`, `intents`.
+- Custom taxonomies: `custom_topics` / `custom_topic_mode` and `custom_intents` / `custom_intent_mode`.
+- `language` defaults to English, the only language `/v1/read` accepts; the builder sends it for you because the endpoint returns 400 without it.
+- `tag` attaches request tags for usage reporting.
+- Callbacks: `analyze_text_callback` / `analyze_url_callback` plus `callback_method`.
+
+## Escape hatch
+
+`make_read_request_builder` and `make_read_callback_request_builder` return the
+underlying `reqwest::RequestBuilder` before it is sent, for appending query
+parameters the typed options do not cover yet.
 
 ## API reference (layered)
 
 1. **In-repo**
-   - No dedicated support in this crate today; note the absence of any `read` / `text_intelligence` module under `src/`
-   - `README.md` for install/auth patterns only
+   - `src/read/` — `rest.rs` (the four request methods), `options.rs` (the query builder), `response.rs` (`Response`, `ReadMetadata`, `ReadResults`)
+   - `README.md` for install/auth patterns
 2. **OpenAPI**
    - Raw spec: `https://developers.deepgram.com/openapi.yaml`
    - Endpoint reference: `https://developers.deepgram.com/reference/text-intelligence/analyze-text`
@@ -85,15 +145,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Gotchas
 
-1. **No Rust SDK wrapper yet.** Do not invent `deepgram::read` APIs; use `reqwest` until the crate adds a typed surface.
-2. **This is different from audio intelligence.** Audio intelligence is piggybacked on STT; text intelligence is its own `/v1/read` API.
-3. **Use English explicitly.** Current text-intelligence docs require `language` to be English.
-4. **API keys use `Token`.** This API does not use `Bearer` for standard API keys.
+1. **This is different from audio intelligence.** Audio intelligence is piggybacked on STT and configured through the transcription `Options`; text intelligence is its own `/v1/read` API with its own `read::options::Options`. The two `Options` types are not interchangeable.
+2. **Every analysis result is optional.** `results.sentiments`, `summary`, `topics`, and `intents` are `Option`, populated only for the flags you enabled. Match on them rather than unwrapping. `Summary::text` is itself an `Option<String>`, because the reference marks it optional, so reaching the summary text means unwrapping twice.
+3. **Every metadata field is optional too.** Each field of `ReadMetadata` (including `request_id`, an `Option<Uuid>`, and `created`) and every field of `AnalysisInfo` is an `Option`, matching the reference, so logging the request id means unwrapping first rather than reading it straight off `response.metadata`.
+4. **English only.** `/v1/read` accepts English; the builder sends `language=en` by default because the endpoint rejects a request without it.
+5. **`read` can be enabled alone.** If a consumer has `default-features = false`, text intelligence needs `features = ["read"]` — it is not covered by `listen`.
+6. **API keys use `Token`.** This API does not use `Bearer` for standard API keys. `Deepgram::new` handles the header for you.
 
 ## Example files in this repo
 
-- No dedicated text-intelligence examples are present in this Rust repository.
-- Closest related examples are transcription examples under `examples/transcription/` if you need transcript-first workflows.
+- `examples/read/analyze_text.rs` — runnable end-to-end analysis, registered as the `analyze_text` example (`cargo run --features read --example analyze_text`).
 
 ## Central product skills
 
