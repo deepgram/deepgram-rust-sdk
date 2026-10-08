@@ -323,9 +323,7 @@ mod tests {
     // model identifiers replaced by placeholders. Which fields are present and
     // which are absent is exactly as the API sent them.
 
-    /// A `/v1/listen` record. The API sends the audio-metering group
-    /// (`duration`, `total_audio`, `channels`, `streams`) only for records that
-    /// actually metered audio.
+    /// A `/v1/listen` record with the legacy audio-metering group present.
     const LISTEN_SYNC_WITH_AUDIO: &str = r#"{
         "request_id": "33333333-3333-4333-8333-333333333331",
         "project_uuid": "11111111-1111-4111-8111-111111111111",
