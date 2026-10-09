@@ -15,6 +15,10 @@ This SDK implements the Deepgram API found at [https://developers.deepgram.com](
 
 Documentation and examples can be found on our [Docs.rs page](https://docs.rs/deepgram/latest/deepgram/).
 
+### Migrating Between Versions
+
+- [v0.12 to v0.13](./docs/Migrating-v0.12-to-v0.13.md) (current)
+
 ## Quick Start
 
 Check out the [examples folder](./examples/) for practical code examples showing how to use the SDK.
