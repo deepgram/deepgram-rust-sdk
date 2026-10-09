@@ -394,4 +394,9 @@ async fn late_responses_after_close_stream_are_delivered() {
         .await
         .expect("a response that arrives after CloseStream must be delivered");
     assert!(matches!(response, Some(Ok(_))), "got {response:?}");
+
+    let end = tokio::time::timeout(Duration::from_secs(5), handle.receive())
+        .await
+        .expect("the stream must end after the server closes");
+    assert!(end.is_none(), "got {end:?}");
 }
