@@ -309,3 +309,94 @@ async fn normal_session_completes() {
         "the response sent after CloseStream must still be delivered"
     );
 }
+
+/// The keep-alive interval the worker waits between writes.
+const KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(3);
+
+/// A session that is idle for longer than the keep-alive interval must keep
+/// delivering responses when keep-alive is not enabled.
+///
+/// The worker's idle timer fired after three quiet seconds and, with
+/// keep-alive off, parked the worker on a future that never completes. From
+/// then on it neither read the socket nor wrote audio, so a response that
+/// arrived after a pause was never delivered.
+#[tokio::test]
+async fn responses_arrive_after_an_idle_pause_without_keep_alive() {
+    let port = spawn_mock_server(|mut ws| async move {
+        // Wait for the first audio frame, then answer only after the client
+        // has been quiet for longer than the keep-alive interval.
+        while let Some(Ok(message)) = ws.next().await {
+            if let Message::Binary(_) = message {
+                tokio::time::sleep(KEEP_ALIVE_INTERVAL + Duration::from_secs(1)).await;
+                ws.send(Message::Text(speech_started(1).into()))
+                    .await
+                    .expect("server send");
+                break;
+            }
+        }
+        while ws.next().await.is_some() {}
+    })
+    .await;
+
+    let dg = client(port);
+    let transcription = dg.transcription();
+    let mut handle = transcription
+        .stream_request()
+        .handle()
+        .await
+        .expect("connect");
+
+    handle.send_data(vec![0u8; 320]).await.expect("send audio");
+
+    let response = tokio::time::timeout(Duration::from_secs(10), handle.receive())
+        .await
+        .expect("a response that arrives after an idle pause must be delivered");
+    assert!(matches!(response, Some(Ok(_))), "got {response:?}");
+}
+
+/// Responses that arrive more than the keep-alive interval after
+/// `close_stream` must still be delivered.
+///
+/// Once `CloseStream` is written the session is no longer open, and the idle
+/// timer parked the worker forever three seconds later, so the final
+/// transcripts of a slow flush were lost and the stream never ended.
+#[tokio::test]
+async fn late_responses_after_close_stream_are_delivered() {
+    let port = spawn_mock_server(|mut ws| async move {
+        while let Some(Ok(message)) = ws.next().await {
+            if let Message::Text(text) = message {
+                if text.contains("CloseStream") {
+                    tokio::time::sleep(KEEP_ALIVE_INTERVAL + Duration::from_secs(1)).await;
+                    ws.send(Message::Text(speech_started(2).into()))
+                        .await
+                        .expect("server send");
+                    ws.close(None).await.expect("server close");
+                    break;
+                }
+            }
+        }
+    })
+    .await;
+
+    let dg = client(port);
+    let transcription = dg.transcription();
+    let mut handle = transcription
+        .stream_request()
+        .keep_alive()
+        .handle()
+        .await
+        .expect("connect");
+
+    handle.send_data(vec![0u8; 320]).await.expect("send audio");
+    handle.close_stream().await.expect("close_stream");
+
+    let response = tokio::time::timeout(Duration::from_secs(10), handle.receive())
+        .await
+        .expect("a response that arrives after CloseStream must be delivered");
+    assert!(matches!(response, Some(Ok(_))), "got {response:?}");
+
+    let end = tokio::time::timeout(Duration::from_secs(5), handle.receive())
+        .await
+        .expect("the stream must end after the server closes");
+    assert!(end.is_none(), "got {end:?}");
+}
