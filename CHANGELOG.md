@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.12.0...0.13.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **manage:** `Details::duration` and `Details::total_audio` are now `Option<f64>`; `Details::channels` and `Details::streams` are now `Option<usize>`. Update direct field reads to handle `None` deliberately; an absent legacy meter group does not necessarily represent zero usage.
+* **manage:** Management and `Auth::grant` calls now use the configured base URL. Code that relied on a custom-base-URL client sending those calls to the hosted API must create a separate default-hosted client with `Deepgram::new(api_key)` or `Deepgram::with_temp_token(token)`. A base URL with a path prefix must end in `/` to preserve that prefix; without the trailing slash, RFC 3986 resolution replaces the final path segment.
+* Streaming metadata and terminal responses are now non-exhaustive and expose extra metadata; external struct literals must be replaced with deserialized values and exhaustive patterns must include `..`. Named Whisper and redaction values now parse to their dedicated variants, so code matching `CustomId` or `Other` for those strings must match the named variants or compare their wire values instead. `Speak::speak_to_file` no longer writes a success message to stdout; print that message in the application if needed.
+* **listen:** expose extra metadata on pre-recorded and streaming responses
+* **listen:** `StreamResponse::TerminalResponse` is non-exhaustive, so pattern matches must include `..`; its contained `Metadata` cannot be constructed externally with a struct literal.
+
+### Added
+
+* add Phase 1 quick wins for TTS metadata, Whisper models, redaction, response fields, and captions ([65d6c7d](https://github.com/deepgram/deepgram-rust-sdk/commit/65d6c7d25e1e4b0d5063bac7c118436c522d6115))
+* **agent:** add Flux and Aura settings with integer Deepgram Speak V2 expressivity ([1e30b0d](https://github.com/deepgram/deepgram-rust-sdk/commit/1e30b0de640fe3c68114bc70dc256ad1a16c3911))
+* **agent:** add listen controls, raw messages, typed server events, and forward-compatible unknown values ([1e30b0d](https://github.com/deepgram/deepgram-rust-sdk/commit/1e30b0de640fe3c68114bc70dc256ad1a16c3911))
+* **agent:** preserve typed JSON events and synthesized audio in wire order ([1e30b0d](https://github.com/deepgram/deepgram-rust-sdk/commit/1e30b0de640fe3c68114bc70dc256ad1a16c3911))
+* **captions:** add SRT and WebVTT helpers with speaker-safe grouping and millisecond timestamps ([65d6c7d](https://github.com/deepgram/deepgram-rust-sdk/commit/65d6c7d25e1e4b0d5063bac7c118436c522d6115))
+* **listen:** expose Entity::raw_value to preserve pre-formatting spoken text ([65d6c7d](https://github.com/deepgram/deepgram-rust-sdk/commit/65d6c7d25e1e4b0d5063bac7c118436c522d6115))
+* **listen:** expose extra metadata on pre-recorded and streaming responses ([65d6c7d](https://github.com/deepgram/deepgram-rust-sdk/commit/65d6c7d25e1e4b0d5063bac7c118436c522d6115))
+* **models:** add configured-base-URL model listing, including outdated models and expanded metadata ([a7187a2](https://github.com/deepgram/deepgram-rust-sdk/commit/a7187a235624bb62e421bf170cd42993b2cf1b29))
+* **read:** add TextIntelligence analysis with optional partial-response fields, callbacks, and the standalone read feature ([a7187a2](https://github.com/deepgram/deepgram-rust-sdk/commit/a7187a235624bb62e421bf170cd42993b2cf1b29))
+* **self-hosted:** add typed distribution credential management with redacted secrets and forward-compatible scopes ([49a25b9](https://github.com/deepgram/deepgram-rust-sdk/commit/49a25b95802e2a0145d5ac4229adfb75ec85db84))
+* **speak:** add streaming TTS options, local validation, bounded close handling, and shared TLS configuration ([49a25b9](https://github.com/deepgram/deepgram-rust-sdk/commit/49a25b95802e2a0145d5ac4229adfb75ec85db84))
+
+
+### Fixed
+
+* **agent:** prevent inbound audio starvation, bound close handling, require secure remote WebSockets, and redact credentials ([1e30b0d](https://github.com/deepgram/deepgram-rust-sdk/commit/1e30b0de640fe3c68114bc70dc256ad1a16c3911))
+* **listen:** fix single-feature cargo docs, terminal transport errors, and response-buffer write stalls ([a7187a2](https://github.com/deepgram/deepgram-rust-sdk/commit/a7187a235624bb62e421bf170cd42993b2cf1b29))
+* **manage:** decode usage requests that omit the audio meter group ([4622a4a](https://github.com/deepgram/deepgram-rust-sdk/commit/4622a4a1a1d313b12dbd6619855a83efad752eac))
+* **manage:** distinguish omitted usage meter groups from zero usage ([4622a4a](https://github.com/deepgram/deepgram-rust-sdk/commit/4622a4a1a1d313b12dbd6619855a83efad752eac))
+* **manage:** Scopes::get_scope no longer builds its URL with a trailing space ([8bea4ed](https://github.com/deepgram/deepgram-rust-sdk/commit/8bea4edb17fc3d70172a18d0898cd09b87f4c845))
+* **manage:** send management and auth requests to the configured base URL ([8bea4ed](https://github.com/deepgram/deepgram-rust-sdk/commit/8bea4edb17fc3d70172a18d0898cd09b87f4c845))
+* **speak:** add named Aura-2 models and prevent Flux TTS terminal-error deadlocks under event backpressure ([49a25b9](https://github.com/deepgram/deepgram-rust-sdk/commit/49a25b95802e2a0145d5ac4229adfb75ec85db84))
+
 ## [0.12.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.11.0...0.12.0)
 
 ### Added
