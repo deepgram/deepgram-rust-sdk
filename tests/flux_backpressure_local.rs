@@ -395,3 +395,58 @@ async fn write_error_with_undrained_responses_is_delivered_without_stalling() {
         "send_data after a terminal error must return an error"
     );
 }
+
+/// `FluxBuilder::stream` must keep delivering responses after the audio
+/// source ends. The server finalizes the last turn only after it reads
+/// `CloseStream`, so ending the stream as soon as the audio runs out drops
+/// that turn's transcript.
+#[tokio::test]
+async fn stream_delivers_responses_sent_after_the_audio_ends() {
+    let port = spawn_mock_server(|mut ws| async move {
+        while let Some(Ok(message)) = ws.next().await {
+            if let Message::Text(text) = message {
+                if text.contains("CloseStream") {
+                    break;
+                }
+            }
+        }
+        ws.send(Message::Text(turn_info_update(7).into()))
+            .await
+            .expect("server send");
+        ws.close(Some(CloseFrame {
+            code: CloseCode::Normal,
+            reason: "".into(),
+        }))
+        .await
+        .expect("server close");
+        while let Some(Ok(_)) = ws.next().await {}
+    })
+    .await;
+
+    let dg = client(port);
+    let transcription = dg.transcription();
+    let audio = futures::stream::iter([Ok::<_, std::io::Error>(bytes::Bytes::from_static(
+        &[0u8; 320],
+    ))]);
+    let mut stream = transcription
+        .flux_request()
+        .stream(audio)
+        .await
+        .expect("connect");
+
+    let mut sequence_ids = Vec::new();
+    while let Some(response) = tokio::time::timeout(Duration::from_secs(5), stream.next())
+        .await
+        .expect("the stream must end once the server closes")
+    {
+        match response.expect("no errors expected") {
+            FluxResponse::TurnInfo { sequence_id, .. } => sequence_ids.push(sequence_id),
+            other => panic!("unexpected response: {other:?}"),
+        }
+    }
+    assert_eq!(
+        sequence_ids,
+        vec![7],
+        "the response sent after CloseStream must reach the stream"
+    );
+}

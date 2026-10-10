@@ -265,12 +265,16 @@ impl FluxBuilder<'_> {
                                 }
                             }
                             None => {
+                                // Keep looping after closing: the server sends
+                                // the final turn's responses only after it reads
+                                // `CloseStream`, and the loop ends once the
+                                // response channel closes. The fused stream is
+                                // not polled again.
                                 if let Err(err) = handle.close_stream().await {
                                     if tx.send(Err(err)).await.is_err() {
                                         break;
                                     }
                                 }
-                                break;
                             }
                         }
                     }
