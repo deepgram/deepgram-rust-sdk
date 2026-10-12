@@ -1,5 +1,6 @@
 {
   "release-type": "rust",
+  "last-release-sha": "b4b44614b203b409a2754e53509c708e1ecccb27",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": false,
   "changelog-sections": [
