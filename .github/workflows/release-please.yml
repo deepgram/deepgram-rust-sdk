@@ -36,11 +36,11 @@ jobs:
       - name: Format
         run: cargo fmt --check --all
       - name: Lint
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
       - name: Test
-        run: cargo test --all --all-features
+        run: cargo test --all --all-features --locked
       - name: Build documentation
-        run: cargo doc --workspace --all-features
+        run: cargo doc --workspace --all-features --locked
       - name: Verify package
         run: cargo package --locked --no-verify
 
@@ -84,7 +84,7 @@ jobs:
       # `verify` checks the pushed head, but the release is tagged at the
       # release PR's merge commit, which can differ. Re-check that commit.
       - name: Lint release commit
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
       - name: Test release commit
         run: cargo test --all --all-features --locked
       - name: Publish crate

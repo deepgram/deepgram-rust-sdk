@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
+    - uses: actions-rust-lang/setup-rust-toolchain@v1
     # Resolves the dependency graph without compiling, so this is the cheapest
     # possible guard. `--locked` fails if Cargo.lock does not already match
     # Cargo.toml, which is what keeps a drifted lock from reaching the release
