@@ -31,6 +31,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y alsa pkg-config libasound2-dev
+      - name: Verify Cargo.lock is up to date
+        run: cargo metadata --locked --format-version 1 > /dev/null
       - name: Format
         run: cargo fmt --check --all
       - name: Lint
