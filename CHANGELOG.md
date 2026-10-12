@@ -40,8 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **manage:** distinguish omitted usage meter groups from zero usage ([4622a4a](https://github.com/deepgram/deepgram-rust-sdk/commit/4622a4a1a1d313b12dbd6619855a83efad752eac))
 * **manage:** Scopes::get_scope no longer builds its URL with a trailing space ([8bea4ed](https://github.com/deepgram/deepgram-rust-sdk/commit/8bea4edb17fc3d70172a18d0898cd09b87f4c845))
 * **manage:** send management and auth requests to the configured base URL ([8bea4ed](https://github.com/deepgram/deepgram-rust-sdk/commit/8bea4edb17fc3d70172a18d0898cd09b87f4c845))
-* recover unpublished 0.13.0 release ([#199](https://github.com/deepgram/deepgram-rust-sdk/issues/199)) ([d701583](https://github.com/deepgram/deepgram-rust-sdk/commit/d701583d92f7be5a659c3d7205f852a1ca680d5e))
-* recover unpublished 0.13.0 release ([#199](https://github.com/deepgram/deepgram-rust-sdk/issues/199)) ([6e2a784](https://github.com/deepgram/deepgram-rust-sdk/commit/6e2a784f599931c5e7008ebfe368be1093115d26))
 * **speak:** add named Aura-2 models and prevent Flux TTS terminal-error deadlocks under event backpressure ([49a25b9](https://github.com/deepgram/deepgram-rust-sdk/commit/49a25b95802e2a0145d5ac4229adfb75ec85db84))
 
 ## [0.12.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.11.0...0.12.0)
