@@ -72,7 +72,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await
     {
         Ok(Ok(mut results)) => {
-            eprintln!("Deepgram Request ID: {}", results.request_id());
+            eprintln!("Deepgram Request ID: {:?}", results.request_id());
             let mut stream_outcome = Ok(());
             while let Some(result) = results.next().await {
                 match result {

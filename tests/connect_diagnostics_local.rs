@@ -110,7 +110,10 @@ async fn completed_connect_over_plain_ws_emits_full_record() {
         .handle()
         .await
         .expect("connect should succeed");
-    assert_eq!(handle.request_id().to_string(), REQUEST_ID);
+    assert_eq!(
+        handle.request_id().map(|id| id.to_string()).as_deref(),
+        Some(REQUEST_ID)
+    );
 
     let record = diag_rx.try_recv().expect("one record per attempt");
     assert_eq!(record.outcome, ConnectOutcome::Completed);
@@ -158,31 +161,28 @@ async fn completed_connect_over_plain_ws_emits_full_record() {
 }
 
 #[tokio::test]
-async fn missing_request_id_yields_failed_record_matching_caller_error() {
+async fn missing_request_id_yields_completed_record_matching_caller_success() {
     let port = spawn_mock_server(Mode::AcceptWithoutRequestId).await;
     let (diag_tx, mut diag_rx) = sink();
 
     let dg = client(port);
     let transcription = dg.transcription();
-    let result = transcription
+    let handle = transcription
         .stream_request_with_options(Options::default())
         .diagnostics(diag_tx)
         .handle()
-        .await;
-    assert!(result.is_err(), "SDK rejects an upgrade with no request ID");
+        .await
+        .expect("SDK accepts an upgrade with no request ID");
+    assert!(handle.request_id().is_none());
 
-    let record = diag_rx.try_recv().expect("record emitted on failure");
+    let record = diag_rx.try_recv().expect("record emitted on success");
     assert_eq!(
         record.outcome,
-        ConnectOutcome::Failed,
-        "outcome must match the error the caller saw"
+        ConnectOutcome::Completed,
+        "outcome must match the success the caller saw"
     );
     assert!(record.request_id.is_none());
-    assert!(record
-        .error
-        .as_deref()
-        .expect("error populated")
-        .contains("missing request ID"));
+    assert!(record.error.is_none());
 }
 
 #[tokio::test]
@@ -246,5 +246,22 @@ async fn stock_path_without_sink_connects_and_emits_nothing() {
         .handle()
         .await
         .expect("stock connect should succeed against the mock");
-    assert_eq!(handle.request_id().to_string(), REQUEST_ID);
+    assert_eq!(
+        handle.request_id().map(|id| id.to_string()).as_deref(),
+        Some(REQUEST_ID)
+    );
+}
+
+#[tokio::test]
+async fn stock_path_connects_when_upgrade_has_no_request_id() {
+    let port = spawn_mock_server(Mode::AcceptWithoutRequestId).await;
+
+    let dg = client(port);
+    let transcription = dg.transcription();
+    let handle = transcription
+        .stream_request_with_options(Options::default())
+        .handle()
+        .await
+        .expect("a missing request ID must not fail the connect");
+    assert!(handle.request_id().is_none());
 }

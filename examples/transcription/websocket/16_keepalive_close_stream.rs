@@ -40,7 +40,7 @@ async fn main() -> Result<(), DeepgramError> {
         .handle()
         .await?;
 
-    println!("Connected. Request ID: {}", handle.request_id());
+    println!("Connected. Request ID: {:?}", handle.request_id());
 
     // Brief pause — no audio is sent, so the worker only has the keep-alive
     // timer ticking. This simulates a connection that is idle before being
