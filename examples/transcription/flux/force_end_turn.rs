@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .handle()
         .await?;
 
-    println!("Flux Request ID: {}", handle.request_id());
+    println!("Flux Request ID: {:?}", handle.request_id());
 
     // Read the file up front and slice it into pacable chunks.
     let audio_bytes = tokio::fs::read(PATH_TO_FILE).await?;

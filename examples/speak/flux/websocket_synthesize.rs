@@ -64,7 +64,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let speak = dg.text_to_speech();
     let mut handle = speak.flux_request(options).handle().await?;
 
-    println!("Flux TTS Request ID: {}", handle.request_id());
+    println!("Flux TTS Request ID: {:?}", handle.request_id());
 
     // Stream the turn's text in, then end the turn and close. Events
     // and audio are read below; nothing here blocks on the server.

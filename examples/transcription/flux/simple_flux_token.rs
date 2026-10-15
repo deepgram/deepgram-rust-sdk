@@ -63,7 +63,7 @@ async fn main() -> Result<(), DeepgramError> {
         .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, FRAME_DELAY)
         .await?;
 
-    println!("Flux Request ID: {}", results.request_id());
+    println!("Flux Request ID: {:?}", results.request_id());
     while let Some(result) = results.next().await {
         match result? {
             FluxResponse::Connected {

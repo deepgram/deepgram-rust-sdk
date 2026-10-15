@@ -19,9 +19,11 @@ use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
 const REQUEST_ID: &str = "0193b1c8-6d3f-7a4e-b8f0-1234567890ab";
 
 /// Accept one upgrade, send the captured `Host` header value and the
-/// upgrade request's target (path and query) through `host_tx`, answer with
-/// a `dg-request-id`, then close.
-async fn spawn_host_capturing_server() -> (u16, oneshot::Receiver<(String, String)>) {
+/// upgrade request's target (path and query) through `host_tx`, optionally
+/// answer with a `dg-request-id`, then close.
+async fn spawn_host_capturing_server(
+    include_request_id: bool,
+) -> (u16, oneshot::Receiver<(String, String)>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
     let port = listener.local_addr().expect("local addr").port();
     let (host_tx, host_rx) = oneshot::channel();
@@ -43,9 +45,11 @@ async fn spawn_host_capturing_server() -> (u16, oneshot::Receiver<(String, Strin
             if let Some(tx) = host_tx.take() {
                 let _ = tx.send((host, target));
             }
-            response
-                .headers_mut()
-                .insert("dg-request-id", REQUEST_ID.parse().unwrap());
+            if include_request_id {
+                response
+                    .headers_mut()
+                    .insert("dg-request-id", REQUEST_ID.parse().unwrap());
+            }
             Ok(response)
         };
         if let Ok(mut ws) = tokio_tungstenite::accept_hdr_async(stream, callback).await {
@@ -64,7 +68,7 @@ fn client(port: u16) -> Deepgram {
 #[cfg(feature = "listen")]
 #[tokio::test]
 async fn live_transcription_sends_host_with_port() {
-    let (port, host_rx) = spawn_host_capturing_server().await;
+    let (port, host_rx) = spawn_host_capturing_server(true).await;
 
     client(port)
         .transcription()
@@ -82,7 +86,7 @@ async fn live_transcription_sends_host_with_port() {
 #[cfg(feature = "listen")]
 #[tokio::test]
 async fn flux_speech_to_text_sends_host_with_port() {
-    let (port, host_rx) = spawn_host_capturing_server().await;
+    let (port, host_rx) = spawn_host_capturing_server(true).await;
 
     client(port)
         .transcription()
@@ -97,10 +101,25 @@ async fn flux_speech_to_text_sends_host_with_port() {
     );
 }
 
+#[cfg(feature = "listen")]
+#[tokio::test]
+async fn flux_speech_to_text_connects_without_a_request_id() {
+    let (port, _host_rx) = spawn_host_capturing_server(false).await;
+
+    let handle = client(port)
+        .transcription()
+        .flux_request()
+        .handle()
+        .await
+        .expect("connect without a request ID");
+
+    assert!(handle.request_id().is_none());
+}
+
 #[cfg(feature = "speak")]
 #[tokio::test]
 async fn streaming_text_to_speech_sends_host_with_port() {
-    let (port, host_rx) = spawn_host_capturing_server().await;
+    let (port, host_rx) = spawn_host_capturing_server(true).await;
 
     client(port)
         .text_to_speech()
@@ -120,7 +139,7 @@ async fn streaming_text_to_speech_sends_host_with_port() {
 async fn flux_text_to_speech_sends_host_with_port() {
     use deepgram::speak::flux::options::{Model, Options};
 
-    let (port, host_rx) = spawn_host_capturing_server().await;
+    let (port, host_rx) = spawn_host_capturing_server(true).await;
 
     client(port)
         .text_to_speech()
@@ -135,6 +154,23 @@ async fn flux_text_to_speech_sends_host_with_port() {
     );
 }
 
+#[cfg(feature = "speak")]
+#[tokio::test]
+async fn flux_text_to_speech_connects_without_a_request_id() {
+    use deepgram::speak::flux::options::{Model, Options};
+
+    let (port, _host_rx) = spawn_host_capturing_server(false).await;
+
+    let handle = client(port)
+        .text_to_speech()
+        .flux_request(Options::builder(Model::FluxHaleyEn).build())
+        .handle()
+        .await
+        .expect("connect without a request ID");
+
+    assert!(handle.request_id().is_none());
+}
+
 /// PR #166 review, N1: the streaming text-to-speech escape hatches have to
 /// reach the wire, not just `as_url()`. An unmodeled `query_params` pair and
 /// `Encoding::CustomEncoding` must both appear verbatim in the upgrade
@@ -144,7 +180,7 @@ async fn flux_text_to_speech_sends_host_with_port() {
 async fn streaming_text_to_speech_sends_the_escape_hatches_on_the_wire() {
     use deepgram::speak::options::Encoding;
 
-    let (port, capture_rx) = spawn_host_capturing_server().await;
+    let (port, capture_rx) = spawn_host_capturing_server(true).await;
 
     client(port)
         .text_to_speech()
@@ -162,7 +198,7 @@ async fn streaming_text_to_speech_sends_the_escape_hatches_on_the_wire() {
 #[cfg(feature = "agent")]
 #[tokio::test]
 async fn voice_agent_sends_host_with_port() {
-    let (port, host_rx) = spawn_host_capturing_server().await;
+    let (port, host_rx) = spawn_host_capturing_server(true).await;
 
     client(port)
         .agent()

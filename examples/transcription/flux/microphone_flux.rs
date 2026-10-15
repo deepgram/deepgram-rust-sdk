@@ -104,7 +104,7 @@ async fn main() -> Result<(), DeepgramError> {
         .stream(mic_stream)
         .await?;
 
-    println!("Flux Request ID: {}\n", results.request_id());
+    println!("Flux Request ID: {:?}\n", results.request_id());
 
     while let Some(result) = results.next().await {
         match result? {
