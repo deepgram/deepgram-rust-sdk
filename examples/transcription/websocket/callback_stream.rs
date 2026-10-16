@@ -45,7 +45,7 @@ async fn main() -> Result<(), DeepgramError> {
         .file(PATH_TO_FILE, AUDIO_CHUNK_SIZE, FRAME_DELAY)
         .await?;
 
-    println!("Deepgram Request ID: {}", results.request_id());
+    println!("Deepgram Request ID: {:?}", results.request_id());
     while let Some(result) = results.next().await {
         println!("got: {result:?}");
     }

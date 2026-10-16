@@ -377,7 +377,7 @@ enum ConfigureWireMessage<'a> {
 pub struct FluxHandle {
     message_tx: Sender<WsMessage>,
     pub(crate) response_rx: Receiver<Result<FluxResponse>>,
-    request_id: Uuid,
+    request_id: Option<Uuid>,
 }
 
 impl FluxHandle {
@@ -420,18 +420,20 @@ impl FluxHandle {
         .await
         .map_err(|err| tls.connect_error(err, host))?;
 
-        let request_id = upgrade_response
+        let request_id: Result<Option<Uuid>> = upgrade_response
             .headers()
             .get("dg-request-id")
-            .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
-                "Websocket upgrade headers missing request ID"
-            )))?
-            .to_str()
-            .ok()
-            .and_then(|req_header_str| Uuid::parse_str(req_header_str).ok())
-            .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
-                "Received malformed request ID in websocket upgrade headers"
-            )))?;
+            .map(|header| {
+                header
+                    .to_str()
+                    .ok()
+                    .and_then(|req_header_str| Uuid::parse_str(req_header_str).ok())
+                    .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
+                        "Received malformed request ID in websocket upgrade headers"
+                    )))
+            })
+            .transpose();
+        let request_id = request_id?;
 
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
@@ -524,7 +526,9 @@ impl FluxHandle {
         resp
     }
 
-    pub fn request_id(&self) -> Uuid {
+    /// Returns the `dg-request-id` from the websocket upgrade response, or
+    /// `None` if the server did not send one.
+    pub fn request_id(&self) -> Option<Uuid> {
         self.request_id
     }
 }
@@ -774,7 +778,7 @@ async fn run_flux_worker(
 pub struct FluxStream {
     #[pin]
     rx: Receiver<Result<FluxResponse>>,
-    request_id: Uuid,
+    request_id: Option<Uuid>,
 }
 
 impl Stream for FluxStream {
@@ -789,9 +793,12 @@ impl Stream for FluxStream {
 impl FluxStream {
     /// Returns the Deepgram request ID for the Flux streaming request.
     ///
-    /// A request ID needs to be provided to Deepgram as part of any support
-    /// or troubleshooting assistance related to a specific request.
-    pub fn request_id(&self) -> Uuid {
+    /// A request ID can be provided to Deepgram as part of support or
+    /// troubleshooting assistance related to a specific request.
+    ///
+    /// Returns `None` if the server did not send a `dg-request-id` header on
+    /// the websocket upgrade response.
+    pub fn request_id(&self) -> Option<Uuid> {
         self.request_id
     }
 }

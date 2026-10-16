@@ -794,7 +794,7 @@ impl Deref for Audio {
 pub struct WebsocketHandle {
     message_tx: Sender<WsMessage>,
     response_rx: Receiver<Result<StreamResponse>>,
-    request_id: Uuid,
+    request_id: Option<Uuid>,
 }
 
 impl WebsocketHandle {
@@ -874,13 +874,16 @@ impl WebsocketHandle {
         let (ws_stream, upgrade_response) =
             connected.map_err(|err| tls.connect_error(err, host))?;
 
-        let request_id = upgrade_response
+        // Deepgram's own endpoints send `dg-request-id` on the upgrade
+        // response, but a self-hosted deployment, proxy, or gateway in front
+        // of one may not. An absent header is not an error: the session is
+        // fully usable and `request_id()` reports `None`. A header that is
+        // present but not a UUID is still rejected, since that indicates a
+        // response we don't understand rather than one that simply omits it.
+        let request_id: Result<Option<Uuid>> = upgrade_response
             .headers()
             .get("dg-request-id")
-            .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
-                "Websocket upgrade headers missing request ID"
-            )))
-            .and_then(|header| {
+            .map(|header| {
                 header
                     .to_str()
                     .ok()
@@ -888,13 +891,15 @@ impl WebsocketHandle {
                     .ok_or(DeepgramError::UnexpectedServerResponse(anyhow!(
                         "Received malformed request ID in websocket upgrade headers"
                     )))
-            });
+            })
+            .transpose();
 
         // The record's outcome must match what the caller experiences: the
-        // upgrade succeeded, but a missing or malformed request ID makes this
-        // constructor return an error, so only a validated request ID counts
-        // as a completed attempt. The raw header is recorded either way, for
-        // correlation.
+        // upgrade succeeded, but a malformed request ID makes this
+        // constructor return an error, so only a connect that hands the
+        // caller a usable handle counts as a completed attempt. A missing
+        // request ID is such a connect. The raw header is recorded whenever
+        // it exists, for correlation.
         #[cfg(feature = "connect-diagnostics")]
         if let Some(guard) = diagnostics_guard.as_mut() {
             if let Some(raw_request_id) = upgrade_response
@@ -986,7 +991,10 @@ impl WebsocketHandle {
         resp
     }
 
-    pub fn request_id(&self) -> Uuid {
+    /// Returns the `dg-request-id` from the websocket upgrade response, or
+    /// `None` if the server did not send one (for example a proxy or
+    /// self-hosted gateway that omits the header).
+    pub fn request_id(&self) -> Option<Uuid> {
         self.request_id
     }
 }
@@ -1005,7 +1013,7 @@ pub struct TranscriptionStream {
     #[pin]
     rx: Receiver<Result<StreamResponse>>,
     done: bool,
-    request_id: Uuid,
+    request_id: Option<Uuid>,
 }
 
 impl Stream for TranscriptionStream {
@@ -1022,7 +1030,11 @@ impl TranscriptionStream {
     ///
     /// A request ID needs to be provided to Deepgram as part of any support
     /// or troubleshooting assistance related to a specific request.
-    pub fn request_id(&self) -> Uuid {
+    ///
+    /// Returns `None` if the server did not send a `dg-request-id` header on
+    /// the websocket upgrade response (for example a proxy or self-hosted
+    /// gateway that omits it). The stream works the same either way.
+    pub fn request_id(&self) -> Option<Uuid> {
         self.request_id
     }
 }

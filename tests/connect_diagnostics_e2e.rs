@@ -45,7 +45,11 @@ async fn stock_and_diagnostic_connects_are_equivalent() {
         .expect("diagnostic connect should succeed");
     let diagnostic_request_id = diagnostic.request_id();
 
-    // Both produced server-issued request IDs.
+    // Both produced server-issued request IDs. Deepgram's own endpoint always
+    // sends the header, so `None` here would be a regression worth failing on.
+    let stock_request_id = stock_request_id.expect("api.deepgram.com sends dg-request-id");
+    let diagnostic_request_id =
+        diagnostic_request_id.expect("api.deepgram.com sends dg-request-id");
     assert!(!stock_request_id.is_nil());
     assert!(!diagnostic_request_id.is_nil());
 
