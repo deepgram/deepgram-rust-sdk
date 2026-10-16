@@ -83,6 +83,7 @@ jobs:
   Test:
     runs-on: ubuntu-latest
     steps:
+    - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
     - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
@@ -91,6 +92,117 @@ jobs:
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Cargo Test
       run: cargo test --all --all-features
+  Coverage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      # Branch coverage requires nightly (-Z coverage-options=branch); don't let
+      # nightly lint churn fail the coverage report. Stable jobs enforce warnings.
+      RUSTFLAGS: ''
+      RUSTDOCFLAGS: ''
+    steps:
+    - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
+      with:
+        toolchain: nightly
+        components: llvm-tools-preview
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y alsa pkg-config libasound2-dev
+        export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@32e16a23c68a001a1621efca19f131f965d4d122 # cargo-llvm-cov
+    - name: Cargo Test with line and branch coverage
+      run: cargo llvm-cov --all --all-features --branch --cobertura --output-path cobertura.xml
+    - name: Generate code coverage summary
+      run: |
+        python3 - <<'PY' > code-coverage-results.md
+        import xml.etree.ElementTree as ET
+
+        coverage = ET.parse("cobertura.xml").getroot()
+
+        def rate(name):
+            return f"{float(coverage.attrib.get(name, 0)):.0%}"
+
+        def count(name):
+            return coverage.attrib.get(name, "0")
+
+        print("## Code Coverage")
+        print()
+        print("| Metric | Coverage |")
+        print("| --- | --- |")
+        print(
+            f"| Lines | {rate('line-rate')} "
+            f"({count('lines-covered')} / {count('lines-valid')}) |"
+        )
+        print(
+            f"| Branches | {rate('branch-rate')} "
+            f"({count('branches-covered')} / {count('branches-valid')}) |"
+        )
+        PY
+    - name: Write coverage to job summary
+      if: always()
+      run: cat code-coverage-results.md >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload coverage summary
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: coverage-summary
+        path: code-coverage-results.md
+        if-no-files-found: error
+  Coverage-Report:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+    - name: Download coverage summary
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: coverage-summary
+        path: .
+    - name: Add coverage PR comment
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      with:
+        script: |
+          const fs = require('node:fs');
+          const marker = '<!-- Sticky Pull Request Commentcode-coverage -->';
+          const body = `${fs.readFileSync('code-coverage-results.md', 'utf8').trimEnd()}\n\n${marker}`;
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner,
+            repo,
+            issue_number,
+            per_page: 100,
+          });
+          const existing = comments.find(
+            (comment) =>
+              comment.user.login === 'github-actions[bot]' &&
+              comment.body.endsWith(marker),
+          );
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body,
+            });
+          }
   Format:
     runs-on: ubuntu-latest
     steps:
