@@ -114,11 +114,11 @@ jobs:
         sudo apt-get install -y alsa pkg-config libasound2-dev
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Install cargo-llvm-cov
-      uses: taiki-e/install-action@cargo-llvm-cov
+      uses: taiki-e/install-action@32e16a23c68a001a1621efca19f131f965d4d122 # cargo-llvm-cov
     - name: Cargo Test with line and branch coverage
       run: cargo llvm-cov --all --all-features --branch --cobertura --output-path cobertura.xml
     - name: Generate code coverage summary
-      uses: irongut/CodeCoverageSummary@v1.3.0
+      uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
       with:
         filename: cobertura.xml
         badge: true
@@ -128,15 +128,17 @@ jobs:
         indicators: true
         output: both
     - name: Add coverage PR comment
-      uses: marocchino/sticky-pull-request-comment@v2
-      if: github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2
+      if: >-
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository
       with:
         header: code-coverage
         recreate: true
         path: code-coverage-results.md
     - name: Write coverage to job summary
       if: always()
-      run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
+      run: cat code-coverage-results.md >> "$GITHUB_STEP_SUMMARY"
   Format:
     runs-on: ubuntu-latest
     steps:
