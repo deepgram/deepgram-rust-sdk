@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.13.0...0.14.0) (2026-10-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **websocket:** `WebsocketHandle::request_id()`, `TranscriptionStream::request_id()`, `FluxHandle::request_id()`, `FluxStream::request_id()`, and `FluxSpeakHandle::request_id()` now return `Option<Uuid>` instead of `Uuid`. `None` means the WebSocket upgrade response did not include `dg-request-id`; handle it or format the value with `{:?}`.
+
+### Fixed
+
+* **websocket:** accept upgrades without a dg-request-id header ([6de3367](https://github.com/deepgram/deepgram-rust-sdk/commit/6de33674c19f5bb391d1518f6cf7fa93b911dd23))
+
 ## [0.13.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.12.0...0.13.0) (2026-10-12)
 
 
