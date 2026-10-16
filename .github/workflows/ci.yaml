@@ -83,7 +83,7 @@ jobs:
   Test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions-rust-lang/setup-rust-toolchain@v1
+    - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
     - uses: actions/checkout@v5
     - name: Install dependencies
       run: |
@@ -96,7 +96,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
     env:
       # Branch coverage requires nightly (-Z coverage-options=branch); don't let
       # nightly lint churn fail the coverage report. Stable jobs enforce warnings.
@@ -143,19 +142,67 @@ jobs:
             f"({count('branches-covered')} / {count('branches-valid')}) |"
         )
         PY
-    - name: Add coverage PR comment
-      uses: marocchino/sticky-pull-request-comment@773744901bac0e8cbb5a0dc842800d45e9b2b405 # v2
-      if: >-
-        github.event_name == 'pull_request' &&
-        github.actor != 'dependabot[bot]' &&
-        github.event.pull_request.head.repo.full_name == github.repository
-      with:
-        header: code-coverage
-        recreate: true
-        path: code-coverage-results.md
     - name: Write coverage to job summary
       if: always()
       run: cat code-coverage-results.md >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload coverage summary
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: coverage-summary
+        path: code-coverage-results.md
+        if-no-files-found: error
+  Coverage-Report:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.actor != 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+    - name: Download coverage summary
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      with:
+        name: coverage-summary
+        path: .
+    - name: Add coverage PR comment
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      with:
+        script: |
+          const fs = require('node:fs');
+          const marker = '<!-- Sticky Pull Request Commentcode-coverage -->';
+          const body = `${fs.readFileSync('code-coverage-results.md', 'utf8').trimEnd()}\n\n${marker}`;
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner,
+            repo,
+            issue_number,
+            per_page: 100,
+          });
+          const existing = comments.find(
+            (comment) =>
+              comment.user.login === 'github-actions[bot]' &&
+              comment.body.endsWith(marker),
+          );
+
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body,
+            });
+          }
   Format:
     runs-on: ubuntu-latest
     steps:
