@@ -72,13 +72,14 @@ cargo add tokio --features full
 
 ### Cargo features
 
-The product features (`listen`, `speak`, `read`, `manage`, `agent`) are enabled
-by default; `connect-diagnostics`, `rustls-tls-native-roots`, and
-`reqwest-no-provider` are opt-in. To trim dependencies, disable the defaults
-and pick only what you need:
+The product features (`listen`, `speak`, `read`, `manage`, `agent`) and the
+AWS-LC HTTP crypto provider (`reqwest-rustls`) are enabled by default;
+`connect-diagnostics`, `rustls-tls-native-roots`, and `reqwest-no-provider`
+are opt-in. To trim dependencies, disable the defaults and pick only what you
+need:
 
 ```sh
-cargo add deepgram --no-default-features --features read
+cargo add deepgram --no-default-features --features read,reqwest-rustls
 ```
 
 | Feature  | Enables                                                                                  |
@@ -96,10 +97,15 @@ features are described below.
 
 ### Rustls crypto provider
 
-By default, the REST client uses rustls with the AWS-LC crypto provider. If
-your application selects its own provider, disable the SDK default features,
-enable the product features you need and `reqwest-no-provider`, then add and
-install a rustls provider before constructing a `Deepgram` client:
+The REST client needs a rustls crypto provider. `reqwest-rustls` selects the
+AWS-LC provider and is enabled by default. If you disable default features,
+enable `reqwest-rustls` with the product features you need to retain that
+behavior.
+
+If your application selects its own provider, enable `reqwest-no-provider`
+instead, then add and install a rustls provider before constructing a
+`Deepgram` client. This applies to every feature combination, including
+token-based authentication:
 
 ```sh
 cargo add deepgram --no-default-features --features listen,reqwest-no-provider
@@ -116,8 +122,8 @@ let _dg = deepgram::Deepgram::new("YOUR_DEEPGRAM_API_KEY")
 ```
 
 Enabling `reqwest-no-provider` without disabling default features does not
-remove AWS-LC: Cargo combines both feature sets. Choose only one provider for
-the process.
+remove AWS-LC: Cargo combines both feature sets. Choose only one provider
+feature for the process.
 
 ### Voice Agent
 

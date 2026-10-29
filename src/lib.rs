@@ -13,6 +13,8 @@
 //! - `manage` (default): project, key, and usage management.
 //! - `read` (default): Text Intelligence over `/v1/read`; see the `read` module.
 //! - `agent` (default): the Voice Agent WebSocket client; see the `agent` module.
+//! - `reqwest-rustls` (default): select the AWS-LC crypto provider for REST
+//!   requests.
 //! - `connect-diagnostics`: per-phase connect timings for `/v1/listen`
 //!   WebSocket connections; see the `diagnostics` module.
 //! - `rustls-tls-native-roots`: also trust the operating system's certificate
@@ -21,8 +23,9 @@
 //!   TLS-inspecting proxies, internal CAs, and self-hosted deployments; see
 //!   the `tls` module.
 //! - `reqwest-no-provider`: use rustls without choosing a crypto provider for
-//!   REST requests. Disable default features and install the application's
-//!   chosen rustls provider before constructing a [`Deepgram`] client.
+//!   REST requests. When default features are disabled, enable this or
+//!   `reqwest-rustls`; install the application's chosen provider before
+//!   constructing a [`Deepgram`] client.
 
 use core::fmt;
 pub use http::Error as HttpError;

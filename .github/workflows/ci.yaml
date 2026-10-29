@@ -33,6 +33,10 @@ jobs:
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Check no features
       run: cargo check --all-targets --no-default-features
+    - name: Check reqwest-rustls with read
+      run: |
+        cargo check --all-targets --no-default-features --features=read,reqwest-rustls
+        cargo test --lib --no-default-features --features=read,reqwest-rustls test_deepgram_new_with_api_key
     - name: Check reqwest-no-provider feature
       run: |
         cargo check --all-targets --no-default-features --features=reqwest-no-provider
