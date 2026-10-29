@@ -37,6 +37,7 @@ jobs:
       run: |
         cargo check --all-targets --no-default-features --features=reqwest-no-provider
         test -z "$(cargo tree --no-default-features --features=reqwest-no-provider --edges normal,build -i aws-lc-rs)"
+        cargo test --lib --no-default-features --features=reqwest-no-provider,__test-aws-lc-rs reqwest_no_provider_uses_an_installed_provider
     - name: Check listen feature
       run: cargo check --all-targets --no-default-features --features=listen
     - name: Check speak feature

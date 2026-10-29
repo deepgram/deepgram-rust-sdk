@@ -22,7 +22,7 @@
 //!   the `tls` module.
 //! - `reqwest-no-provider`: use rustls without choosing a crypto provider for
 //!   REST requests. Disable default features and install the application's
-//!   chosen rustls provider before making a TLS request or opening a WebSocket.
+//!   chosen rustls provider before constructing a [`Deepgram`] client.
 
 use core::fmt;
 pub use http::Error as HttpError;
@@ -724,6 +724,20 @@ mod tests {
                 "test_api_key".to_string()
             )))
         );
+    }
+
+    #[cfg(all(
+        feature = "reqwest-no-provider",
+        feature = "__test-aws-lc-rs",
+        not(feature = "reqwest-rustls")
+    ))]
+    #[test]
+    fn reqwest_no_provider_uses_an_installed_provider() {
+        rustls::crypto::aws_lc_rs::default_provider()
+            .install_default()
+            .expect("install rustls AWS-LC provider");
+
+        Deepgram::new("test_api_key").expect("construct client with installed provider");
     }
 
     #[test]

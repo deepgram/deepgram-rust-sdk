@@ -99,7 +99,7 @@ features are described below.
 By default, the REST client uses rustls with the AWS-LC crypto provider. If
 your application selects its own provider, disable the SDK default features,
 enable the product features you need and `reqwest-no-provider`, then add and
-install a rustls provider before the first TLS request or WebSocket connection:
+install a rustls provider before constructing a `Deepgram` client:
 
 ```sh
 cargo add deepgram --no-default-features --features listen,reqwest-no-provider
@@ -110,6 +110,9 @@ cargo add rustls@0.23 --no-default-features --features ring
 rustls::crypto::ring::default_provider()
     .install_default()
     .expect("install rustls ring provider");
+
+let _dg = deepgram::Deepgram::new("YOUR_DEEPGRAM_API_KEY")
+    .expect("construct Deepgram client");
 ```
 
 Enabling `reqwest-no-provider` without disabling default features does not
