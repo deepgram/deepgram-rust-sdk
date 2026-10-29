@@ -101,6 +101,8 @@ __tls = [
   "dep:webpki-roots",
   "dep:tracing",
 ]
+# Internal: enables an explicit provider for the no-provider test only.
+__test-aws-lc-rs = ["dep:rustls", "rustls/aws-lc-rs"]
 reqwest-no-provider = ["reqwest/rustls-no-provider"]
 reqwest-rustls = ["reqwest/rustls"]
 
