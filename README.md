@@ -73,8 +73,9 @@ cargo add tokio --features full
 ### Cargo features
 
 The product features (`listen`, `speak`, `read`, `manage`, `agent`) are enabled
-by default; `connect-diagnostics` and `rustls-tls-native-roots` are opt-in. To
-trim dependencies, disable the defaults and pick only what you need:
+by default; `connect-diagnostics`, `rustls-tls-native-roots`, and
+`reqwest-no-provider` are opt-in. To trim dependencies, disable the defaults
+and pick only what you need:
 
 ```sh
 cargo add deepgram --no-default-features --features read
@@ -90,9 +91,30 @@ cargo add deepgram --no-default-features --features read
 
 Token-based authentication (`auth`) is always available. The `listen`,
 `speak`, and `agent` features pull in WebSocket dependencies; `read` and
-`manage` are HTTP-only. The table lists the product features only: the two
-opt-in features, `connect-diagnostics` and `rustls-tls-native-roots`, are
-described below.
+`manage` are HTTP-only. The table lists the product features only; the opt-in
+features are described below.
+
+### Rustls crypto provider
+
+By default, the REST client uses rustls with the AWS-LC crypto provider. If
+your application selects its own provider, disable the SDK default features,
+enable the product features you need and `reqwest-no-provider`, then add and
+install a rustls provider before the first TLS request or WebSocket connection:
+
+```sh
+cargo add deepgram --no-default-features --features listen,reqwest-no-provider
+cargo add rustls@0.23 --no-default-features --features ring
+```
+
+```rust
+rustls::crypto::ring::default_provider()
+    .install_default()
+    .expect("install rustls ring provider");
+```
+
+Enabling `reqwest-no-provider` without disabling default features does not
+remove AWS-LC: Cargo combines both feature sets. Choose only one provider for
+the process.
 
 ### Voice Agent
 

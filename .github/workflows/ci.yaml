@@ -33,6 +33,10 @@ jobs:
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Check no features
       run: cargo check --all-targets --no-default-features
+    - name: Check reqwest-no-provider feature
+      run: |
+        cargo check --all-targets --no-default-features --features=reqwest-no-provider
+        test -z "$(cargo tree --no-default-features --features=reqwest-no-provider --edges normal,build -i aws-lc-rs)"
     - name: Check listen feature
       run: cargo check --all-targets --no-default-features --features=listen
     - name: Check speak feature

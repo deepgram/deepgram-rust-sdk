@@ -20,6 +20,9 @@
 //!   roots. For
 //!   TLS-inspecting proxies, internal CAs, and self-hosted deployments; see
 //!   the `tls` module.
+//! - `reqwest-no-provider`: use rustls without choosing a crypto provider for
+//!   REST requests. Disable default features and install the application's
+//!   chosen rustls provider before making a TLS request or opening a WebSocket.
 
 use core::fmt;
 pub use http::Error as HttpError;
