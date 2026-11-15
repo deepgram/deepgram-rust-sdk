@@ -64,3 +64,15 @@ impl From<&Options> for SerializableOptions {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Options, Status};
+
+    #[test]
+    fn serializes_status() {
+        let options = Options::builder().status(Status::Expired).build();
+
+        assert_eq!(options.urlencoded().unwrap(), "status=expired");
+    }
+}

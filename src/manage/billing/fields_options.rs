@@ -60,3 +60,21 @@ impl<'a> From<&'a Options> for SerializableOptions<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Options;
+
+    #[test]
+    fn serializes_date_range() {
+        let options = Options::builder()
+            .start("2026-01-01")
+            .end("2026-01-31")
+            .build();
+
+        assert_eq!(
+            options.urlencoded().unwrap(),
+            "start=2026-01-01&end=2026-01-31"
+        );
+    }
+}

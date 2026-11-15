@@ -50,3 +50,15 @@ impl From<&Options> for SerializableOptions {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Options;
+
+    #[test]
+    fn serializes_limit() {
+        let options = Options::builder().limit(25).build();
+
+        assert_eq!(options.urlencoded().unwrap(), "limit=25");
+    }
+}

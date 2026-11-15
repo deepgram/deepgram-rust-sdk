@@ -60,3 +60,15 @@ impl From<&Options> for SerializableOptions {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Options;
+
+    #[test]
+    fn serializes_pagination() {
+        let options = Options::builder().limit(25).page(2).build();
+
+        assert_eq!(options.urlencoded().unwrap(), "limit=25&page=2");
+    }
+}

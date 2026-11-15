@@ -889,6 +889,8 @@ impl AsRef<str> for Method {
 
 #[cfg(test)]
 mod serialize_options_tests {
+    use std::collections::BTreeSet;
+
     use super::Options;
 
     #[test]
@@ -906,5 +908,71 @@ mod serialize_options_tests {
             options.urlencoded().unwrap(),
             "callback=true&custom_topic_mode=false&deployment=hosted&detect_entities=true&smart_format=true&version=false"
         );
+    }
+
+    #[test]
+    fn serializes_every_added_usage_filter() {
+        let options = Options::builder()
+            .callback_method(true)
+            .callback(false)
+            .channels(true)
+            .custom_intent_mode(false)
+            .custom_intent(true)
+            .custom_topic_mode(false)
+            .custom_topic(true)
+            .deployment("hosted")
+            .detect_entities(true)
+            .detect_language(false)
+            .dictation(true)
+            .encoding(false)
+            .endpoint("listen")
+            .extra(true)
+            .filler_words(false)
+            .intents(true)
+            .keyterm(false)
+            .language(true)
+            .measurements(false)
+            .paragraphs(true)
+            .sample_rate(false)
+            .sentiment(true)
+            .smart_format(false)
+            .summarize(true)
+            .topics(false)
+            .utt_split(true)
+            .version(false)
+            .build();
+        let query = options.urlencoded().unwrap();
+        let actual: BTreeSet<_> = query.split('&').collect();
+        let expected = BTreeSet::from([
+            "callback_method=true",
+            "callback=false",
+            "channels=true",
+            "custom_intent_mode=false",
+            "custom_intent=true",
+            "custom_topic_mode=false",
+            "custom_topic=true",
+            "deployment=hosted",
+            "detect_entities=true",
+            "detect_language=false",
+            "dictation=true",
+            "encoding=false",
+            "endpoint=listen",
+            "extra=true",
+            "filler_words=false",
+            "intents=true",
+            "keyterm=false",
+            "language=true",
+            "measurements=false",
+            "paragraphs=true",
+            "sample_rate=false",
+            "sentiment=true",
+            "smart_format=false",
+            "summarize=true",
+            "topics=false",
+            "utt_split=true",
+            "version=false",
+        ]);
+
+        assert_eq!(actual, expected);
     }
 }

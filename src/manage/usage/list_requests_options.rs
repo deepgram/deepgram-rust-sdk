@@ -264,3 +264,29 @@ impl<'a> From<&'a Options> for SerializableOptions<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Options, Status};
+
+    #[test]
+    fn serializes_every_request_list_filter() {
+        let options = Options::builder()
+            .start("2026-01-01T00:00:00Z")
+            .end("2026-01-31T23:59:59Z")
+            .limit(25)
+            .page(2)
+            .accessor("accessor-id")
+            .request_id("request-id")
+            .deployment("hosted")
+            .endpoint("listen")
+            .method("streaming")
+            .status(Status::Succeeded)
+            .build();
+
+        assert_eq!(
+            options.urlencoded().unwrap(),
+            "start=2026-01-01T00%3A00%3A00Z&end=2026-01-31T23%3A59%3A59Z&limit=25&page=2&accessor=accessor-id&request_id=request-id&deployment=hosted&endpoint=listen&method=streaming&status=succeeded"
+        );
+    }
+}

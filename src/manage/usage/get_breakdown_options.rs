@@ -346,6 +346,8 @@ impl Serialize for SerializableOptions<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::Options;
 
     #[test]
@@ -361,5 +363,89 @@ mod tests {
             options.urlencoded().unwrap(),
             "grouping=deployment&tag=production&tag=billing&detect_entities=true&summarize=false"
         );
+    }
+
+    #[test]
+    fn serializes_every_feature_filter() {
+        let options = Options::builder()
+            .alternatives(true)
+            .callback_method(false)
+            .callback(true)
+            .channels(false)
+            .custom_intent_mode(true)
+            .custom_intent(false)
+            .custom_topic_mode(true)
+            .custom_topic(false)
+            .detect_entities(true)
+            .detect_language(false)
+            .diarize(true)
+            .dictation(false)
+            .encoding(true)
+            .extra(false)
+            .filler_words(true)
+            .intents(false)
+            .keyterm(true)
+            .keywords(false)
+            .language(true)
+            .measurements(false)
+            .multichannel(true)
+            .numerals(false)
+            .paragraphs(true)
+            .profanity_filter(false)
+            .punctuate(true)
+            .redact(false)
+            .replace(true)
+            .sample_rate(false)
+            .search(true)
+            .sentiment(false)
+            .smart_format(true)
+            .summarize(false)
+            .topics(true)
+            .utt_split(false)
+            .utterances(true)
+            .version(false)
+            .build();
+        let query = options.urlencoded().unwrap();
+        let actual: BTreeSet<_> = query.split('&').collect();
+        let expected = BTreeSet::from([
+            "alternatives=true",
+            "callback_method=false",
+            "callback=true",
+            "channels=false",
+            "custom_intent_mode=true",
+            "custom_intent=false",
+            "custom_topic_mode=true",
+            "custom_topic=false",
+            "detect_entities=true",
+            "detect_language=false",
+            "diarize=true",
+            "dictation=false",
+            "encoding=true",
+            "extra=false",
+            "filler_words=true",
+            "intents=false",
+            "keyterm=true",
+            "keywords=false",
+            "language=true",
+            "measurements=false",
+            "multichannel=true",
+            "numerals=false",
+            "paragraphs=true",
+            "profanity_filter=false",
+            "punctuate=true",
+            "redact=false",
+            "replace=true",
+            "sample_rate=false",
+            "search=true",
+            "sentiment=false",
+            "smart_format=true",
+            "summarize=false",
+            "topics=true",
+            "utt_split=false",
+            "utterances=true",
+            "version=false",
+        ]);
+
+        assert_eq!(actual, expected);
     }
 }
