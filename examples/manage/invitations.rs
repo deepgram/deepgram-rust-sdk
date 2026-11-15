@@ -12,8 +12,8 @@ async fn main() -> Result<(), DeepgramError> {
 
     let dg_client = Deepgram::new(&deepgram_api_key)?;
 
-    let message = dg_client.projects().leave(&project_id).await?;
-    println!("{:#?}", message);
+    let invites = dg_client.invitations().list(&project_id).await?;
+    println!("{invites:#?}");
 
     Ok(())
 }

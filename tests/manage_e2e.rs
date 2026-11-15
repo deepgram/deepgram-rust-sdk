@@ -3,6 +3,8 @@
 //! Run with:
 //! `DEEPGRAM_API_KEY=<key> cargo test --all-features --test manage_e2e -- --ignored`
 
+#![cfg(feature = "manage")]
+
 use std::{env, io};
 
 use deepgram::{
