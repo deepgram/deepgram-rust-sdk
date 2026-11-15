@@ -314,6 +314,109 @@ pub struct ModelDetail {
     pub model_id: Uuid,
 }
 
+/// Returned by [`Usage::get_breakdown`](super::Usage::get_breakdown).
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UsageBreakdown {
+    /// Start date of the requested range.
+    pub start: String,
+    /// End date of the requested range.
+    pub end: String,
+    /// Resolution used to aggregate results.
+    pub resolution: UsageBreakdownResolution,
+    /// Usage totals for each requested grouping.
+    pub results: Vec<UsageBreakdownResult>,
+}
+
+/// Resolution used to aggregate a usage breakdown.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UsageBreakdownResolution {
+    /// Time unit used for the resolution.
+    pub units: String,
+    /// Number of time units per result.
+    pub amount: f64,
+}
+
+/// Usage totals for one grouping.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UsageBreakdownResult {
+    /// Audio hours processed.
+    pub hours: f64,
+    /// Total billable hours.
+    pub total_hours: f64,
+    /// Voice Agent hours used.
+    pub agent_hours: f64,
+    /// Input tokens processed.
+    pub tokens_in: f64,
+    /// Output tokens processed.
+    pub tokens_out: f64,
+    /// Text-to-speech characters processed.
+    pub tts_characters: f64,
+    /// Number of API requests.
+    pub requests: f64,
+    /// Dimensions identifying this result.
+    pub grouping: UsageBreakdownGrouping,
+}
+
+/// Dimensions identifying a usage breakdown result.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UsageBreakdownGrouping {
+    /// Start date when grouped by time.
+    pub start: Option<String>,
+    /// End date when grouped by time.
+    pub end: Option<String>,
+    /// Accessor ID when grouped by accessor.
+    pub accessor: Option<String>,
+    /// API endpoint when grouped by endpoint.
+    pub endpoint: Option<String>,
+    /// Feature set when grouped by feature set.
+    pub feature_set: Option<String>,
+    /// Models when grouped by model.
+    pub models: Option<Vec<Option<String>>>,
+    /// Processing method when grouped by method.
+    pub method: Option<String>,
+    /// Tags when grouped by tags.
+    pub tags: Option<Vec<String>>,
+    /// Deployment when grouped by deployment.
+    pub deployment: Option<String>,
+}
+
+#[cfg(test)]
+mod breakdown_tests {
+    use super::UsageBreakdown;
+
+    #[test]
+    fn deserializes_usage_breakdown() {
+        let response: UsageBreakdown = serde_json::from_str(
+            r#"{
+                "start": "2026-01-01",
+                "end": "2026-01-31",
+                "resolution": { "units": "day", "amount": 1 },
+                "results": [{
+                    "hours": 1.5,
+                    "total_hours": 2.0,
+                    "agent_hours": 0.5,
+                    "tokens_in": 10,
+                    "tokens_out": 20,
+                    "tts_characters": 30,
+                    "requests": 4,
+                    "grouping": { "endpoint": "listen", "models": ["nova-3"] }
+                }]
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(response.results[0].requests, 4.0);
+        assert_eq!(
+            response.results[0].grouping.endpoint.as_deref(),
+            Some("listen")
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

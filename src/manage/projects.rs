@@ -12,6 +12,7 @@ use options::{Options, SerializableOptions};
 
 use response::{Message, Project};
 
+pub mod get_options;
 pub mod options;
 pub mod response;
 
@@ -109,9 +110,25 @@ impl Projects<'_> {
     /// # }
     /// ```
     pub async fn get(&self, project_id: &str) -> crate::Result<Project> {
+        self.get_with_options(project_id, &get_options::Options::default())
+            .await
+    }
+
+    /// Get a specific project with pagination options.
+    pub async fn get_with_options(
+        &self,
+        project_id: &str,
+        options: &get_options::Options,
+    ) -> crate::Result<Project> {
         let url = self.project_url(project_id)?;
 
-        send_and_translate_response(self.0.client.get(url)).await
+        send_and_translate_response(
+            self.0
+                .client
+                .get(url)
+                .query(&get_options::SerializableOptions::from(options)),
+        )
+        .await
     }
 
     /// Update the specified project.
@@ -199,12 +216,21 @@ impl Projects<'_> {
         send_and_translate_response(request).await
     }
 
+    /// Leave the specified project as the authenticated account.
+    pub async fn leave(&self, project_id: &str) -> crate::Result<Message> {
+        send_and_translate_response(self.0.client.delete(self.leave_url(project_id)?)).await
+    }
+
     fn projects_url(&self) -> crate::Result<Url> {
         self.0.api_url("v1/projects")
     }
 
     fn project_url(&self, project_id: &str) -> crate::Result<Url> {
         self.0.api_url(&format!("v1/projects/{project_id}"))
+    }
+
+    fn leave_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0.api_url(&format!("v1/projects/{project_id}/leave"))
     }
 }
 
@@ -224,6 +250,10 @@ mod tests {
             dg.projects().project_url("proj").unwrap().as_str(),
             "https://api.deepgram.com/v1/projects/proj"
         );
+        assert_eq!(
+            dg.projects().leave_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/leave"
+        );
     }
 
     #[test]
@@ -237,6 +267,10 @@ mod tests {
         assert_eq!(
             dg.projects().project_url("proj").unwrap().as_str(),
             "http://deepgram.internal/v1/projects/proj"
+        );
+        assert_eq!(
+            dg.projects().leave_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/leave"
         );
     }
 

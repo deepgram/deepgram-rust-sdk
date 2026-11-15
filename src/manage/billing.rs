@@ -7,10 +7,13 @@
 use url::Url;
 
 use crate::{
-    manage::billing::response::{Balance, Balances},
+    manage::billing::response::{Balance, Balances, BillingBreakdown, BillingFields, Purchases},
     send_and_translate_response, Deepgram,
 };
 
+pub mod breakdown_options;
+pub mod fields_options;
+pub mod purchases_options;
 pub mod response;
 
 /// Get the outstanding balances for a Deepgram Project.
@@ -115,6 +118,51 @@ impl Billing<'_> {
         send_and_translate_response(self.0.client.get(url)).await
     }
 
+    /// Get billing totals for a time range, optionally filtered and grouped.
+    pub async fn get_breakdown(
+        &self,
+        project_id: &str,
+        options: &breakdown_options::Options,
+    ) -> crate::Result<BillingBreakdown> {
+        let request = self
+            .0
+            .client
+            .get(self.breakdown_url(project_id)?)
+            .query(&breakdown_options::SerializableOptions::from(options));
+
+        send_and_translate_response(request).await
+    }
+
+    /// List the filter values available for a billing breakdown time range.
+    pub async fn get_fields(
+        &self,
+        project_id: &str,
+        options: &fields_options::Options,
+    ) -> crate::Result<BillingFields> {
+        let request = self
+            .0
+            .client
+            .get(self.fields_url(project_id)?)
+            .query(&fields_options::SerializableOptions::from(options));
+
+        send_and_translate_response(request).await
+    }
+
+    /// List purchase records for the specified project.
+    pub async fn list_purchases(
+        &self,
+        project_id: &str,
+        options: &purchases_options::Options,
+    ) -> crate::Result<Purchases> {
+        let request = self
+            .0
+            .client
+            .get(self.purchases_url(project_id)?)
+            .query(&purchases_options::SerializableOptions::from(options));
+
+        send_and_translate_response(request).await
+    }
+
     fn balances_url(&self, project_id: &str) -> crate::Result<Url> {
         self.0
             .api_url(&format!("v1/projects/{project_id}/balances"))
@@ -123,6 +171,21 @@ impl Billing<'_> {
     fn balance_url(&self, project_id: &str, balance_id: &str) -> crate::Result<Url> {
         self.0
             .api_url(&format!("v1/projects/{project_id}/balances/{balance_id}"))
+    }
+
+    fn breakdown_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/billing/breakdown"))
+    }
+
+    fn fields_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/billing/fields"))
+    }
+
+    fn purchases_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/purchases"))
     }
 }
 

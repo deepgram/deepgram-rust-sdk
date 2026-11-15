@@ -4,12 +4,13 @@
 //!
 //! [api]: https://developers.deepgram.com/api-reference/#usage
 
-use response::{Fields, Request, Requests, UsageSummary};
+use response::{Fields, Request, Requests, UsageBreakdown, UsageSummary};
 
 use url::Url;
 
 use crate::{send_and_translate_response, Deepgram};
 
+pub mod get_breakdown_options;
 pub mod get_fields_options;
 pub mod get_usage_options;
 pub mod list_requests_options;
@@ -233,6 +234,21 @@ impl Usage<'_> {
         send_and_translate_response(request).await
     }
 
+    /// Get usage totals grouped by a requested dimension.
+    pub async fn get_breakdown(
+        &self,
+        project_id: &str,
+        options: &get_breakdown_options::Options,
+    ) -> crate::Result<UsageBreakdown> {
+        let request = self
+            .0
+            .client
+            .get(self.breakdown_url(project_id)?)
+            .query(&get_breakdown_options::SerializableOptions(options));
+
+        send_and_translate_response(request).await
+    }
+
     fn requests_url(&self, project_id: &str) -> crate::Result<Url> {
         self.0
             .api_url(&format!("v1/projects/{project_id}/requests"))
@@ -250,6 +266,11 @@ impl Usage<'_> {
     fn fields_url(&self, project_id: &str) -> crate::Result<Url> {
         self.0
             .api_url(&format!("v1/projects/{project_id}/usage/fields"))
+    }
+
+    fn breakdown_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0
+            .api_url(&format!("v1/projects/{project_id}/usage/breakdown"))
     }
 }
 
@@ -278,6 +299,10 @@ mod tests {
             usage.fields_url("proj").unwrap().as_str(),
             "https://api.deepgram.com/v1/projects/proj/usage/fields"
         );
+        assert_eq!(
+            usage.breakdown_url("proj").unwrap().as_str(),
+            "https://api.deepgram.com/v1/projects/proj/usage/breakdown"
+        );
     }
 
     #[test]
@@ -300,6 +325,10 @@ mod tests {
         assert_eq!(
             usage.fields_url("proj").unwrap().as_str(),
             "http://deepgram.internal/v1/projects/proj/usage/fields"
+        );
+        assert_eq!(
+            usage.breakdown_url("proj").unwrap().as_str(),
+            "http://deepgram.internal/v1/projects/proj/usage/breakdown"
         );
     }
 }

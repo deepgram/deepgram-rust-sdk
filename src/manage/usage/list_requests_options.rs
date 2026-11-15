@@ -16,6 +16,12 @@ pub struct Options {
     start: Option<String>,
     end: Option<String>,
     limit: Option<usize>,
+    page: Option<usize>,
+    accessor: Option<String>,
+    request_id: Option<String>,
+    deployment: Option<String>,
+    endpoint: Option<String>,
+    method: Option<String>,
     status: Option<Status>,
 }
 
@@ -46,6 +52,24 @@ pub(crate) struct SerializableOptions<'a> {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     limit: Option<usize>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page: Option<usize>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    accessor: &'a Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    request_id: &'a Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    deployment: &'a Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    endpoint: &'a Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    method: &'a Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     status: Option<&'static str>,
@@ -84,6 +108,12 @@ impl OptionsBuilder {
             start: None,
             end: None,
             limit: None,
+            page: None,
+            accessor: None,
+            request_id: None,
+            deployment: None,
+            endpoint: None,
+            method: None,
             status: None,
         })
     }
@@ -136,6 +166,42 @@ impl OptionsBuilder {
         self
     }
 
+    /// Set the zero-based result page.
+    pub fn page(mut self, page: usize) -> Self {
+        self.0.page = Some(page);
+        self
+    }
+
+    /// Filter by accessor ID.
+    pub fn accessor(mut self, accessor: impl Into<String>) -> Self {
+        self.0.accessor = Some(accessor.into());
+        self
+    }
+
+    /// Filter by Deepgram request ID.
+    pub fn request_id(mut self, request_id: impl Into<String>) -> Self {
+        self.0.request_id = Some(request_id.into());
+        self
+    }
+
+    /// Filter by deployment.
+    pub fn deployment(mut self, deployment: impl Into<String>) -> Self {
+        self.0.deployment = Some(deployment.into());
+        self
+    }
+
+    /// Filter by API endpoint.
+    pub fn endpoint(mut self, endpoint: impl Into<String>) -> Self {
+        self.0.endpoint = Some(endpoint.into());
+        self
+    }
+
+    /// Filter by processing method.
+    pub fn method(mut self, method: impl Into<String>) -> Self {
+        self.0.method = Some(method.into());
+        self
+    }
+
     /// Limits results to requests to requests that either succeeded or failed.
     ///
     /// # Examples
@@ -171,6 +237,12 @@ impl<'a> From<&'a Options> for SerializableOptions<'a> {
             start,
             end,
             limit,
+            page,
+            accessor,
+            request_id,
+            deployment,
+            endpoint,
+            method,
             status,
         } = options;
 
@@ -178,6 +250,12 @@ impl<'a> From<&'a Options> for SerializableOptions<'a> {
             start,
             end,
             limit: *limit,
+            page: *page,
+            accessor,
+            request_id,
+            deployment,
+            endpoint,
+            method,
             status: match status {
                 Some(Status::Succeeded) => Some("succeeded"),
                 Some(Status::Failed) => Some("failed"),
