@@ -296,3 +296,183 @@ impl Sink<TransportMessage> for NativeStreamingTransport {
             .map_err(Into::into)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use futures::{SinkExt, StreamExt};
+    use tokio_tungstenite::accept_async;
+
+    async fn connected_transport() -> (
+        NativeStreamingTransport,
+        WebSocketStream<tokio::net::TcpStream>,
+    ) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind local WebSocket server");
+        let address = listener.local_addr().expect("listener address");
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.expect("accept client");
+            accept_async(stream).await.expect("upgrade local WebSocket")
+        });
+        let (client, _) = tokio_tungstenite::connect_async(format!("ws://{address}"))
+            .await
+            .expect("connect local WebSocket");
+        (
+            NativeStreamingTransport::new(client),
+            server.await.expect("server task completes"),
+        )
+    }
+
+    #[tokio::test]
+    async fn native_transport_maps_complete_and_fragmented_messages() {
+        let (mut transport, _server) = connected_transport().await;
+
+        assert_eq!(
+            transport
+                .map_message(Message::Text(Utf8Bytes::from("text")))
+                .expect("text is valid"),
+            Some(TransportMessage::Text("text".to_string()))
+        );
+        assert_eq!(
+            transport
+                .map_message(Message::Binary(Bytes::from_static(b"audio")))
+                .expect("binary is valid"),
+            Some(TransportMessage::Binary(Bytes::from_static(b"audio")))
+        );
+        assert_eq!(
+            transport
+                .map_message(Message::Ping(Bytes::from_static(b"ping")))
+                .expect("ping is valid"),
+            Some(TransportMessage::Ping(Bytes::from_static(b"ping")))
+        );
+        assert_eq!(
+            transport
+                .map_message(Message::Pong(Bytes::from_static(b"pong")))
+                .expect("pong is valid"),
+            Some(TransportMessage::Pong(Bytes::from_static(b"pong")))
+        );
+        assert_eq!(
+            transport
+                .map_message(Message::Close(Some(NativeCloseFrame {
+                    code: CloseCode::Normal,
+                    reason: Utf8Bytes::from("done"),
+                })))
+                .expect("close is valid"),
+            Some(TransportMessage::Close(Some(TransportCloseFrame::new(
+                1000, "done"
+            ))))
+        );
+
+        assert_eq!(
+            transport
+                .map_message(Message::Frame(
+                    tungstenite::protocol::frame::Frame::message(
+                        Bytes::from_static(b"hel"),
+                        OpCode::Data(Data::Text),
+                        false,
+                    )
+                ))
+                .expect("first text fragment is valid"),
+            None
+        );
+        assert_eq!(
+            transport
+                .map_message(Message::Frame(
+                    tungstenite::protocol::frame::Frame::message(
+                        Bytes::from_static(b"lo"),
+                        OpCode::Data(Data::Continue),
+                        true,
+                    )
+                ))
+                .expect("final text fragment is valid"),
+            Some(TransportMessage::Text("hello".to_string()))
+        );
+        assert_eq!(
+            transport
+                .map_message(Message::Frame(
+                    tungstenite::protocol::frame::Frame::message(
+                        Bytes::from_static(b"audio"),
+                        OpCode::Data(Data::Binary),
+                        true,
+                    )
+                ))
+                .expect("binary fragment is valid"),
+            Some(TransportMessage::Binary(Bytes::from_static(b"audio")))
+        );
+        assert_eq!(
+            transport
+                .map_message(Message::Frame(
+                    tungstenite::protocol::frame::Frame::message(
+                        Bytes::new(),
+                        OpCode::Data(Data::Continue),
+                        true,
+                    )
+                ))
+                .expect("an orphaned continuation frame is ignored"),
+            None
+        );
+        assert!(matches!(
+            transport.map_message(Message::Frame(
+                tungstenite::protocol::frame::Frame::message(
+                    Bytes::from_static(&[0xff]),
+                    OpCode::Data(Data::Text),
+                    true,
+                )
+            )),
+            Err(DeepgramError::UnexpectedServerResponse(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn native_transport_writes_every_message_kind_and_closes() {
+        let (mut transport, mut server) = connected_transport().await;
+
+        transport
+            .send(TransportMessage::Text("text".to_string()))
+            .await
+            .expect("send text");
+        transport
+            .send(TransportMessage::Binary(Bytes::from_static(b"audio")))
+            .await
+            .expect("send binary");
+        transport
+            .send(TransportMessage::Ping(Bytes::from_static(b"ping")))
+            .await
+            .expect("send ping");
+        transport
+            .send(TransportMessage::Pong(Bytes::from_static(b"pong")))
+            .await
+            .expect("send pong");
+        transport
+            .send(TransportMessage::Close(Some(TransportCloseFrame::new(
+                1000, "done",
+            ))))
+            .await
+            .expect("send close");
+        transport.flush().await.expect("flush transport");
+
+        assert!(matches!(
+            server.next().await,
+            Some(Ok(Message::Text(text))) if text == "text"
+        ));
+        assert!(matches!(
+            server.next().await,
+            Some(Ok(Message::Binary(bytes))) if bytes == Bytes::from_static(b"audio")
+        ));
+        assert!(matches!(
+            server.next().await,
+            Some(Ok(Message::Ping(bytes))) if bytes == Bytes::from_static(b"ping")
+        ));
+        assert!(matches!(
+            server.next().await,
+            Some(Ok(Message::Pong(bytes))) if bytes == Bytes::from_static(b"pong")
+        ));
+        assert!(matches!(
+            server.next().await,
+            Some(Ok(Message::Close(Some(frame)))) if frame.code == CloseCode::Normal && frame.reason == "done"
+        ));
+        transport.close().await.expect("close transport");
+    }
+}
