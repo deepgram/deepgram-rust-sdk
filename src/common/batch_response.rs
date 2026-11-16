@@ -595,13 +595,16 @@ pub struct ResultAlternative {
 #[non_exhaustive]
 pub struct AlternativeSummary {
     /// Generated summary text.
-    pub summary: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
 
     /// Inclusive index of the first summarized word.
-    pub start_word: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_word: Option<usize>,
 
     /// Inclusive index of the last summarized word.
-    pub end_word: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_word: Option<usize>,
 }
 
 /// Topics detected in a span of transcript words.
@@ -609,15 +612,19 @@ pub struct AlternativeSummary {
 #[non_exhaustive]
 pub struct AlternativeTopic {
     /// Transcript text covered by this topic result.
-    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
 
     /// Inclusive index of the first covered word.
-    pub start_word: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_word: Option<usize>,
 
     /// Inclusive index of the last covered word.
-    pub end_word: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_word: Option<usize>,
 
     /// Topic strings detected in this span.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub topics: Vec<String>,
 }
 
@@ -819,8 +826,10 @@ mod tests {
             Some(0)
         );
         assert_eq!(
-            alternative.summaries.as_ref().unwrap()[0].summary,
-            "A greeting."
+            alternative.summaries.as_ref().unwrap()[0]
+                .summary
+                .as_deref(),
+            Some("A greeting.")
         );
         assert_eq!(
             alternative.topics.as_ref().unwrap()[0].topics,
@@ -842,6 +851,25 @@ mod tests {
         let utterance: Utterance = serde_json::from_value(raw_utterance.clone()).unwrap();
         assert_eq!(utterance.languages, vec!["es"]);
         assert_eq!(serde_json::to_value(utterance).unwrap(), raw_utterance);
+    }
+
+    #[test]
+    fn alternative_scoped_analysis_entries_accept_sparse_server_payloads() {
+        let summary: AlternativeSummary = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(summary.summary.is_none());
+        assert!(summary.start_word.is_none());
+        assert!(summary.end_word.is_none());
+        assert_eq!(
+            serde_json::to_value(summary).unwrap(),
+            serde_json::json!({})
+        );
+
+        let topic: AlternativeTopic = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(topic.text.is_none());
+        assert!(topic.start_word.is_none());
+        assert!(topic.end_word.is_none());
+        assert!(topic.topics.is_empty());
+        assert_eq!(serde_json::to_value(topic).unwrap(), serde_json::json!({}));
     }
 
     // Captured from a live `POST /v1/listen` response on 2026-09-15
