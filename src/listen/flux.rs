@@ -29,12 +29,7 @@ use http::Request;
 use pin_project::pin_project;
 use serde_urlencoded;
 use tokio::fs::File;
-use tokio_tungstenite::{tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream};
-use tungstenite::{
-    handshake::client,
-    protocol::frame::coding::{CloseCode, Data, OpCode},
-    Utf8Bytes,
-};
+use tungstenite::handshake::client;
 use url::Url;
 use uuid::Uuid;
 
@@ -43,6 +38,9 @@ use crate::{
     common::{
         flux_response::{ConfigureThresholds, FluxResponse},
         options::{Encoding, Options},
+    },
+    transport::{
+        BoxedStreamingTransport, NativeStreamingTransport, StreamingService, TransportMessage,
     },
     Deepgram, DeepgramError, Result, Transcription,
 };
@@ -386,6 +384,21 @@ impl FluxHandle {
         let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
         let host_header = crate::websocket_host_header(&url).ok_or(DeepgramError::InvalidUrl)?;
 
+        if let Some(transport) = builder
+            .deepgram
+            .custom_transport(StreamingService::FluxListen, url.clone())
+            .await?
+        {
+            let (message_tx, message_rx) = mpsc::channel(256);
+            let (response_tx, response_rx) = mpsc::channel(256);
+            tokio::task::spawn(run_flux_worker(transport, message_rx, response_tx));
+            return Ok(FluxHandle {
+                message_tx,
+                response_rx,
+                request_id: None,
+            });
+        }
+
         let request = {
             let http_builder = Request::builder()
                 .method("GET")
@@ -438,7 +451,11 @@ impl FluxHandle {
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
 
-        tokio::task::spawn(run_flux_worker(ws_stream, message_rx, response_tx));
+        tokio::task::spawn(run_flux_worker(
+            Box::new(NativeStreamingTransport::new(ws_stream)),
+            message_rx,
+            response_tx,
+        ));
 
         Ok(FluxHandle {
             message_tx,
@@ -534,7 +551,7 @@ impl FluxHandle {
 }
 
 async fn run_flux_worker(
-    ws_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
+    transport: BoxedStreamingTransport,
     mut message_rx: Receiver<WsMessage>,
     mut response_tx: Sender<Result<FluxResponse>>,
 ) -> Result<()> {
@@ -547,9 +564,7 @@ async fn run_flux_worker(
     // that sender is the one parked on a full response channel. The slot is
     // used at most once, on the single terminal path that ends the worker.
     let mut error_tx = response_tx.clone();
-    // We use Vec<u8> for partial frames because we don't know if a fragment of a string is valid utf-8.
-    let mut partial_frame: Vec<u8> = Vec::new();
-    let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
+    let (mut ws_stream_send, ws_stream_recv) = transport.split();
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
     // False once `message_rx` is exhausted (all senders dropped or the
@@ -562,7 +577,7 @@ async fn run_flux_worker(
     enum Step {
         /// An inbound frame arrived, with response-channel capacity already
         /// reserved for forwarding it.
-        Inbound(Option<std::result::Result<Message, tungstenite::Error>>),
+        Inbound(Option<Result<TransportMessage>>),
         /// An outbound message is ready to be written to the socket.
         Outbound(Option<WsMessage>),
         /// The response consumer went away.
@@ -606,7 +621,7 @@ async fn run_flux_worker(
             }
             Step::Inbound(response) => {
                 match response {
-                    Some(Ok(Message::Text(response))) => {
+                    Some(Ok(TransportMessage::Text(response))) => {
                         let response = serde_json::from_str(&response).map_err(DeepgramError::from);
                         // Capacity was reserved above, so this does not block.
                         if response_tx.start_send(response).is_err() {
@@ -614,20 +629,20 @@ async fn run_flux_worker(
                             break;
                         }
                     }
-                    Some(Ok(Message::Ping(value))) => {
+                    Some(Ok(TransportMessage::Ping(value))) => {
                         // We don't really care if the server receives the pong.
-                        let _ = ws_stream_send.send(Message::Pong(value)).await;
+                        let _ = ws_stream_send.send(TransportMessage::Pong(value)).await;
                     }
-                    Some(Ok(Message::Close(closeframe))) => {
+                    Some(Ok(TransportMessage::Close(closeframe))) => {
                         // Forward abnormal closes to the consumer as errors —
                         // otherwise the stream silently ends and an abnormal
                         // shutdown is indistinguishable from a normal one.
                         if let Some(closeframe) = closeframe {
-                            if closeframe.code != CloseCode::Normal {
+                            if closeframe.code != 1000 {
                                 let _ =
                                     response_tx.start_send(Err(DeepgramError::WebsocketClose {
-                                        code: closeframe.code.into(),
-                                        reason: closeframe.reason.to_string(),
+                                        code: closeframe.code,
+                                        reason: closeframe.reason,
                                     }));
                             }
                         }
@@ -641,31 +656,7 @@ async fn run_flux_worker(
                         is_open = false;
                         break;
                     }
-                    Some(Ok(Message::Frame(frame))) => {
-                        match frame.header().opcode {
-                            OpCode::Data(Data::Text) => {
-                                partial_frame.extend(frame.payload());
-                            }
-                            // We know we're continuing a text frame because otherwise
-                            // partial_frame would be empty.
-                            OpCode::Data(Data::Continue) if !partial_frame.is_empty() => {
-                                partial_frame.extend(frame.payload())
-                            }
-                            _ => {
-                                // Ignore other partial frames.
-                            }
-                        }
-                        if frame.header().is_final {
-                            let response = std::mem::take(&mut partial_frame);
-                            let response =
-                                serde_json::from_slice(&response).map_err(|err| err.into());
-                            if response_tx.start_send(response).is_err() {
-                                // Responses are no longer being received; close the stream.
-                                break;
-                            }
-                        }
-                    }
-                    Some(Ok(Message::Binary(_) | Message::Pong(_))) => {
+                    Some(Ok(TransportMessage::Binary(_) | TransportMessage::Pong(_))) => {
                         // We don't expect binary messages or pongs from the API.
                         // They can be safely ignored.
                     }
@@ -674,7 +665,7 @@ async fn run_flux_worker(
                         // it once and end the worker, rather than keep polling
                         // a broken socket (which can surface duplicate errors)
                         // or accept further commands doomed to fail.
-                        let _ = response_tx.start_send(Err(err.into()));
+                        let _ = response_tx.start_send(Err(err));
                         is_open = false;
                         break;
                     }
@@ -703,33 +694,32 @@ async fn run_flux_worker(
                         // never waits for room to deliver it.
                         Some(WsMessage::Audio(audio)) => {
                             if let Err(err) = ws_stream_send
-                                .send(Message::Binary(Bytes::from(audio)))
+                                .send(TransportMessage::Binary(Bytes::from(audio)))
                                 .await
                             {
-                                let _ = error_tx.try_send(Err(err.into()));
+                                let _ = error_tx.try_send(Err(err));
                                 is_open = false;
                                 break;
                             }
                         }
                         Some(WsMessage::Configure(json)) => {
-                            if let Err(err) = ws_stream_send
-                                .send(Message::Text(Utf8Bytes::from(json)))
-                                .await
+                            if let Err(err) =
+                                ws_stream_send.send(TransportMessage::Text(json)).await
                             {
-                                let _ = error_tx.try_send(Err(err.into()));
+                                let _ = error_tx.try_send(Err(err));
                                 is_open = false;
                                 break;
                             }
                         }
                         Some(WsMessage::ForceEndTurn) => {
                             if let Err(err) = ws_stream_send
-                                .send(Message::Text(Utf8Bytes::from(
+                                .send(TransportMessage::Text(
                                     serde_json::to_string(&ControlMessage::ForceEndTurn)
                                         .unwrap_or_default(),
-                                )))
+                                ))
                                 .await
                             {
-                                let _ = error_tx.try_send(Err(err.into()));
+                                let _ = error_tx.try_send(Err(err));
                                 is_open = false;
                                 break;
                             }
@@ -737,13 +727,13 @@ async fn run_flux_worker(
                         Some(WsMessage::CloseStream) | None => {
                             is_open = false;
                             if let Err(err) = ws_stream_send
-                                .send(Message::Text(Utf8Bytes::from(
+                                .send(TransportMessage::Text(
                                     serde_json::to_string(&ControlMessage::CloseStream)
                                         .unwrap_or_default(),
-                                )))
+                                ))
                                 .await
                             {
-                                let _ = error_tx.try_send(Err(err.into()));
+                                let _ = error_tx.try_send(Err(err));
                                 break;
                             }
                         }
@@ -755,15 +745,15 @@ async fn run_flux_worker(
     // Post-loop cleanup: ensure CloseStream is sent if connection is still open
     if is_open {
         if let Err(err) = ws_stream_send
-            .send(Message::Text(Utf8Bytes::from(
+            .send(TransportMessage::Text(
                 serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default(),
-            )))
+            ))
             .await
         {
             // `error_tx`'s guaranteed slot delivers this even when the
             // consumer is behind; if the consumer has dropped the stream
             // there is nothing to be done about it now.
-            let _ = error_tx.try_send(Err(err.into()));
+            let _ = error_tx.try_send(Err(err));
         }
     }
     response_tx.close_channel();

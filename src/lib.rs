@@ -29,6 +29,8 @@ pub use serde_urlencoded::ser::Error as SerdeUrlencodedError;
 use std::io;
 use std::ops::Deref;
 #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+use std::sync::Arc;
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub use tungstenite::Error as TungsteniteError;
 
 use reqwest::{
@@ -56,6 +58,8 @@ pub mod read;
 pub mod speak;
 #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub mod tls;
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+pub mod transport;
 
 /// The `rustls` crate this SDK's WebSocket connections are built on,
 /// re-exported so a [`rustls::ClientConfig`] passed to
@@ -262,6 +266,8 @@ pub struct Deepgram {
     client: reqwest::Client,
     #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     tls: tls::TlsSettings,
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+    transport_factory: Option<Arc<dyn transport::StreamingTransportFactory>>,
 }
 
 /// Errors that may arise from the [`deepgram`](crate) crate.
@@ -592,7 +598,52 @@ impl Deepgram {
                 .build()?,
             #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
             tls: tls::TlsSettings::new(),
+            #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+            transport_factory: None,
         })
+    }
+
+    /// Use `factory` instead of the built-in WebSocket connector for future
+    /// streaming connections.
+    ///
+    /// The factory applies to Listen V1, Flux STT, Aura streaming TTS, Flux
+    /// TTS, and Voice Agent when their Cargo features are enabled. HTTP APIs
+    /// continue using the SDK's `reqwest` client.
+    ///
+    /// A custom transport owns any reconnect/retry behavior. The SDK does not
+    /// reconnect it or replay messages after a failure; its normal terminal
+    /// stream and handle semantics still apply.
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+    pub fn with_streaming_transport_factory(
+        mut self,
+        factory: Arc<dyn transport::StreamingTransportFactory>,
+    ) -> Self {
+        self.transport_factory = Some(factory);
+        self
+    }
+
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+    pub(crate) async fn custom_transport(
+        &self,
+        service: transport::StreamingService,
+        url: Url,
+    ) -> Result<Option<transport::BoxedStreamingTransport>> {
+        let Some(factory) = &self.transport_factory else {
+            return Ok(None);
+        };
+
+        let request = {
+            let builder = http::Request::builder().header("user-agent", USER_AGENT);
+            let builder = if let Some(auth) = &self.auth {
+                builder.header("authorization", auth.header_value())
+            } else {
+                builder
+            };
+            builder.body(())?
+        };
+        let request = transport::TransportRequest::new(service, url, request.headers().clone());
+
+        factory.connect(request).await.map(Some)
     }
 
     /// Join a relative API path, such as `v1/projects`, onto this client's

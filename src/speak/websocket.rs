@@ -31,15 +31,20 @@ use std::{
     task::{Context, Poll},
     time::Duration,
 };
+#[cfg(test)]
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tungstenite::handshake::client;
-use tungstenite::Utf8Bytes;
 use url::Url;
 use uuid::Uuid;
 
 use super::options::Model;
 use crate::speak::options::Encoding;
-use crate::{Deepgram, DeepgramError, Result, Speak};
+use crate::{
+    transport::{
+        BoxedStreamingTransport, NativeStreamingTransport, StreamingService, TransportMessage,
+    },
+    Deepgram, DeepgramError, Result, Speak,
+};
 
 static SPEAK_STREAM_URL_PATH: &str = "v1/speak";
 
@@ -495,6 +500,23 @@ impl SpeakStreamHandle {
         let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
         let host_header = crate::websocket_host_header(&url).ok_or(DeepgramError::InvalidUrl)?;
 
+        if let Some(transport) = builder
+            .deepgram
+            .custom_transport(StreamingService::Speak, url.clone())
+            .await?
+        {
+            let (message_tx, message_rx) = mpsc::channel(256);
+            let (response_tx, response_rx) = mpsc::channel(256);
+            tokio::task::spawn(run_worker(transport, message_rx, response_tx));
+            return Ok(SpeakStreamHandle {
+                sender: SpeakStreamSender { message_tx },
+                events: SpeakStreamEvents {
+                    response_rx,
+                    request_id: Uuid::nil(),
+                },
+            });
+        }
+
         let request = {
             let http_builder = Request::builder()
                 .method("GET")
@@ -539,7 +561,11 @@ impl SpeakStreamHandle {
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
 
-        tokio::task::spawn(run_worker(ws_stream, message_rx, response_tx));
+        tokio::task::spawn(run_worker(
+            Box::new(NativeStreamingTransport::new(ws_stream)),
+            message_rx,
+            response_tx,
+        ));
 
         Ok(SpeakStreamHandle {
             sender: SpeakStreamSender { message_tx },
@@ -673,15 +699,12 @@ impl Stream for SpeakStreamEvents {
     }
 }
 
-type WsStream =
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
-
 async fn run_worker(
-    ws_stream: WsStream,
+    transport: BoxedStreamingTransport,
     message_rx: Receiver<ClientMessage>,
     response_tx: Sender<Result<SpeakResponse>>,
 ) {
-    run_worker_with_drain_timeout(ws_stream, message_rx, response_tx, CLOSE_DRAIN_IDLE_TIMEOUT)
+    run_worker_with_drain_timeout(transport, message_rx, response_tx, CLOSE_DRAIN_IDLE_TIMEOUT)
         .await
 }
 
@@ -692,12 +715,12 @@ async fn run_worker(
 /// has been sent (see [`CLOSE_DRAIN_IDLE_TIMEOUT`]); it is a parameter so
 /// tests can shorten it.
 async fn run_worker_with_drain_timeout(
-    ws_stream: WsStream,
+    transport: BoxedStreamingTransport,
     mut message_rx: Receiver<ClientMessage>,
     mut response_tx: Sender<Result<SpeakResponse>>,
     drain_idle_timeout: Duration,
 ) {
-    let (mut ws_sink, ws_source) = ws_stream.split();
+    let (mut ws_sink, ws_source) = transport.split();
     let mut ws_source = ws_source.fuse();
     // Set once a `Close` text message has been written to the socket, either
     // explicitly or because every sender was dropped. `message_rx` is not
@@ -718,7 +741,7 @@ async fn run_worker_with_drain_timeout(
     enum Step {
         /// An inbound frame arrived, with response-channel capacity already
         /// reserved for forwarding it.
-        Inbound(Option<std::result::Result<Message, tungstenite::Error>>),
+        Inbound(Option<Result<TransportMessage>>),
         /// An outbound message is ready to be written to the socket (`None`
         /// once every sender has been dropped).
         Outbound(Option<ClientMessage>),
@@ -791,7 +814,7 @@ async fn run_worker_with_drain_timeout(
                 let message = message.unwrap_or(ClientMessage::Close);
                 let is_close = message == ClientMessage::Close;
                 let text = serde_json::to_string(&message).unwrap_or_default();
-                if let Err(err) = ws_sink.send(Message::Text(Utf8Bytes::from(text))).await {
+                if let Err(err) = ws_sink.send(TransportMessage::Text(text)).await {
                     // A failed write means the transport is broken: forward
                     // the terminal error exactly once and end the worker.
                     // `error_tx` is a dedicated clone, so it has its own
@@ -799,7 +822,7 @@ async fn run_worker_with_drain_timeout(
                     // behind undrained audio (which would deadlock a caller
                     // that sends without draining), and it cannot be dropped
                     // for want of room either.
-                    let _ = error_tx.try_send(Err(err.into()));
+                    let _ = error_tx.try_send(Err(err));
                     socket_open = false;
                     break;
                 }
@@ -819,7 +842,7 @@ async fn run_worker_with_drain_timeout(
         // down silently.
         if !close_sent {
             let text = serde_json::to_string(&ClientMessage::Close).unwrap_or_default();
-            let _ = ws_sink.send(Message::Text(Utf8Bytes::from(text))).await;
+            let _ = ws_sink.send(TransportMessage::Text(text)).await;
         }
         let _ = ws_sink.close().await;
     }
@@ -841,15 +864,15 @@ enum Incoming {
 /// capacity must already be reserved (see the worker loop), so forwarding
 /// uses `start_send` and never blocks.
 async fn handle_incoming<S>(
-    incoming: Option<std::result::Result<Message, tungstenite::Error>>,
+    incoming: Option<Result<TransportMessage>>,
     ws_sink: &mut S,
     response_tx: &mut Sender<Result<SpeakResponse>>,
 ) -> Incoming
 where
-    S: futures::Sink<Message> + Unpin,
+    S: futures::Sink<TransportMessage, Error = DeepgramError> + Unpin,
 {
     match incoming {
-        Some(Ok(Message::Binary(audio))) => {
+        Some(Ok(TransportMessage::Binary(audio))) => {
             if response_tx
                 .start_send(Ok(SpeakResponse::Audio(audio)))
                 .is_err()
@@ -857,7 +880,7 @@ where
                 return Incoming::Stop { socket_open: true };
             }
         }
-        Some(Ok(Message::Text(text))) => {
+        Some(Ok(TransportMessage::Text(text))) => {
             if response_tx
                 .start_send(Ok(parse_text_message(&text)))
                 .is_err()
@@ -865,16 +888,16 @@ where
                 return Incoming::Stop { socket_open: true };
             }
         }
-        Some(Ok(Message::Ping(payload))) => {
-            let _ = ws_sink.send(Message::Pong(payload)).await;
+        Some(Ok(TransportMessage::Ping(payload))) => {
+            let _ = ws_sink.send(TransportMessage::Pong(payload)).await;
         }
-        Some(Ok(Message::Close(frame))) => {
+        Some(Ok(TransportMessage::Close(frame))) => {
             // A normal (1000) close is not an error.
             if let Some(frame) = frame {
-                if u16::from(frame.code) != 1000 {
+                if frame.code != 1000 {
                     let _ = response_tx.start_send(Err(DeepgramError::WebsocketClose {
-                        code: frame.code.into(),
-                        reason: frame.reason.to_string(),
+                        code: frame.code,
+                        reason: frame.reason,
                     }));
                 }
             }
@@ -884,11 +907,11 @@ where
             let _ = ws_sink.flush().await;
             return Incoming::Stop { socket_open: false };
         }
-        Some(Ok(Message::Frame(_) | Message::Pong(_))) => {
-            // Raw frames and pongs can be ignored.
+        Some(Ok(TransportMessage::Pong(_))) => {
+            // Pongs can be ignored.
         }
         Some(Err(err)) => {
-            let _ = response_tx.start_send(Err(err.into()));
+            let _ = response_tx.start_send(Err(err));
             return Incoming::Stop { socket_open: false };
         }
         None => return Incoming::Stop { socket_open: false },
@@ -1329,7 +1352,7 @@ mod tests {
         let (mut message_tx, message_rx) = mpsc::channel(8);
         let (response_tx, mut response_rx) = mpsc::channel(8);
         let worker = tokio::spawn(run_worker_with_drain_timeout(
-            ws_stream,
+            Box::new(NativeStreamingTransport::new(ws_stream)),
             message_rx,
             response_tx,
             Duration::from_millis(200),
