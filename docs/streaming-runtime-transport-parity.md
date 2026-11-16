@@ -1,6 +1,6 @@
 # Streaming Runtime and Transport Parity Audit
 
-Status: product decision required before reconnect implementation.
+Status: decision recorded — no SDK-managed reconnect or message replay.
 
 This record covers streaming behavior outside the pinned OpenAPI and
 AsyncAPI contracts. It is the Phase 3 evidence for the Rust SDK full-parity
@@ -24,9 +24,9 @@ The streaming surfaces are Listen V1 (`/v1/listen`), Listen V2 / Flux STT
 
 | Capability | JavaScript | Python | Java | Rust current behavior | Disposition |
 | --- | --- | --- | --- | --- | --- |
-| SDK-managed reconnect | Yes. The wrapper reconnects native WebSockets; each connection defaults to 30 retries. | No. `reconnect` is declarative only. | Yes. `ReconnectingWebSocketListener` reconnects with exponential backoff; its default maximum is effectively unbounded. | No. A read/write failure or abnormal close is terminal. | Product decision required. |
+| SDK-managed reconnect | Yes. The wrapper reconnects native WebSockets; each connection defaults to 30 retries. | No. `reconnect` is declarative only. | Yes. `ReconnectingWebSocketListener` reconnects with exponential backoff; its default maximum is effectively unbounded. | No. A read/write failure or abnormal close is terminal. | Intentional Rust-native difference. |
 | Sending while disconnected | JavaScript queues messages and flushes them after opening. | Not applicable; no wrapper reconnect. | Queues up to `maxEnqueuedMessages`, then drops later messages. | The bounded command channel exists only for a live worker. When the worker exits, retained handle sends fail. | Do not copy without delivery semantics. |
-| Custom streaming transport | `transportFactory(url, headers, request)` supports all five surfaces. It owns reconnect by default. | Process-global monkey-patch accepts `factory(url, headers)` for all generated streaming clients. | `DeepgramTransportFactory.create(url, headers)` supports all streaming clients. | No replacement transport seam; every surface directly creates a `tokio_tungstenite` connection. | Design and implement separately from reconnect. |
+| Custom streaming transport | `transportFactory(url, headers, request)` supports all five surfaces. It owns reconnect by default. | Process-global monkey-patch accepts `factory(url, headers)` for all generated streaming clients. | `DeepgramTransportFactory.create(url, headers)` supports all streaming clients. | A separate transport-factory implementation is tracked with this audit. The custom transport owns reconnect. | Rust-equivalent transport seam; no wrapper retry. |
 | Close/retry policy | Default does not reconnect after a normal close. Per-connection policy can override this; protocol terminal messages receive special handling. | Native transport behavior only. | Normal close is terminal by default; subclasses can override the policy. | Explicit close is terminal. A non-normal close or read/write error is surfaced once and ends the handle/event stream. | Intentional Rust-native behavior until a reconnect contract is approved. |
 | Backpressure / terminal error | Wrapper queues while disconnected; queue ownership is in the reconnect wrapper. | Delegated to the installed transport. | Queues outbound messages across reconnects. | Every worker uses bounded channels; a terminal transport failure closes the command channel so later sends fail rather than disappear. | Preserve this invariant in any transport abstraction. |
 | Per-surface custom endpoint | Base URL/environment controls all wrapped endpoints. | Generated client base URL controls all endpoints. | Endpoint configuration is client-level. | `Deepgram::with_base_url*` controls Listen V1/V2 and Speak V1/V2. Voice Agent uses its SaaS endpoint or explicit `Agent::start_at_url`; non-loopback Agent URLs require `wss://`. | Rust-equivalent, intentionally explicit for Voice Agent. |
@@ -74,33 +74,29 @@ native WebSocket workers. Any replacement transport must preserve it:
 4. one terminal error is delivered at most once; and
 5. an explicit protocol close never triggers an automatic new session.
 
-## Recommended product contract
+## Recorded product contract
 
-1. **Keep Rust reconnect disabled by default on every streaming surface.**
+1. **Rust does not perform SDK-managed reconnect on any streaming surface.**
    The current terminal-error contract is safe, observable, and does not
    imply a delivery guarantee the protocol has not made.
-2. **Do not add transparent Voice Agent reconnect** until product defines a
-   supported session-resumption protocol or explicitly approves a new-session
-   contract. The decision must specify how settings, history, turns, pending
-   function calls, audio, and event ordering behave after a reconnect.
-3. **Decide replay semantics independently for Listen and Speak.** A
-   reconnect API needs explicit answers for unsent versus possibly delivered
-   data, queue bounds and overflow, close-code policy, retry timing, and
-   request-ID changes.
-4. **Add a transport-factory seam before SDK-managed retries.** It should
-   permit alternative bidirectional transports (including self-retrying
-   transports) without wrapping them in a second retry loop. The factory
-   receives the fully resolved URL, headers, target service, and query
-   parameters; it returns a connection that can send text/binary frames,
-   receive text/binary frames, report one terminal error or close, and close
-   gracefully.
+2. **Rust does not replay a client message or audio after a transport
+   failure.** Handles report one terminal error and later sends fail.
+3. **Do not add transparent Voice Agent reconnect** until the API defines a
+   supported session-resumption protocol. A later contract must specify how
+   settings, history, turns, pending function calls, audio, and event ordering
+   behave after recovery.
+4. **Custom transports may reconnect internally.** The SDK does not wrap them
+   in a second retry loop. The factory receives the resolved URL and headers
+   and returns a bidirectional text/binary/ping/pong/close transport.
 5. **Keep retry ownership singular.** A custom transport owns its own retry
    lifecycle unless a later, explicit Rust reconnect policy opts into wrapper
    retries. Stacking both by default risks retry storms.
 
-## Decisions needed
+## Future reconnect prerequisites
 
-Before implementing reconnect, product must approve all of the following:
+The recorded policy closes Phase 3's current runtime-parity decision. Before
+changing it to add SDK-managed reconnect, product must approve all of the
+following:
 
 1. Whether each service is allowed to start a new session after a transport
    failure, and whether that action is opt-in.
@@ -113,5 +109,5 @@ Before implementing reconnect, product must approve all of the following:
 5. Voice Agent recovery semantics, including whether and how settings,
    history, function calls, and active turns may be rebuilt.
 
-Until those decisions are recorded, the Rust SDK's terminal transport behavior
-is the intentional, safer difference.
+Until then, Rust's terminal transport behavior is the intentional, safer
+difference.
