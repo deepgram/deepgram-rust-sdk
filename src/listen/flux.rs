@@ -630,8 +630,11 @@ async fn run_flux_worker(
                         }
                     }
                     Some(Ok(TransportMessage::Ping(value))) => {
-                        // We don't really care if the server receives the pong.
-                        let _ = ws_stream_send.send(TransportMessage::Pong(value)).await;
+                        if let Err(err) = ws_stream_send.send(TransportMessage::Pong(value)).await {
+                            let _ = error_tx.try_send(Err(err));
+                            is_open = false;
+                            break;
+                        }
                     }
                     Some(Ok(TransportMessage::Close(closeframe))) => {
                         // Forward abnormal closes to the consumer as errors —

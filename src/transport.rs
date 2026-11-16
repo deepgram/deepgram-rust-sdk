@@ -154,6 +154,10 @@ pub type TransportConnectFuture<'a> =
 /// transport immediately or return a connecting transport, provided the
 /// returned object observes the [`StreamingTransport`] contract.
 ///
+/// The factory owns TLS and any transport-specific handshake. It receives the
+/// URL and redacted-on-debug request headers the SDK resolved, but it cannot
+/// return WebSocket upgrade metadata such as a Deepgram request ID.
+///
 /// The SDK does not wrap a custom transport in retry logic. This prevents
 /// duplicate retry loops when an adapter already owns reconnect and backoff.
 pub trait StreamingTransportFactory: fmt::Debug + Send + Sync {

@@ -613,6 +613,14 @@ impl Deepgram {
     /// A custom transport owns any reconnect/retry behavior. The SDK does not
     /// reconnect it or replay messages after a failure; its normal terminal
     /// stream and handle semantics still apply.
+    ///
+    /// The factory owns the network connection, TLS, and any protocol
+    /// handshake. The SDK therefore cannot observe an upgrade response:
+    /// streaming request-ID accessors return `None` for a factory connection
+    /// (or the nil UUID for Aura streaming TTS, which keeps that surface's
+    /// existing missing-header convention). Listen V1
+    /// [`connect diagnostics`](crate::listen::websocket::WebsocketBuilder::diagnostics)
+    /// also apply only to the built-in WebSocket connector.
     #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     pub fn with_streaming_transport_factory(
         mut self,
@@ -632,7 +640,7 @@ impl Deepgram {
             return Ok(None);
         };
 
-        let request = {
+        let mut request = {
             let builder = http::Request::builder().header("user-agent", USER_AGENT);
             let builder = if let Some(auth) = &self.auth {
                 builder.header("authorization", auth.header_value())
@@ -641,6 +649,9 @@ impl Deepgram {
             };
             builder.body(())?
         };
+        if let Some(authorization) = request.headers_mut().get_mut("authorization") {
+            authorization.set_sensitive(true);
+        }
         let request = transport::TransportRequest::new(service, url, request.headers().clone());
 
         factory.connect(request).await.map(Some)

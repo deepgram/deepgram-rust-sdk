@@ -822,8 +822,10 @@ where
             }
         }
         Some(Ok(TransportMessage::Ping(payload))) => {
-            // Ignore failures: if the WS is gone the next recv will tell us.
-            let _ = ws_send.send(TransportMessage::Pong(payload)).await;
+            if let Err(err) = ws_send.send(TransportMessage::Pong(payload)).await {
+                let _ = response_tx.start_send(Err(err));
+                return ControlFlow::Break(InboundStop::TransportGone);
+            }
         }
         Some(Ok(TransportMessage::Pong(_))) => {
             // Server-emitted pongs are unexpected; ignore.

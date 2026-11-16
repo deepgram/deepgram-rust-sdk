@@ -889,7 +889,10 @@ where
             }
         }
         Some(Ok(TransportMessage::Ping(payload))) => {
-            let _ = ws_sink.send(TransportMessage::Pong(payload)).await;
+            if let Err(err) = ws_sink.send(TransportMessage::Pong(payload)).await {
+                let _ = response_tx.start_send(Err(err));
+                return Incoming::Stop { socket_open: false };
+            }
         }
         Some(Ok(TransportMessage::Close(frame))) => {
             // A normal (1000) close is not an error.

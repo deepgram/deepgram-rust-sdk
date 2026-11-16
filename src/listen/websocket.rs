@@ -349,6 +349,11 @@ impl WebsocketBuilder<'_> {
     /// from a drop guard — when the caller cancels the connect, e.g. via
     /// `tokio::time::timeout`.
     ///
+    /// A client configured with
+    /// [`Deepgram::with_streaming_transport_factory`](crate::Deepgram::with_streaming_transport_factory)
+    /// does not emit these records: the factory owns its connection phases,
+    /// which may not be DNS/TCP/TLS/WebSocket at all.
+    ///
     /// Accepts a `tokio::sync::mpsc::UnboundedSender<ConnectRecord>` or a
     /// closure wrapped with [`crate::diagnostics::sink_fn`].
     ///
@@ -622,8 +627,11 @@ async fn run_worker(
                         }
                     }
                     Some(Ok(TransportMessage::Ping(value))) => {
-                        // We don't really care if the server receives the pong.
-                        let _ = ws_stream_send.send(TransportMessage::Pong(value)).await;
+                        if let Err(err) = ws_stream_send.send(TransportMessage::Pong(value)).await {
+                            let _ = error_tx.try_send(Err(err));
+                            is_open = false;
+                            break;
+                        }
                     }
                     Some(Ok(TransportMessage::Close(None))) => {
                         // eprintln!("<worker> received websocket close");
