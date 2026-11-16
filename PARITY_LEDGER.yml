@@ -23,6 +23,13 @@ sources:
   rust_baseline:
     revision: e42ef37ad2e3b2a15454c9b9be65c4d6e12d7a1c
 
+refresh:
+  command: >-
+    python3 scripts/refresh_parity_inventory.py --docs-dir
+    /path/to/deepgram-docs --check
+  behavior: The docs checkout must be at sources.api_spec.revision. Use --write
+    only after reviewing and updating the source pin and snapshots together.
+
 pending_parity_prs:
   - number: 204
     revision: 1afd147d020f7a4c7b25bd2278387289a5d89c8b
