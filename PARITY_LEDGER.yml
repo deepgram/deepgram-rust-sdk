@@ -1,0 +1,117 @@
+schema_version: 1
+status: in_progress
+last_verified: 2026-11-16
+
+# This ledger defines the bounded comparison set for Rust SDK parity. Refresh
+# these revisions together before changing a parity status.
+sources:
+  api_spec:
+    repository: deepgram/deepgram-docs
+    revision: 2677eb4ddbf533b700725bb71a46633e858b8466
+    openapi: api/specs/openapi/openapi.yml
+    asyncapi: api/specs/asyncapi/asyncapi.yml
+  generated_sdks:
+    javascript:
+      repository: deepgram/deepgram-js-sdk
+      revision: 62482ff46b996d5c9733fde07ba23078271d28f6
+    python:
+      repository: deepgram/deepgram-python-sdk
+      revision: 5a420ce3abd416255c04acff504522398e8e5f1c
+    java:
+      repository: deepgram/deepgram-java-sdk
+      revision: c25deb966fd37b2828d1672955dd3a349cb7a61f
+  rust_baseline:
+    revision: e42ef37ad2e3b2a15454c9b9be65c4d6e12d7a1c
+
+pending_parity_prs:
+  - number: 204
+    revision: 1afd147d020f7a4c7b25bd2278387289a5d89c8b
+    scope: Management billing, invitations, and usage.
+  - number: 205
+    revision: 64817782803719e4397351d2e5d22934b1ec6ebc
+    scope: Voice Agent REST configurations, variables, and Think-model discovery.
+  - number: 206
+    revision: c5d175e2a8afbc2ddc8f0e8c7815bbcca6080ab0
+    scope: Deepgram Think and Think Live.
+  - number: 207
+    revision: 76bea9751702b3b8cf381a3513098f26d2d881bf
+    scope: Custom Think-provider Voice Agent messages.
+
+inventories:
+  openapi:
+    operation_count: 50
+    snapshot: parity/openapi-operations.json
+    route_coverage_status: pending_prs_cover_route_inventory
+    field_and_option_audit_status: pending
+  asyncapi:
+    operation_count: 84
+    snapshot: parity/asyncapi-operations.json
+    protocol_message_coverage_status: pending_prs_cover_current_voice_agent_gap
+    field_and_behavior_audit_status: pending
+
+workstreams:
+  rest_schema_and_option_sweep:
+    status: not_started
+    scope:
+      - Listen and transcription request/response schema.
+      - Text Intelligence and batch response schema.
+      - Aura and Flux TTS request, response, and control schema.
+      - Management and auth query, pagination, nullable-field, and error schema.
+  voice_agent_schema_sweep:
+    status: not_started
+    scope:
+      - Settings, history, audio, listen, think, Think Live, speak, functions, and custom endpoints.
+      - Every client control, server event, enum, default, and unknown-value path.
+  runtime_capability_parity:
+    status: not_started
+    scope:
+      - Reconnection semantics.
+      - Custom transport or transport-factory equivalent.
+      - Close, retry, callback ordering, and backpressure behavior.
+      - Custom endpoint and base-URL behavior.
+    generated_sdk_evidence:
+      javascript:
+        - src/CustomClient.ts
+        - src/transport.ts
+      python:
+        - src/deepgram/client.py
+        - src/deepgram/transport_interface.py
+        - src/deepgram/transports/
+      java:
+        - src/main/java/com/deepgram/core/ReconnectingWebSocketListener.java
+        - src/main/java/com/deepgram/core/transport/
+    rust_starting_point:
+      - src/agent/websocket.rs
+      - src/listen/websocket.rs
+      - src/listen/flux.rs
+      - src/speak/websocket.rs
+      - src/speak/flux/websocket.rs
+  developer_experience_parity:
+    status: not_started
+    scope:
+      - Listen WebSocket documentation and example coverage (issue 91).
+      - Named redaction selectors (issue 87).
+      - Runnable Think Live and custom Think-provider examples.
+      - README, crate docs, skills, and feature-specific builds.
+  automated_parity_guard:
+    status: not_started
+    scope:
+      - CI comparison of the pinned spec inventories and this ledger.
+      - Local wire fixtures for typed streaming frames.
+      - Live checks for claims that cannot be proven locally.
+
+decisions_required:
+  - capability: Voice Agent reconnect
+    status: pending_product_contract
+    reason: Reconnection can lose conversational state; the desired recovery
+      semantics are not defined by the API specification.
+  - capability: Browser and WASM support
+    status: blocked_by_browser_auth_contract
+    issue: 174
+    reason: Browser WebSockets cannot use the native Authorization-header model.
+
+claim:
+  current: Rust route and Voice Agent message parity is pending review and merge
+    of PRs 204 through 207.
+  final: Rust has full documented API parity with the recorded JavaScript,
+    Python, and Java SDK revisions only when every workstream is complete.
