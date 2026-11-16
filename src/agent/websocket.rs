@@ -76,8 +76,8 @@ use uuid::Uuid;
 
 use crate::agent::messages::{
     ForceEndTurnMessage, FunctionCallResponseMessage, InjectAgentMessageMessage,
-    InjectUserMessageMessage, KeepAliveMessage, UpdateListenMessage, UpdatePromptMessage,
-    UpdateSpeakMessage, UpdateThinkMessage,
+    InjectDynamicAgentMessage, InjectUserMessageMessage, KeepAliveMessage, UpdateListenMessage,
+    UpdatePromptMessage, UpdateSpeakMessage, UpdateThinkLiveMessage, UpdateThinkMessage,
 };
 use crate::agent::response::AgentResponse;
 use crate::agent::settings::SettingsMessage;
@@ -370,6 +370,15 @@ impl AgentHandle {
         self.send_json(&message).await
     }
 
+    /// Send an `UpdateThink_Live` message.
+    ///
+    /// The replacement applies to the full Think Live provider block:
+    /// settings not included in `message` revert to their service defaults.
+    /// The server confirms a successful update with `ThinkLiveUpdated`.
+    pub async fn send_update_think_live(&mut self, message: UpdateThinkLiveMessage) -> Result<()> {
+        self.send_json(&message).await
+    }
+
     /// Send an `UpdatePrompt` message.
     pub async fn send_update_prompt(&mut self, message: UpdatePromptMessage) -> Result<()> {
         self.send_json(&message).await
@@ -387,6 +396,18 @@ impl AgentHandle {
     pub async fn send_inject_agent_message(
         &mut self,
         message: InjectAgentMessageMessage,
+    ) -> Result<()> {
+        self.send_json(&message).await
+    }
+
+    /// Ask Think Live to generate and inject a short agent utterance.
+    ///
+    /// Think Live must be enabled in the session settings. See
+    /// [`InjectDynamicAgentMessage`] for the behavior applied when a turn is
+    /// in progress.
+    pub async fn send_inject_dynamic_agent_message(
+        &mut self,
+        message: InjectDynamicAgentMessage,
     ) -> Result<()> {
         self.send_json(&message).await
     }
@@ -800,13 +821,16 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
-    use crate::agent::messages::{InjectAgentBehavior, KeepAliveMessage};
+    use crate::agent::messages::{
+        InjectAgentBehavior, InjectDynamicAgentMessage, KeepAliveMessage, UpdateThinkLiveMessage,
+    };
     use crate::agent::settings::{AgentConfig, SettingsMessage};
     use crate::agent::{
         audio::{AudioConfig, AudioInput, AudioInputEncoding},
         listen::{AgentListenProvider, AgentListenSettings, DeepgramListenV2Provider},
         speak::{DeepgramSpeakModel, DeepgramSpeakProvider, SpeakProvider, SpeakSettings},
         think::{OpenAiModel, OpenAiThinkProvider, ThinkProvider, ThinkSettings},
+        think_live::{ThinkLiveProvider, ThinkLiveSettings},
         InlineAgentConfig,
     };
 
@@ -1076,6 +1100,10 @@ mod tests {
             ThinkProvider::OpenAi(OpenAiThinkProvider::new(OpenAiModel::Gpt4o)),
         )))
         .expect("update_think serializes");
+        serde_json::to_string(&UpdateThinkLiveMessage::new(ThinkLiveSettings::new(
+            ThinkLiveProvider::new(),
+        )))
+        .expect("update_think_live serializes");
         serde_json::to_string(&UpdatePromptMessage::new("hi")).expect("update_prompt serializes");
         serde_json::to_string(&InjectUserMessageMessage::new("hello"))
             .expect("inject_user serializes");
@@ -1083,6 +1111,10 @@ mod tests {
             &InjectAgentMessageMessage::new("hi").with_behavior(InjectAgentBehavior::Queue),
         )
         .expect("inject_agent serializes");
+        serde_json::to_string(
+            &InjectDynamicAgentMessage::new().with_behavior(InjectAgentBehavior::Queue),
+        )
+        .expect("inject_dynamic_agent serializes");
         serde_json::to_string(&FunctionCallResponseMessage::with_id("f1", "fn", "{}"))
             .expect("function_call_response serializes");
         serde_json::to_string(&KeepAliveMessage::default()).expect("keep_alive serializes");

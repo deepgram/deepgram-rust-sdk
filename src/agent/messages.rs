@@ -1,11 +1,12 @@
 //! Client-to-server message types for the Voice Agent WebSocket.
 //!
 //! Mirrors `AgentV1*Message` schemas in
-//! `asyncapi/schemas/schemas.agent.v1.yml`. Eight are dynamic-control
+//! `asyncapi/schemas/schemas.agent.v1.yml`. Nine are dynamic-control
 //! messages sent during a session (`UpdateListen`, `UpdateSpeak`,
-//! `UpdateThink`, `UpdatePrompt`, `InjectUserMessage`,
-//! `InjectAgentMessage`, `FunctionCallResponse`, `ForceEndTurn`); one is
-//! a connection keep-alive (`KeepAlive`); the tenth (`Settings`) is
+//! `UpdateThink`, `UpdateThink_Live`, `UpdatePrompt`, `InjectUserMessage`,
+//! `InjectAgentMessage` (fixed or Think Live-generated),
+//! `FunctionCallResponse`, `ForceEndTurn`); one is a connection keep-alive
+//! (`KeepAlive`); the eleventh (`Settings`) is
 //! defined in [`crate::agent::settings`] and is the only message that can
 //! carry the agent's full configuration.
 //!
@@ -20,14 +21,15 @@
 //! server→client event. The struct defined here is reused by the
 //! server-emitted event in [`crate::agent::response`].
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::agent::listen::AgentListenSettings;
 use crate::agent::settings::SettingsMessage;
 use crate::agent::speak::SpeakSettings;
 use crate::agent::think::ThinkSettings;
+use crate::agent::think_live::ThinkLiveSettings;
 
-/// Discriminated union of all ten client-to-server JSON messages.
+/// Discriminated union of all client-to-server JSON messages.
 ///
 /// Audio frames sent by the client are binary WebSocket frames and are
 /// therefore not part of this enum — they're handled by the connection
@@ -53,12 +55,16 @@ pub enum ClientMessage {
     UpdateSpeak(UpdateSpeakMessage),
     /// Swap the Think provider mid-session.
     UpdateThink(UpdateThinkMessage),
+    /// Replace the Think Live provider configuration mid-session.
+    UpdateThinkLive(UpdateThinkLiveMessage),
     /// Replace the system prompt mid-session.
     UpdatePrompt(UpdatePromptMessage),
     /// Inject a synthetic user utterance into the conversation.
     InjectUserMessage(InjectUserMessageMessage),
     /// Trigger an agent utterance immediately.
     InjectAgentMessage(InjectAgentMessageMessage),
+    /// Ask Think Live to generate and speak an utterance immediately.
+    InjectDynamicAgentMessage(InjectDynamicAgentMessage),
     /// Reply to a server `FunctionCallRequest` (client-side function execution).
     FunctionCallResponse(FunctionCallResponseMessage),
     /// Keep the WebSocket alive between user turns.
@@ -103,6 +109,11 @@ impl ClientMessage {
         Self::UpdateThink(UpdateThinkMessage::many(think))
     }
 
+    /// Convenience: build an `UpdateThink_Live` message.
+    pub fn update_think_live(think_live: ThinkLiveSettings) -> Self {
+        Self::UpdateThinkLive(UpdateThinkLiveMessage::new(think_live))
+    }
+
     /// Convenience: build an `UpdatePrompt` message.
     pub fn update_prompt(prompt: impl Into<String>) -> Self {
         Self::UpdatePrompt(UpdatePromptMessage::new(prompt))
@@ -116,6 +127,11 @@ impl ClientMessage {
     /// Convenience: build an `InjectAgentMessage` with the default behavior.
     pub fn inject_agent_message(message: impl Into<String>) -> Self {
         Self::InjectAgentMessage(InjectAgentMessageMessage::new(message))
+    }
+
+    /// Convenience: ask Think Live to generate an agent utterance.
+    pub fn inject_dynamic_agent_message() -> Self {
+        Self::InjectDynamicAgentMessage(InjectDynamicAgentMessage::new())
     }
 
     /// Convenience: build a `FunctionCallResponse`.
@@ -262,6 +278,45 @@ impl UpdateThinkMessage {
     }
 }
 
+// ---------- UpdateThink_Live ----------
+
+/// Marker for the `"UpdateThink_Live"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum UpdateThinkLiveType {
+    /// Always serializes as `"UpdateThink_Live"`.
+    #[default]
+    #[serde(rename = "UpdateThink_Live")]
+    UpdateThinkLive,
+}
+
+/// Mirrors `AgentV1UpdateThinkLive` — replace the full Think Live
+/// configuration mid-session.
+///
+/// This replaces the entire `think_live.provider` block. Include every
+/// setting that should remain in effect; omitted values revert to service
+/// defaults. The server confirms with `ThinkLiveUpdated`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UpdateThinkLiveMessage {
+    /// Always [`UpdateThinkLiveType::UpdateThinkLive`].
+    #[serde(rename = "type", default)]
+    pub message_type: UpdateThinkLiveType,
+
+    /// Replacement Think Live configuration.
+    pub think_live: ThinkLiveSettings,
+}
+
+impl UpdateThinkLiveMessage {
+    /// Construct a Think Live update.
+    pub fn new(think_live: ThinkLiveSettings) -> Self {
+        Self {
+            message_type: UpdateThinkLiveType::UpdateThinkLive,
+            think_live,
+        }
+    }
+}
+
 // ---------- UpdatePrompt ----------
 
 /// Marker for the `"UpdatePrompt"` discriminator value.
@@ -395,6 +450,87 @@ impl InjectAgentMessageMessage {
     pub fn with_behavior(mut self, behavior: InjectAgentBehavior) -> Self {
         self.behavior = Some(behavior);
         self
+    }
+}
+
+/// Typed `InjectAgentMessage` request whose utterance is generated by Think
+/// Live instead of supplied by the caller.
+///
+/// Think Live must be enabled in the session configuration. The server emits
+/// a `DYNAMIC_FILLER_UNAVAILABLE` warning if it cannot generate a line.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct InjectDynamicAgentMessage {
+    /// Always `"InjectAgentMessage"`.
+    #[serde(rename = "type", default)]
+    pub message_type: InjectAgentMessageType,
+
+    /// Always `true`, requesting server-generated content. Serializing or
+    /// deserializing `false` returns an error because it is not a dynamic
+    /// injection request.
+    #[serde(
+        default = "dynamic_message",
+        rename = "is_dynamic",
+        serialize_with = "serialize_dynamic_message",
+        deserialize_with = "deserialize_dynamic_message"
+    )]
+    pub is_dynamic: bool,
+
+    /// How the injection interacts with an in-progress turn.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub behavior: Option<InjectAgentBehavior>,
+}
+
+fn dynamic_message() -> bool {
+    true
+}
+
+fn serialize_dynamic_message<S>(is_dynamic: &bool, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    if *is_dynamic {
+        serializer.serialize_bool(true)
+    } else {
+        Err(<S::Error as serde::ser::Error>::custom(
+            "`is_dynamic` must be true for a dynamic agent message",
+        ))
+    }
+}
+
+fn deserialize_dynamic_message<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    if bool::deserialize(deserializer)? {
+        Ok(true)
+    } else {
+        Err(<D::Error as serde::de::Error>::custom(
+            "`is_dynamic` must be true for a dynamic agent message",
+        ))
+    }
+}
+
+impl InjectDynamicAgentMessage {
+    /// Construct a request with the default injection behavior.
+    pub fn new() -> Self {
+        Self {
+            message_type: InjectAgentMessageType::InjectAgentMessage,
+            is_dynamic: true,
+            behavior: None,
+        }
+    }
+
+    /// Override the behavior.
+    pub fn with_behavior(mut self, behavior: InjectAgentBehavior) -> Self {
+        self.behavior = Some(behavior);
+        self
+    }
+}
+
+impl Default for InjectDynamicAgentMessage {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -589,6 +725,7 @@ mod tests {
         SpeakSettings,
     };
     use crate::agent::think::{OpenAiModel, OpenAiThinkProvider, ThinkProvider};
+    use crate::agent::think_live::{ThinkLiveProvider, ThinkLiveSettings};
     use serde_json::json;
 
     fn sample_speak() -> SpeakSettings {
@@ -750,6 +887,33 @@ mod tests {
     }
 
     #[test]
+    fn update_think_live_exact_wire_json() {
+        let raw = json!({
+            "type": "UpdateThink_Live",
+            "think_live": {
+                "provider": {
+                    "type": "deepgram",
+                    "version": "v1",
+                    "agent_backchannel_sensitivity": 0.5,
+                    "presence_check_max_count": 0
+                }
+            }
+        });
+        let msg: ClientMessage = serde_json::from_value(raw.clone()).unwrap();
+        match &msg {
+            ClientMessage::UpdateThinkLive(update) => {
+                assert_eq!(
+                    update.think_live.provider.agent_backchannel_sensitivity,
+                    Some(0.5)
+                );
+                assert_eq!(update.think_live.provider.presence_check_max_count, Some(0));
+            }
+            other => panic!("expected UpdateThinkLive, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(msg).unwrap(), raw);
+    }
+
+    #[test]
     fn update_prompt_round_trip() {
         let raw = json!({
             "type": "UpdatePrompt",
@@ -828,6 +992,38 @@ mod tests {
             serde_json::to_string(&built).unwrap(),
             r#"{"type":"InjectAgentMessage","message":"One moment — transferring you now.","behavior":"interrupt"}"#
         );
+    }
+
+    #[test]
+    fn inject_dynamic_agent_message_exact_wire_json() {
+        let raw = json!({
+            "type": "InjectAgentMessage",
+            "is_dynamic": true,
+            "behavior": "queue"
+        });
+        let msg: ClientMessage = serde_json::from_value(raw.clone()).unwrap();
+        match &msg {
+            ClientMessage::InjectDynamicAgentMessage(inject) => {
+                assert!(inject.is_dynamic);
+                assert_eq!(inject.behavior, Some(InjectAgentBehavior::Queue));
+            }
+            other => panic!("expected InjectDynamicAgentMessage, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(msg).unwrap(), raw);
+    }
+
+    #[test]
+    fn inject_dynamic_agent_message_rejects_false() {
+        let mut message = InjectDynamicAgentMessage::new();
+        message.is_dynamic = false;
+        let err = serde_json::to_value(message).unwrap_err();
+        assert!(err.to_string().contains("must be true"), "got: {err}");
+
+        let raw = json!({
+            "type": "InjectAgentMessage",
+            "is_dynamic": false
+        });
+        assert!(serde_json::from_value::<ClientMessage>(raw).is_err());
     }
 
     #[test]
@@ -919,9 +1115,11 @@ mod tests {
         let _ = ClientMessage::update_speak_many([sample_speak(), sample_speak()]);
         let _ = ClientMessage::update_think_one(sample_think());
         let _ = ClientMessage::update_think_many([sample_think()]);
+        let _ = ClientMessage::update_think_live(ThinkLiveSettings::new(ThinkLiveProvider::new()));
         let _ = ClientMessage::update_prompt("hi");
         let _ = ClientMessage::inject_user_message("hi");
         let _ = ClientMessage::inject_agent_message("hi");
+        let _ = ClientMessage::inject_dynamic_agent_message();
         let _ = ClientMessage::function_call_response("fn", "{}");
         let _ = ClientMessage::keep_alive();
         let _ = ClientMessage::update_listen(AgentListenSettings::new(

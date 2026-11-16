@@ -8,8 +8,10 @@
 //!   and container for the `audio` block on `Settings`.
 //! - [`listen`] — `AgentListenSettings` and the V1/V2 Deepgram STT
 //!   provider sub-types.
-//! - [`think`] — `ThinkSettings` and the five Think provider variants
-//!   (OpenAI, Anthropic, AWS Bedrock, Google, Groq).
+//! - [`think`] — `ThinkSettings` and the Think provider variants (OpenAI,
+//!   Anthropic, AWS Bedrock, Deepgram, Google, Groq).
+//! - [`think_live`] — Think Live settings for Deepgram backchannels,
+//!   presence checks, dynamic fillers, and frustration detection.
 //! - [`speak`] — `SpeakSettings` and the five Speak provider variants
 //!   (Deepgram, ElevenLabs, Cartesia, OpenAI, AWS Polly).
 //! - [`history`] — `HistoryMessage` (conversation + function-call history)
@@ -17,16 +19,16 @@
 //! - [`settings`] — top-level `SettingsMessage` and the `AgentConfig`
 //!   oneOf (`Inline(InlineAgentConfig)` vs. `Saved(Uuid)`).
 //! - [`messages`] — the remaining client-to-server messages
-//!   (`UpdateListen`, `UpdateSpeak`, `UpdateThink`, `UpdatePrompt`,
-//!   `InjectUserMessage`, `InjectAgentMessage`, `FunctionCallResponse`,
+//!   (`UpdateListen`, `UpdateSpeak`, `UpdateThink`, `UpdateThink_Live`, `UpdatePrompt`,
+//!   `InjectUserMessage`, fixed or Think Live-generated `InjectAgentMessage`, `FunctionCallResponse`,
 //!   `KeepAlive`, `ForceEndTurn`) plus the `ClientMessage` discriminated
-//!   union over all ten.
+//!   union over all supported messages.
 //! - [`response`] — every server-emitted JSON event (`Welcome`,
 //!   `SettingsApplied`, `ConversationText`, `UserStartedSpeaking`,
 //!   `AgentThinking`, `FunctionCallRequest`, `FunctionCallCancelled`,
 //!   `AgentStartedSpeaking`, `AgentAudioDone`, `Error`, `Warning`,
 //!   `History`, `LatencyReport`, `ListenUpdated`, `PromptUpdated`,
-//!   `SpeakUpdated`, `ThinkUpdated`, `InjectionRefused`,
+//!   `SpeakUpdated`, `ThinkUpdated`, `ThinkLiveUpdated`, `FrustrationDetected`, `InjectionRefused`,
 //!   `FunctionCallResponse`) plus an `Unknown` catch-all for forward
 //!   compatibility, all unified under the [`response::AgentResponse`] enum.
 //!   Dispatch is on the event's `type`, so `AgentResponse::Unknown` holds
@@ -64,6 +66,7 @@ pub mod response;
 pub mod settings;
 pub mod speak;
 pub mod think;
+pub mod think_live;
 pub mod websocket;
 
 pub use audio::{
@@ -82,20 +85,23 @@ pub use listen::{
 pub use messages::{
     ClientMessage, ForceEndTurnMessage, ForceEndTurnType, FunctionCallResponseMessage,
     FunctionCallResponseType, InjectAgentBehavior, InjectAgentMessageMessage,
-    InjectAgentMessageType, InjectUserMessageMessage, InjectUserMessageType, KeepAliveMessage,
-    KeepAliveType, UpdateListenMessage, UpdateListenType, UpdatePromptMessage, UpdatePromptType,
-    UpdateSpeakMessage, UpdateSpeakType, UpdateThinkMessage, UpdateThinkType,
+    InjectAgentMessageType, InjectDynamicAgentMessage, InjectUserMessageMessage,
+    InjectUserMessageType, KeepAliveMessage, KeepAliveType, UpdateListenMessage, UpdateListenType,
+    UpdatePromptMessage, UpdatePromptType, UpdateSpeakMessage, UpdateSpeakType,
+    UpdateThinkLiveMessage, UpdateThinkLiveType, UpdateThinkMessage, UpdateThinkType,
 };
 pub use response::{
     AgentAudioDoneEvent, AgentAudioDoneType, AgentFunctionCall, AgentResponse,
     AgentStartedSpeakingEvent, AgentStartedSpeakingType, AgentThinkingEvent, AgentThinkingType,
-    CancelledFunctionCall, ConversationTextEvent, ConversationTextType, ErrorEvent, ErrorType,
+    CancelledFunctionCall, ConversationTextEvent, ConversationTextType, ConversationalBehavior,
+    ErrorEvent, ErrorType, FrustrationDetectedEvent, FrustrationDetectedType,
     FunctionCallCancelledEvent, FunctionCallCancelledType, FunctionCallRequestEvent,
     FunctionCallRequestType, InjectionRefusedEvent, InjectionRefusedType, LatencyReportEvent,
     LatencyReportType, ListenUpdatedEvent, ListenUpdatedType, PromptUpdatedEvent,
     PromptUpdatedType, SettingsAppliedEvent, SettingsAppliedType, SpeakUpdatedEvent,
-    SpeakUpdatedType, ThinkUpdatedEvent, ThinkUpdatedType, UserStartedSpeakingEvent,
-    UserStartedSpeakingType, WarningEvent, WarningType, WelcomeEvent, WelcomeType,
+    SpeakUpdatedType, ThinkLiveUpdatedEvent, ThinkLiveUpdatedType, ThinkUpdatedEvent,
+    ThinkUpdatedType, UserStartedSpeakingEvent, UserStartedSpeakingType, WarningEvent, WarningType,
+    WelcomeEvent, WelcomeType,
 };
 pub use settings::{
     AgentConfig, AgentContext, InlineAgentConfig, SettingsFlags, SettingsMessage,
@@ -103,4 +109,7 @@ pub use settings::{
 };
 pub use speak::{SpeakProvider, SpeakSettings};
 pub use think::{ContextLength, FunctionEndpoint, ThinkFunction, ThinkProvider, ThinkSettings};
+pub use think_live::{
+    ThinkLiveProvider, ThinkLiveProviderType, ThinkLiveSettings, ThinkLiveVersion,
+};
 pub use websocket::{Agent, AgentEvent, AgentEventStream, AgentHandle, InsecureAgentUrl};

@@ -86,6 +86,10 @@ pub enum AgentResponse {
     SpeakUpdated(SpeakUpdatedEvent),
     /// Confirms an `UpdateThink` was applied.
     ThinkUpdated(ThinkUpdatedEvent),
+    /// Confirms an `UpdateThink_Live` was applied.
+    ThinkLiveUpdated(ThinkLiveUpdatedEvent),
+    /// Think Live detected frustration in a user turn.
+    FrustrationDetected(FrustrationDetectedEvent),
     /// `InjectAgentMessage` was rejected (e.g. mid-turn with `Default` behavior).
     InjectionRefused(InjectionRefusedEvent),
     /// Server-side function execution completed (server emits its own result).
@@ -150,6 +154,8 @@ impl<'de> Deserialize<'de> for AgentResponse {
             "PromptUpdated" => known_event(&event_type, value).map(Self::PromptUpdated),
             "SpeakUpdated" => known_event(&event_type, value).map(Self::SpeakUpdated),
             "ThinkUpdated" => known_event(&event_type, value).map(Self::ThinkUpdated),
+            "ThinkLiveUpdated" => known_event(&event_type, value).map(Self::ThinkLiveUpdated),
+            "FrustrationDetected" => known_event(&event_type, value).map(Self::FrustrationDetected),
             "InjectionRefused" => known_event(&event_type, value).map(Self::InjectionRefused),
             "FunctionCallResponse" => {
                 known_event(&event_type, value).map(Self::FunctionCallResponse)
@@ -230,6 +236,14 @@ pub struct ConversationTextEvent {
     /// What they said.
     pub content: String,
 
+    /// What conversational purpose the utterance serves. The server sends
+    /// `default` while Think Live is disabled.
+    ///
+    /// The field is optional here to remain compatible with older Voice
+    /// Agent deployments that did not include it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conversational_behavior: Option<ConversationalBehavior>,
+
     /// Active language hints at the time of the turn. Only populated on
     /// user-role messages when the listen model is `flux-general-multi`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -240,6 +254,57 @@ pub struct ConversationTextEvent {
     /// `flux-general-multi`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub languages: Vec<String>,
+}
+
+/// The conversational purpose of a [`ConversationTextEvent`].
+///
+/// Unknown server values are retained so a newly introduced behavior does not
+/// terminate an otherwise healthy Voice Agent event stream.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum ConversationalBehavior {
+    /// A standard user or agent turn.
+    Default,
+    /// A brief acknowledgement while the user still holds the floor.
+    Backchannel,
+    /// A prompt after extended silence.
+    PresenceCheck,
+    /// A filler line while an operation is pending.
+    Filler,
+    /// An unrecognized behavior value, preserved verbatim.
+    Unknown(String),
+}
+
+impl ConversationalBehavior {
+    /// The wire representation of this behavior.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Default => "default",
+            Self::Backchannel => "backchannel",
+            Self::PresenceCheck => "presence_check",
+            Self::Filler => "filler",
+            Self::Unknown(value) => value,
+        }
+    }
+}
+
+impl Serialize for ConversationalBehavior {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for ConversationalBehavior {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        Ok(match value.as_str() {
+            "default" => Self::Default,
+            "backchannel" => Self::Backchannel,
+            "presence_check" => Self::PresenceCheck,
+            "filler" => Self::Filler,
+            _ => Self::Unknown(value),
+        })
+    }
 }
 
 // ---------- UserStartedSpeaking ----------
@@ -663,7 +728,7 @@ pub struct LatencyReportEvent {
     pub total_latency: Option<f64>,
 }
 
-// ---------- ListenUpdated / PromptUpdated / SpeakUpdated / ThinkUpdated ----------
+// ---------- ListenUpdated / PromptUpdated / SpeakUpdated / Think updates ----------
 
 /// Marker for the `"ListenUpdated"` discriminator value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -737,6 +802,48 @@ pub struct ThinkUpdatedEvent {
     pub message_type: ThinkUpdatedType,
 }
 
+/// Marker for the `"ThinkLiveUpdated"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum ThinkLiveUpdatedType {
+    /// Always serializes as `"ThinkLiveUpdated"`.
+    #[default]
+    ThinkLiveUpdated,
+}
+
+/// Confirms that an `UpdateThink_Live` message was applied.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ThinkLiveUpdatedEvent {
+    /// Always [`ThinkLiveUpdatedType::ThinkLiveUpdated`].
+    #[serde(rename = "type", default)]
+    pub message_type: ThinkLiveUpdatedType,
+}
+
+/// Marker for the `"FrustrationDetected"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum FrustrationDetectedType {
+    /// Always serializes as `"FrustrationDetected"`.
+    #[default]
+    FrustrationDetected,
+}
+
+/// Think Live's frustration-detection result for a user turn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct FrustrationDetectedEvent {
+    /// Always [`FrustrationDetectedType::FrustrationDetected`].
+    #[serde(rename = "type", default)]
+    pub message_type: FrustrationDetectedType,
+
+    /// Cumulative event count for this session, beginning at one.
+    pub count: u32,
+
+    /// Whether `count` reached `frustration_max_count`.
+    pub escalated: bool,
+}
+
 // ---------- InjectionRefused ----------
 
 /// Marker for the `"InjectionRefused"` discriminator value.
@@ -797,12 +904,55 @@ mod tests {
             AgentResponse::ConversationText(e) => {
                 assert_eq!(e.role, ConversationRole::User);
                 assert_eq!(e.content, "Hello");
+                assert!(e.conversational_behavior.is_none());
                 assert!(e.languages_hinted.is_empty());
                 assert!(e.languages.is_empty());
             }
             _ => panic!("expected ConversationText"),
         }
         assert_eq!(serde_json::to_value(&event).unwrap(), raw);
+    }
+
+    #[test]
+    fn every_known_conversational_behavior_round_trips() {
+        for (wire, expected) in [
+            ("default", ConversationalBehavior::Default),
+            ("backchannel", ConversationalBehavior::Backchannel),
+            ("presence_check", ConversationalBehavior::PresenceCheck),
+            ("filler", ConversationalBehavior::Filler),
+        ] {
+            let raw = json!({
+                "type": "ConversationText",
+                "role": "assistant",
+                "content": "A Think Live message",
+                "conversational_behavior": wire
+            });
+            let event: AgentResponse = serde_json::from_value(raw.clone()).unwrap();
+            match &event {
+                AgentResponse::ConversationText(event) => {
+                    assert_eq!(event.conversational_behavior, Some(expected));
+                }
+                other => panic!("expected ConversationText, got {other:?}"),
+            }
+            assert_eq!(serde_json::to_value(event).unwrap(), raw);
+        }
+    }
+
+    #[test]
+    fn conversation_text_preserves_unknown_think_live_behavior() {
+        let raw = json!({
+            "type": "ConversationText",
+            "role": "assistant",
+            "content": "Future behavior",
+            "conversational_behavior": "new_behavior"
+        });
+        match serde_json::from_value::<AgentResponse>(raw).unwrap() {
+            AgentResponse::ConversationText(e) => assert_eq!(
+                e.conversational_behavior,
+                Some(ConversationalBehavior::Unknown("new_behavior".to_owned()))
+            ),
+            other => panic!("expected ConversationText, got {other:?}"),
+        }
     }
 
     #[test]
@@ -1249,6 +1399,29 @@ mod tests {
     }
 
     #[test]
+    fn think_live_updated_and_frustration_detected_round_trip() {
+        let updated = json!({ "type": "ThinkLiveUpdated" });
+        let event: AgentResponse = serde_json::from_value(updated.clone()).unwrap();
+        assert!(matches!(event, AgentResponse::ThinkLiveUpdated(_)));
+        assert_eq!(serde_json::to_value(event).unwrap(), updated);
+
+        let frustration = json!({
+            "type": "FrustrationDetected",
+            "count": 2,
+            "escalated": true
+        });
+        let event: AgentResponse = serde_json::from_value(frustration.clone()).unwrap();
+        match &event {
+            AgentResponse::FrustrationDetected(detection) => {
+                assert_eq!(detection.count, 2);
+                assert!(detection.escalated);
+            }
+            other => panic!("expected FrustrationDetected, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(event).unwrap(), frustration);
+    }
+
+    #[test]
     fn injection_refused_round_trip() {
         let raw = json!({
             "type": "InjectionRefused",
@@ -1355,6 +1528,16 @@ mod tests {
                 json!({ "type": "FunctionCallRequest" }),
                 "FunctionCallRequest",
                 "functions",
+            ),
+            (
+                json!({ "type": "FrustrationDetected", "escalated": false }),
+                "FrustrationDetected",
+                "count",
+            ),
+            (
+                json!({ "type": "FrustrationDetected", "count": 1 }),
+                "FrustrationDetected",
+                "escalated",
             ),
         ] {
             let err = serde_json::from_value::<AgentResponse>(raw.clone()).expect_err(&format!(
