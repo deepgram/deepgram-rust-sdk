@@ -73,10 +73,18 @@ async fn phase_one_management_endpoints_are_available() -> Result<(), Box<dyn st
     let purchase_options = billing::purchases_options::Options::builder()
         .limit(1)
         .build();
-    let _ = dg
+    let purchases = dg
         .billing()
         .list_purchases(&project_id, &purchase_options)
         .await?;
+    assert!(
+        purchases.page.is_some(),
+        "the purchases response includes pagination page metadata"
+    );
+    assert!(
+        purchases.limit.is_some(),
+        "the purchases response includes pagination limit metadata"
+    );
 
     let _ = dg.invitations().list(&project_id).await?;
 

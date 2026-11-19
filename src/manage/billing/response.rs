@@ -125,6 +125,10 @@ pub struct BillingFields {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Purchases {
+    /// Zero-based page number returned by the API.
+    pub page: Option<u64>,
+    /// Maximum number of purchase orders returned per page.
+    pub limit: Option<u64>,
     /// Purchase orders returned by the API.
     pub orders: Option<Vec<Purchase>>,
 }
@@ -179,7 +183,10 @@ mod tests {
         assert!(fields.accessors.is_none());
         assert!(fields.line_items.is_none());
 
-        let purchases: Purchases = serde_json::from_str(r#"{"orders":[{}]}"#).unwrap();
+        let purchases: Purchases =
+            serde_json::from_str(r#"{"page":0,"limit":5,"orders":[{}]}"#).unwrap();
+        assert_eq!(purchases.page, Some(0));
+        assert_eq!(purchases.limit, Some(5));
         assert_eq!(purchases.orders.unwrap().len(), 1);
     }
 }

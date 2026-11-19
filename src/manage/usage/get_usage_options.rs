@@ -39,12 +39,12 @@ pub struct Options {
     custom_intent: Option<bool>,
     custom_topic_mode: Option<bool>,
     custom_topic: Option<bool>,
-    deployment: Option<String>,
+    deployment: Option<Deployment>,
     detect_entities: Option<bool>,
     detect_language: Option<bool>,
     dictation: Option<bool>,
     encoding: Option<bool>,
-    endpoint: Option<String>,
+    endpoint: Option<Endpoint>,
     extra: Option<bool>,
     filler_words: Option<bool>,
     intents: Option<bool>,
@@ -62,8 +62,9 @@ pub struct Options {
 }
 
 /// Used as a parameter for [`OptionsBuilder::method`].
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
 #[non_exhaustive]
+#[serde(rename_all = "lowercase")]
 pub enum Method {
     #[allow(missing_docs)]
     Sync,
@@ -73,6 +74,39 @@ pub enum Method {
 
     #[allow(missing_docs)]
     Streaming,
+}
+
+/// Deployment filter for usage requests.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
+#[non_exhaustive]
+#[serde(rename_all = "kebab-case")]
+pub enum Deployment {
+    #[allow(missing_docs)]
+    Hosted,
+
+    #[allow(missing_docs)]
+    Beta,
+
+    #[allow(missing_docs)]
+    SelfHosted,
+}
+
+/// API endpoint filter for usage requests.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
+#[non_exhaustive]
+#[serde(rename_all = "lowercase")]
+pub enum Endpoint {
+    #[allow(missing_docs)]
+    Listen,
+
+    #[allow(missing_docs)]
+    Read,
+
+    #[allow(missing_docs)]
+    Speak,
+
+    #[allow(missing_docs)]
+    Agent,
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -565,8 +599,8 @@ impl OptionsBuilder {
     }
 
     /// Filter by deployment.
-    pub fn deployment(mut self, value: impl Into<String>) -> Self {
-        self.0.deployment = Some(value.into());
+    pub fn deployment(mut self, value: Deployment) -> Self {
+        self.0.deployment = Some(value);
         self
     }
 
@@ -595,8 +629,8 @@ impl OptionsBuilder {
     }
 
     /// Filter by API endpoint.
-    pub fn endpoint(mut self, value: impl Into<String>) -> Self {
-        self.0.endpoint = Some(value.into());
+    pub fn endpoint(mut self, value: Endpoint) -> Self {
+        self.0.endpoint = Some(value);
         self
     }
 
@@ -891,12 +925,12 @@ impl AsRef<str> for Method {
 mod serialize_options_tests {
     use std::collections::BTreeSet;
 
-    use super::Options;
+    use super::{Deployment, Endpoint, Options};
 
     #[test]
     fn serializes_current_documented_filters() {
         let options = Options::builder()
-            .deployment("hosted")
+            .deployment(Deployment::Hosted)
             .detect_entities(true)
             .callback(true)
             .custom_topic_mode(false)
@@ -920,12 +954,12 @@ mod serialize_options_tests {
             .custom_intent(true)
             .custom_topic_mode(false)
             .custom_topic(true)
-            .deployment("hosted")
+            .deployment(Deployment::Hosted)
             .detect_entities(true)
             .detect_language(false)
             .dictation(true)
             .encoding(false)
-            .endpoint("listen")
+            .endpoint(Endpoint::Listen)
             .extra(true)
             .filler_words(false)
             .intents(true)

@@ -8,10 +8,10 @@ pub struct Options {
     start: Option<String>,
     end: Option<String>,
     accessor: Option<String>,
-    deployment: Option<String>,
+    deployment: Option<Deployment>,
     tag: Option<String>,
     line_item: Option<String>,
-    grouping: Vec<String>,
+    grouping: Vec<Grouping>,
 }
 
 /// Builds [`Options`] for a project billing breakdown.
@@ -19,6 +19,39 @@ pub struct Options {
 pub struct OptionsBuilder(Options);
 
 pub(crate) struct SerializableOptions<'a>(&'a Options);
+
+/// Deployment filter for billing requests.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
+#[non_exhaustive]
+#[serde(rename_all = "kebab-case")]
+pub enum Deployment {
+    #[allow(missing_docs)]
+    Hosted,
+
+    #[allow(missing_docs)]
+    Beta,
+
+    #[allow(missing_docs)]
+    SelfHosted,
+}
+
+/// Dimension used to group a billing breakdown.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
+#[non_exhaustive]
+#[serde(rename_all = "snake_case")]
+pub enum Grouping {
+    #[allow(missing_docs)]
+    Accessor,
+
+    #[allow(missing_docs)]
+    Deployment,
+
+    #[allow(missing_docs)]
+    LineItem,
+
+    #[allow(missing_docs)]
+    Tags,
+}
 
 impl Options {
     /// Start building query options.
@@ -52,8 +85,8 @@ impl OptionsBuilder {
     }
 
     /// Filter by deployment.
-    pub fn deployment(mut self, value: impl Into<String>) -> Self {
-        self.0.deployment = Some(value.into());
+    pub fn deployment(mut self, value: Deployment) -> Self {
+        self.0.deployment = Some(value);
         self
     }
 
@@ -70,12 +103,11 @@ impl OptionsBuilder {
     }
 
     /// Group results by one or more dimensions.
-    pub fn grouping<I, S>(mut self, values: I) -> Self
+    pub fn grouping<I>(mut self, values: I) -> Self
     where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
+        I: IntoIterator<Item = Grouping>,
     {
-        self.0.grouping.extend(values.into_iter().map(Into::into));
+        self.0.grouping.extend(values);
         self
     }
 
@@ -111,13 +143,15 @@ impl Serialize for SerializableOptions<'_> {
             ("start", start),
             ("end", end),
             ("accessor", accessor),
-            ("deployment", deployment),
             ("tag", tag),
             ("line_item", line_item),
         ] {
             if let Some(value) = value {
                 seq.serialize_element(&(name, value))?;
             }
+        }
+        if let Some(deployment) = deployment {
+            seq.serialize_element(&("deployment", deployment))?;
         }
         for value in grouping {
             seq.serialize_element(&("grouping", value))?;
@@ -128,13 +162,13 @@ impl Serialize for SerializableOptions<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::Options;
+    use super::{Grouping, Options};
 
     #[test]
     fn serializes_repeated_grouping_keys() {
         let options = Options::builder()
             .start("2026-01-01")
-            .grouping(["deployment", "line_item"])
+            .grouping([Grouping::Deployment, Grouping::LineItem])
             .build();
 
         assert_eq!(

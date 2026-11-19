@@ -6,6 +6,8 @@
 
 use serde::Serialize;
 
+use super::get_usage_options::{Deployment, Endpoint, Method};
+
 /// Used as a parameter for [`Usage::list_requests`](super::Usage::list_requests).
 ///
 /// See the [Deepgram API Reference][api] for more info.
@@ -19,9 +21,9 @@ pub struct Options {
     page: Option<usize>,
     accessor: Option<String>,
     request_id: Option<String>,
-    deployment: Option<String>,
-    endpoint: Option<String>,
-    method: Option<String>,
+    deployment: Option<Deployment>,
+    endpoint: Option<Endpoint>,
+    method: Option<Method>,
     status: Option<Status>,
 }
 
@@ -63,13 +65,13 @@ pub(crate) struct SerializableOptions<'a> {
     request_id: &'a Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    deployment: &'a Option<String>,
+    deployment: &'a Option<Deployment>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    endpoint: &'a Option<String>,
+    endpoint: &'a Option<Endpoint>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    method: &'a Option<String>,
+    method: &'a Option<Method>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     status: Option<&'static str>,
@@ -185,20 +187,20 @@ impl OptionsBuilder {
     }
 
     /// Filter by deployment.
-    pub fn deployment(mut self, deployment: impl Into<String>) -> Self {
-        self.0.deployment = Some(deployment.into());
+    pub fn deployment(mut self, deployment: Deployment) -> Self {
+        self.0.deployment = Some(deployment);
         self
     }
 
     /// Filter by API endpoint.
-    pub fn endpoint(mut self, endpoint: impl Into<String>) -> Self {
-        self.0.endpoint = Some(endpoint.into());
+    pub fn endpoint(mut self, endpoint: Endpoint) -> Self {
+        self.0.endpoint = Some(endpoint);
         self
     }
 
     /// Filter by processing method.
-    pub fn method(mut self, method: impl Into<String>) -> Self {
-        self.0.method = Some(method.into());
+    pub fn method(mut self, method: Method) -> Self {
+        self.0.method = Some(method);
         self
     }
 
@@ -267,7 +269,7 @@ impl<'a> From<&'a Options> for SerializableOptions<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Options, Status};
+    use super::{Deployment, Endpoint, Method, Options, Status};
 
     #[test]
     fn serializes_every_request_list_filter() {
@@ -278,9 +280,9 @@ mod tests {
             .page(2)
             .accessor("accessor-id")
             .request_id("request-id")
-            .deployment("hosted")
-            .endpoint("listen")
-            .method("streaming")
+            .deployment(Deployment::Hosted)
+            .endpoint(Endpoint::Listen)
+            .method(Method::Streaming)
             .status(Status::Succeeded)
             .build();
 

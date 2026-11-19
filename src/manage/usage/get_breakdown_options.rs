@@ -2,16 +2,18 @@
 
 use serde::{ser::SerializeSeq, Serialize};
 
+use super::get_usage_options::{Deployment, Endpoint, Method};
+
 /// Query options for a project usage breakdown.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Options {
     start: Option<String>,
     end: Option<String>,
-    grouping: Option<String>,
+    grouping: Option<Grouping>,
     accessor: Option<String>,
-    deployment: Option<String>,
-    endpoint: Option<String>,
-    method: Option<String>,
+    deployment: Option<Deployment>,
+    endpoint: Option<Endpoint>,
+    method: Option<Method>,
     model: Option<String>,
     tags: Vec<String>,
     alternatives: Option<bool>,
@@ -58,6 +60,33 @@ pub struct OptionsBuilder(Options);
 
 pub(crate) struct SerializableOptions<'a>(pub(crate) &'a Options);
 
+/// Dimension used to group a usage breakdown.
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
+#[non_exhaustive]
+#[serde(rename_all = "lowercase")]
+pub enum Grouping {
+    #[allow(missing_docs)]
+    Accessor,
+
+    #[allow(missing_docs)]
+    Endpoint,
+
+    #[allow(missing_docs)]
+    FeatureSet,
+
+    #[allow(missing_docs)]
+    Models,
+
+    #[allow(missing_docs)]
+    Method,
+
+    #[allow(missing_docs)]
+    Tags,
+
+    #[allow(missing_docs)]
+    Deployment,
+}
+
 macro_rules! boolean_filter {
     ($(($method:ident, $field:ident, $docs:literal)),+ $(,)?) => {
         $(
@@ -96,8 +125,8 @@ impl OptionsBuilder {
     }
 
     /// Set the result grouping dimension.
-    pub fn grouping(mut self, value: impl Into<String>) -> Self {
-        self.0.grouping = Some(value.into());
+    pub fn grouping(mut self, value: Grouping) -> Self {
+        self.0.grouping = Some(value);
         self
     }
 
@@ -108,20 +137,20 @@ impl OptionsBuilder {
     }
 
     /// Filter by deployment.
-    pub fn deployment(mut self, value: impl Into<String>) -> Self {
-        self.0.deployment = Some(value.into());
+    pub fn deployment(mut self, value: Deployment) -> Self {
+        self.0.deployment = Some(value);
         self
     }
 
     /// Filter by API endpoint.
-    pub fn endpoint(mut self, value: impl Into<String>) -> Self {
-        self.0.endpoint = Some(value.into());
+    pub fn endpoint(mut self, value: Endpoint) -> Self {
+        self.0.endpoint = Some(value);
         self
     }
 
     /// Filter by processing method.
-    pub fn method(mut self, value: impl Into<String>) -> Self {
-        self.0.method = Some(value.into());
+    pub fn method(mut self, value: Method) -> Self {
+        self.0.method = Some(value);
         self
     }
 
@@ -283,16 +312,24 @@ impl Serialize for SerializableOptions<'_> {
         for (name, value) in [
             ("start", start),
             ("end", end),
-            ("grouping", grouping),
             ("accessor", accessor),
-            ("deployment", deployment),
-            ("endpoint", endpoint),
-            ("method", method),
             ("model", model),
         ] {
             if let Some(value) = value {
                 seq.serialize_element(&(name, value))?;
             }
+        }
+        if let Some(grouping) = grouping {
+            seq.serialize_element(&("grouping", grouping))?;
+        }
+        if let Some(deployment) = deployment {
+            seq.serialize_element(&("deployment", deployment))?;
+        }
+        if let Some(endpoint) = endpoint {
+            seq.serialize_element(&("endpoint", endpoint))?;
+        }
+        if let Some(method) = method {
+            seq.serialize_element(&("method", method))?;
         }
         for tag in tags {
             seq.serialize_element(&("tag", tag))?;
@@ -348,12 +385,12 @@ impl Serialize for SerializableOptions<'_> {
 mod tests {
     use std::collections::BTreeSet;
 
-    use super::Options;
+    use super::{Grouping, Options};
 
     #[test]
     fn serializes_filters_and_repeated_tags() {
         let options = Options::builder()
-            .grouping("deployment")
+            .grouping(Grouping::Deployment)
             .tag(["production", "billing"])
             .detect_entities(true)
             .summarize(false)
