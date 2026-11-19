@@ -99,9 +99,10 @@ async fn main() -> Result<(), DeepgramError> {
 ## Key parameters
 
 - Entry points: `dg.agent().start()`, `dg.agent().start_at_url(url)`. Both return `(AgentHandle, AgentEventStream)`.
-- `AgentHandle` client messages: `send_settings`, `send_update_listen`, `send_update_speak`, `send_update_think`, `send_update_prompt`, `send_inject_user_message`, `send_inject_agent_message`, `send_function_call_response`, `send_data` (binary audio), `keep_alive`, `force_end_turn`, `close`, and `send_raw_json` as the escape hatch for messages the SDK has not typed yet.
+- `AgentHandle` client messages: `send_settings`, `send_update_listen`, `send_update_speak`, `send_update_think`, `send_update_think_live`, `send_update_prompt`, `send_inject_user_message`, `send_inject_agent_message`, `send_inject_dynamic_agent_message`, `send_function_call_response`, `send_data` (binary audio), `keep_alive`, `force_end_turn`, `close`, and `send_raw_json` as the escape hatch for messages the SDK has not typed yet.
 - `AgentEventStream` implements `futures::Stream<Item = Result<AgentEvent>>`; `AgentEvent` is `Json(AgentResponse)` or `Audio(Bytes)`, interleaved in protocol order.
-- Settings: `AgentConfig::inline(InlineAgentConfig…)` or `AgentConfig::saved(uuid)` for a saved configuration. Listen providers are Deepgram V1 (Nova) and V2 (Flux STT, with `language_hints`, `eot_threshold`, `eager_eot_threshold`, `eot_timeout_ms`, `keyterms`); Think providers are OpenAI, Anthropic, AWS Bedrock, Google, and Groq; Speak providers are Deepgram, ElevenLabs, Cartesia, OpenAI, and AWS Polly.
+- Settings: `AgentConfig::inline(InlineAgentConfig…)` or `AgentConfig::saved(uuid)` for a saved configuration. Listen providers are Deepgram V1 (Nova) and V2 (Flux STT, with `language_hints`, `eot_threshold`, `eager_eot_threshold`, `eot_timeout_ms`, `keyterms`); Think providers are OpenAI, Anthropic, AWS Bedrock, Deepgram, Google, and Groq; Speak providers are Deepgram, ElevenLabs, Cartesia, OpenAI, and AWS Polly. `InlineAgentConfig::with_think_live(ThinkLiveSettings::new(ThinkLiveProvider::new()))` enables backchannels, presence checks, dynamic fillers, and typed `FrustrationDetected` events.
+- **Deepgram Think models:** `think-fast` is Early Access and requires Model Improvement Program participation; sessions with `mip_opt_out: true` must use `phonellm-mini-alpha-2-fp8`. With the latter model, omit `reasoning_mode` or use `DeepgramReasoningMode::None` so the agent does not speak reasoning text.
 - Request id: `handle.request_id()` / `events.request_id()` from the upgrade header, or `AgentResponse::Welcome`'s `request_id` when the header is absent.
 
 ## API reference (layered)
@@ -126,7 +127,7 @@ async fn main() -> Result<(), DeepgramError> {
 ## Gotchas
 
 1. **Its own host.** Voice Agent runs on `agent.deepgram.com`, not `api.deepgram.com`. `Deepgram::with_base_url` does not redirect it; use `start_at_url` for a self-hosted deployment.
-2. **`Settings` comes first.** Send it before any audio, and wait for `SettingsApplied` before assuming the configuration is live. `Update*` messages are confirmed by their own `ListenUpdated` / `SpeakUpdated` / `ThinkUpdated` / `PromptUpdated` events.
+2. **`Settings` comes first.** Send it before any audio, and wait for `SettingsApplied` before assuming the configuration is live. `Update*` messages are confirmed by their own `ListenUpdated` / `SpeakUpdated` / `ThinkUpdated` / `ThinkLiveUpdated` / `PromptUpdated` events. `UpdateThink_Live` replaces the whole Think Live provider block, so resend every desired option.
 3. **KeepAlive while silent.** The server closes sessions that go quiet; send `keep_alive()` every 8 seconds during an idle period. It does not extend the 2-hour session cap.
 4. **Drain the event stream.** The handle and the stream are bounded channels, so send audio and consume events from separate tasks rather than queueing audio without reading.
 5. **Sends fail once the session ends.** After a peer close or a transport error, every `send_*` on a retained handle returns an error instead of silently dropping the message; `close()` on an ended session is a no-op.

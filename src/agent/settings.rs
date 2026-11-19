@@ -11,6 +11,7 @@ use crate::agent::history::HistoryMessage;
 use crate::agent::listen::AgentListenSettings;
 use crate::agent::speak::SpeakSettings;
 use crate::agent::think::ThinkSettings;
+use crate::agent::think_live::ThinkLiveSettings;
 
 /// Wire discriminator for the Settings message — always `"Settings"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -210,6 +211,10 @@ pub struct InlineAgentConfig {
     )]
     pub think: Vec<ThinkSettings>,
 
+    /// Optional Think Live configuration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub think_live: Option<ThinkLiveSettings>,
+
     /// TTS configuration. Single value or array on the wire.
     #[serde(
         default,
@@ -242,6 +247,7 @@ impl InlineAgentConfig {
             context: None,
             listen: Some(listen),
             think: vec![think],
+            think_live: None,
             speak: vec![speak],
             greeting: None,
         }
@@ -262,6 +268,12 @@ impl InlineAgentConfig {
     #[allow(missing_docs)]
     pub fn with_thinks(mut self, think: impl IntoIterator<Item = ThinkSettings>) -> Self {
         self.think = think.into_iter().collect();
+        self
+    }
+
+    /// Set Think Live configuration.
+    pub fn with_think_live(mut self, think_live: ThinkLiveSettings) -> Self {
+        self.think_live = Some(think_live);
         self
     }
 
@@ -389,6 +401,7 @@ mod tests {
         SpeakSettings,
     };
     use crate::agent::think::{OpenAiModel, OpenAiThinkProvider, ThinkProvider};
+    use crate::agent::think_live::{ThinkLiveProvider, ThinkLiveSettings};
     use serde_json::json;
 
     fn sample_listen() -> AgentListenSettings {
@@ -523,6 +536,56 @@ mod tests {
         let value = serde_json::to_value(&inline).unwrap();
         assert_eq!(value["greeting"], "Welcome");
         assert_eq!(value["context"]["messages"][0]["content"], "Hi");
+    }
+
+    #[test]
+    fn inline_agent_config_with_think_live_round_trips() {
+        let raw = json!({
+            "listen": {
+                "provider": {
+                    "type": "deepgram",
+                    "version": "v2",
+                    "model": "flux-general-en"
+                }
+            },
+            "think": {
+                "provider": {
+                    "type": "deepgram",
+                    "model": "think-fast"
+                }
+            },
+            "think_live": {
+                "provider": {
+                    "type": "deepgram",
+                    "version": "v1",
+                    "presence_check_max_count": 0
+                }
+            },
+            "speak": {
+                "provider": {
+                    "type": "deepgram",
+                    "model": "aura-asteria-en"
+                }
+            }
+        });
+        let config: InlineAgentConfig = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(
+            config
+                .think_live
+                .as_ref()
+                .unwrap()
+                .provider
+                .presence_check_max_count,
+            Some(0)
+        );
+        assert_eq!(serde_json::to_value(config).unwrap(), raw);
+
+        let built = InlineAgentConfig::new()
+            .with_think_live(ThinkLiveSettings::new(ThinkLiveProvider::new()));
+        assert_eq!(
+            serde_json::to_value(built).unwrap(),
+            json!({ "think_live": { "provider": { "type": "deepgram", "version": "v1" } } })
+        );
     }
 
     #[test]

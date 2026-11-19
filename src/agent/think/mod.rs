@@ -13,12 +13,16 @@ use crate::agent::Endpoint;
 
 pub mod anthropic;
 pub mod aws_bedrock;
+pub mod deepgram;
 pub mod google;
 pub mod groq;
 pub mod open_ai;
 
 pub use anthropic::{AnthropicModel, AnthropicThinkProvider, AnthropicVersion};
 pub use aws_bedrock::{AwsBedrockModel, AwsBedrockThinkProvider};
+pub use deepgram::{
+    DeepgramReasoningMode, DeepgramThinkModel, DeepgramThinkProvider, DeepgramThinkVersion,
+};
 pub use google::{GoogleModel, GoogleThinkProvider, GoogleVersion};
 pub use groq::{GroqModel, GroqThinkProvider, GroqVersion};
 pub use open_ai::{OpenAiModel, OpenAiReasoningMode, OpenAiThinkProvider, OpenAiVersion};
@@ -95,7 +99,7 @@ impl ThinkSettings {
 /// LLM provider variants supported by the Voice Agent.
 ///
 /// Wire format is internally tagged on `type` with snake_case discriminator
-/// values: `open_ai`, `anthropic`, `aws_bedrock`, `google`, `groq`.
+/// values: `open_ai`, `anthropic`, `aws_bedrock`, `deepgram`, `google`, `groq`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 #[non_exhaustive]
@@ -106,6 +110,8 @@ pub enum ThinkProvider {
     Anthropic(AnthropicThinkProvider),
     /// AWS Bedrock.
     AwsBedrock(AwsBedrockThinkProvider),
+    /// Deepgram-hosted language model.
+    Deepgram(DeepgramThinkProvider),
     /// Google generative language API (Gemini).
     Google(GoogleThinkProvider),
     /// Groq chat completions (OpenAI-compatible).
@@ -146,6 +152,24 @@ pub struct ThinkFunction {
     /// deferred call whose turn resumes is dropped silently.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub defer_until_eot: Option<bool>,
+
+    /// Have Think Live speak one filler line when this function is
+    /// dispatched and the response has not arrived. Requires
+    /// `agent.think_live`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub initial_agent_filler: Option<bool>,
+
+    /// Maximum additional Think Live filler lines while this function is
+    /// outstanding. Set 0 to disable additional fillers. Requires
+    /// `agent.think_live`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_filler_max_count: Option<u32>,
+
+    /// Milliseconds of silence after the agent last spoke before each
+    /// additional Think Live filler line. Requires `agent.think_live` when
+    /// `agent_filler_max_count` is nonzero.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_filler_interval_ms: Option<u32>,
 }
 
 impl ThinkFunction {
@@ -163,6 +187,9 @@ impl ThinkFunction {
             parameters,
             endpoint: None,
             defer_until_eot: None,
+            initial_agent_filler: None,
+            agent_filler_max_count: None,
+            agent_filler_interval_ms: None,
         }
     }
 
@@ -176,6 +203,26 @@ impl ThinkFunction {
     /// confirmed. See the field docs for when to use this.
     pub fn with_defer_until_eot(mut self, defer: bool) -> Self {
         self.defer_until_eot = Some(defer);
+        self
+    }
+
+    /// Have Think Live speak an initial filler line if this function is
+    /// still outstanding after the user's turn is confirmed.
+    pub fn with_initial_agent_filler(mut self, initial_agent_filler: bool) -> Self {
+        self.initial_agent_filler = Some(initial_agent_filler);
+        self
+    }
+
+    /// Set the maximum number of additional Think Live filler lines.
+    pub fn with_agent_filler_max_count(mut self, agent_filler_max_count: u32) -> Self {
+        self.agent_filler_max_count = Some(agent_filler_max_count);
+        self
+    }
+
+    /// Set the milliseconds of silence before each additional Think Live
+    /// filler line.
+    pub fn with_agent_filler_interval_ms(mut self, agent_filler_interval_ms: u32) -> Self {
+        self.agent_filler_interval_ms = Some(agent_filler_interval_ms);
         self
     }
 }
@@ -323,6 +370,27 @@ mod tests {
                 assert_eq!(p.model, AwsBedrockModel::AnthropicClaude35Haiku20240307V1);
             }
             _ => panic!("expected AwsBedrock"),
+        }
+        assert_eq!(serde_json::to_value(&provider).unwrap(), raw);
+    }
+
+    #[test]
+    fn provider_round_trip_deepgram() {
+        let raw = json!({
+            "type": "deepgram",
+            "model": "think-fast",
+            "version": "v1",
+            "temperature": 0.2,
+            "reasoning_mode": "minimal",
+            "voice_prompt_opt_out": true
+        });
+        let provider: ThinkProvider = serde_json::from_value(raw.clone()).unwrap();
+        match &provider {
+            ThinkProvider::Deepgram(p) => {
+                assert_eq!(p.model, DeepgramThinkModel::ThinkFast);
+                assert_eq!(p.reasoning_mode, Some(DeepgramReasoningMode::Minimal));
+            }
+            other => panic!("expected Deepgram, got {other:?}"),
         }
         assert_eq!(serde_json::to_value(&provider).unwrap(), raw);
     }
@@ -477,6 +545,23 @@ mod tests {
         let settings: ThinkSettings = serde_json::from_value(raw.clone()).unwrap();
         assert_eq!(settings.functions[0].defer_until_eot, Some(true));
         assert_eq!(serde_json::to_value(&settings).unwrap(), raw);
+    }
+
+    #[test]
+    fn function_think_live_filler_fields_round_trip() {
+        let raw = json!({
+            "name": "book_appointment",
+            "description": "Schedule an appointment.",
+            "parameters": { "type": "object" },
+            "initial_agent_filler": true,
+            "agent_filler_max_count": 2,
+            "agent_filler_interval_ms": 5000
+        });
+        let function: ThinkFunction = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(function.initial_agent_filler, Some(true));
+        assert_eq!(function.agent_filler_max_count, Some(2));
+        assert_eq!(function.agent_filler_interval_ms, Some(5000));
+        assert_eq!(serde_json::to_value(function).unwrap(), raw);
     }
 
     #[test]
