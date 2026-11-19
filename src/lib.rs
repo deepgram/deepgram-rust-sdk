@@ -618,9 +618,12 @@ impl Deepgram {
     /// handshake. The SDK therefore cannot observe an upgrade response:
     /// streaming request-ID accessors return `None` for a factory connection
     /// (or the nil UUID for Aura streaming TTS, which keeps that surface's
-    /// existing missing-header convention). Listen V1
-    /// [`connect diagnostics`](crate::listen::websocket::WebsocketBuilder::diagnostics)
-    /// also apply only to the built-in WebSocket connector.
+    /// existing missing-header convention). Listen V1 connect diagnostics also
+    /// apply only to the built-in WebSocket connector.
+    #[cfg_attr(
+        feature = "connect-diagnostics",
+        doc = "\n\nSee [`WebsocketBuilder::diagnostics`](crate::listen::websocket::WebsocketBuilder::diagnostics)."
+    )]
     #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     pub fn with_streaming_transport_factory(
         mut self,
