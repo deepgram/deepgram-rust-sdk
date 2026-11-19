@@ -1,7 +1,7 @@
 //! Client-to-server message types for the Voice Agent WebSocket.
 //!
 //! Mirrors `AgentV1*Message` schemas in
-//! `asyncapi/schemas/schemas.agent.v1.yml`. Nine are dynamic-control
+//! `asyncapi/schemas/schemas.agent.v1.yml`. Ten are dynamic-control
 //! messages sent during a session (`UpdateListen`, `UpdateSpeak`,
 //! `UpdateThink`, `UpdateThink_Live`, `UpdatePrompt`, `InjectUserMessage`,
 //! fixed or Think Live-generated `InjectAgentMessage`, `FunctionCallResponse`,
@@ -10,7 +10,7 @@
 //! defined in [`crate::agent::settings`] and is the only message that can
 //! carry the agent's full configuration.
 //!
-//! [`ClientMessage`] wraps all ten as a discriminated union. Wire
+//! [`ClientMessage`] wraps every supported client message as a discriminated union. Wire
 //! discrimination is structural via each variant's own `type` field
 //! (modeled as a single-variant marker enum); on the Rust side serde
 //! [`#[serde(untagged)]`](serde::Deserialize) tries each variant in
@@ -674,9 +674,11 @@ pub enum CustomToThinkProviderType {
 
 /// An experimental arbitrary JSON payload forwarded to a custom Think provider.
 ///
-/// The Voice Agent forwards [`CustomToThinkProviderMessage::content`] unchanged
-/// to the custom provider configured at `agent.think.endpoint.url`. That
-/// endpoint must use `wss://`; its response arrives as
+/// The Voice Agent forwards [`CustomToThinkProviderMessage::content`] as
+/// semantically equivalent JSON to the custom provider configured at
+/// `agent.think.endpoint.url`. JSON object-key order and extreme numeric
+/// precision are not byte-for-byte preserved. That endpoint must use `wss://`;
+/// its response arrives as
 /// [`crate::agent::response::CustomFromThinkProviderEvent`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -685,7 +687,7 @@ pub struct CustomToThinkProviderMessage {
     #[serde(rename = "type", default)]
     pub message_type: CustomToThinkProviderType,
 
-    /// Any valid JSON value forwarded to the custom Think provider unchanged.
+    /// Any valid JSON value forwarded to the custom Think provider.
     pub content: serde_json::Value,
 }
 

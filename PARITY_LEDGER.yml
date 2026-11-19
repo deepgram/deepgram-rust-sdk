@@ -41,7 +41,7 @@ pending_parity_prs:
     revision: c5d175e2a8afbc2ddc8f0e8c7815bbcca6080ab0
     scope: Deepgram Think and Think Live.
   - number: 207
-    revision: 76bea9751702b3b8cf381a3513098f26d2d881bf
+    revision: de8da6337139be1746a973b0c5b17c3eac4243c3
     scope: Custom Think-provider Voice Agent messages.
 
 inventories:

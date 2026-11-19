@@ -612,8 +612,10 @@ pub enum CustomFromThinkProviderType {
 
 /// An experimental arbitrary JSON payload returned by a custom Think provider.
 ///
-/// The Voice Agent forwards [`CustomFromThinkProviderEvent::content`]
-/// unchanged. Non-JSON provider responses arrive as a JSON string.
+/// The Voice Agent forwards [`CustomFromThinkProviderEvent::content`] as
+/// semantically equivalent JSON. JSON object-key order and extreme numeric
+/// precision are not byte-for-byte preserved. Non-JSON provider responses
+/// arrive as a JSON string.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct CustomFromThinkProviderEvent {
