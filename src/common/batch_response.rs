@@ -598,13 +598,19 @@ pub struct AlternativeSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
 
-    /// Inclusive index of the first summarized word.
+    /// Inclusive position of the first summarized word.
+    ///
+    /// The service documents this as a number, so decimal values are
+    /// preserved when returned.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub start_word: Option<usize>,
+    pub start_word: Option<f64>,
 
-    /// Inclusive index of the last summarized word.
+    /// Inclusive position of the last summarized word.
+    ///
+    /// The service documents this as a number, so decimal values are
+    /// preserved when returned.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub end_word: Option<usize>,
+    pub end_word: Option<f64>,
 }
 
 /// Topics detected in a span of transcript words.
@@ -615,13 +621,19 @@ pub struct AlternativeTopic {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 
-    /// Inclusive index of the first covered word.
+    /// Inclusive position of the first covered word.
+    ///
+    /// The service documents this as a number, so decimal values are
+    /// preserved when returned.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub start_word: Option<usize>,
+    pub start_word: Option<f64>,
 
-    /// Inclusive index of the last covered word.
+    /// Inclusive position of the last covered word.
+    ///
+    /// The service documents this as a number, so decimal values are
+    /// preserved when returned.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub end_word: Option<usize>,
+    pub end_word: Option<f64>,
 
     /// Topic strings detected in this span.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -785,6 +797,9 @@ mod tests {
         assert_eq!(serde_json::to_value(metadata).unwrap(), raw);
     }
 
+    // Contract fixture based on the documented alternative-scoped summary and
+    // topic response shape. It is not a captured live payload: the available
+    // live sample did not produce summaries or topics.
     #[test]
     fn alternatives_and_utterances_expose_multilingual_and_analysis_fields() {
         let raw_alternative = serde_json::json!({
@@ -812,8 +827,8 @@ mod tests {
                     "end": 0.8
                 }]
             },
-            "summaries": [{ "summary": "A greeting.", "start_word": 0, "end_word": 1 }],
-            "topics": [{ "text": "Hola Deepgram", "start_word": 0, "end_word": 1, "topics": ["greeting"] }]
+            "summaries": [{ "summary": "A greeting.", "start_word": 0.0, "end_word": 1.0 }],
+            "topics": [{ "text": "Hola Deepgram", "start_word": 0.0, "end_word": 1.0, "topics": ["greeting"] }]
             ,"entities": null
         });
         let alternative: ResultAlternative =
@@ -870,6 +885,28 @@ mod tests {
         assert!(topic.end_word.is_none());
         assert!(topic.topics.is_empty());
         assert_eq!(serde_json::to_value(topic).unwrap(), serde_json::json!({}));
+    }
+
+    #[test]
+    fn alternative_scoped_analysis_entries_accept_decimal_word_positions() {
+        let summary: AlternativeSummary = serde_json::from_value(serde_json::json!({
+            "summary": "A greeting.",
+            "start_word": 5.25,
+            "end_word": 8.75
+        }))
+        .unwrap();
+        assert_eq!(summary.start_word, Some(5.25));
+        assert_eq!(summary.end_word, Some(8.75));
+
+        let topic: AlternativeTopic = serde_json::from_value(serde_json::json!({
+            "text": "Hello Deepgram",
+            "start_word": 5.25,
+            "end_word": 8.75,
+            "topics": ["greeting"]
+        }))
+        .unwrap();
+        assert_eq!(topic.start_word, Some(5.25));
+        assert_eq!(topic.end_word, Some(8.75));
     }
 
     // Captured from a live `POST /v1/listen` response on 2026-09-15
