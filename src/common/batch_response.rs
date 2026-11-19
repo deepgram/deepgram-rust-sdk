@@ -751,6 +751,9 @@ mod tests {
         assert!(metadata.extra.is_none());
     }
 
+    // Contract fixture for documented metadata fields. It is not a captured
+    // live payload; the live-captured entity and sentiment fixtures below
+    // retain their provenance separately.
     #[test]
     fn listen_metadata_exposes_documented_model_and_analysis_fields() {
         let raw = serde_json::json!({
@@ -897,6 +900,14 @@ mod tests {
         .unwrap();
         assert_eq!(summary.start_word, Some(5.25));
         assert_eq!(summary.end_word, Some(8.75));
+
+        let integer_summary: AlternativeSummary = serde_json::from_value(serde_json::json!({
+            "start_word": 29,
+            "end_word": 30
+        }))
+        .unwrap();
+        assert_eq!(integer_summary.start_word, Some(29.0));
+        assert_eq!(integer_summary.end_word, Some(30.0));
 
         let topic: AlternativeTopic = serde_json::from_value(serde_json::json!({
             "text": "Hello Deepgram",

@@ -712,8 +712,10 @@ pub enum Redact {
 /// Selects and enables a diarization model.
 ///
 /// Specifying a model enables diarization, so it does not require
-/// [`OptionsBuilder::diarize`] as well. Batch requests support `latest`, `v1`,
-/// and `v2`; streaming requests support `latest` and `v1`.
+/// [`OptionsBuilder::diarize`] as well. Do not combine it with
+/// [`OptionsBuilder::diarize`] or [`OptionsBuilder::diarize_version`]: the
+/// server rejects that combination. Batch requests support `latest`, `v1`, and
+/// `v2`; streaming requests support `latest` and `v1`.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum DiarizeModel {
@@ -1108,6 +1110,10 @@ impl OptionsBuilder {
 
     /// Set the Diarization feature.
     ///
+    /// For model selection, prefer [`OptionsBuilder::diarize_model`]. Do not
+    /// combine this option with `diarize_model`; the server rejects the
+    /// combination.
+    ///
     /// See the [Deepgram Diarization feature docs][docs] for more info.
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/diarize/
@@ -1127,6 +1133,10 @@ impl OptionsBuilder {
     }
 
     /// Set the Diarization Version feature.
+    ///
+    /// This legacy option is superseded by
+    /// [`OptionsBuilder::diarize_model`]. Do not combine it with
+    /// `diarize_model`; the server rejects the combination.
     ///
     /// See the [Deepgram Diarization Version feature docs][docs] for more info.
     ///
