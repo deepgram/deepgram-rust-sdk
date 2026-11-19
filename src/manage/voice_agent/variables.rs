@@ -8,7 +8,9 @@ use serde::Serialize;
 use serde_json::Value;
 use url::Url;
 
-use crate::{manage::voice_agent::response, send_and_translate_response, Deepgram};
+use crate::{
+    manage::voice_agent::response, send_and_check_response, send_and_translate_response, Deepgram,
+};
 
 /// Manage template variables for reusable Voice Agent configurations.
 #[derive(Debug, Clone)]
@@ -107,7 +109,7 @@ impl Variables<'_> {
         &self,
         project_id: &str,
         options: &CreateOptions,
-    ) -> crate::Result<response::AgentVariable> {
+    ) -> crate::Result<response::CreatedAgentVariable> {
         let request = self
             .0
             .client
@@ -152,12 +154,8 @@ impl Variables<'_> {
     }
 
     /// Delete a Voice Agent template variable.
-    pub async fn delete(
-        &self,
-        project_id: &str,
-        variable_id: &str,
-    ) -> crate::Result<response::DeletedAgentVariable> {
-        send_and_translate_response(
+    pub async fn delete(&self, project_id: &str, variable_id: &str) -> crate::Result<()> {
+        send_and_check_response(
             self.0
                 .client
                 .delete(self.variable_url(project_id, variable_id)?),

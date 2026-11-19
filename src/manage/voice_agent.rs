@@ -71,7 +71,17 @@ mod tests {
     }
 
     #[test]
-    fn custom_base_is_inherited_until_agent_rest_is_overridden() {
+    fn custom_base_does_not_change_the_agent_rest_default() {
+        let dg = Deepgram::with_base_url("http://gateway.internal/deepgram/").unwrap();
+
+        assert_eq!(
+            dg.voice_agent().think_models_url().unwrap().as_str(),
+            "https://agent.deepgram.com/v1/agent/settings/think/models"
+        );
+    }
+
+    #[test]
+    fn agent_rest_url_can_be_overridden() {
         let dg = Deepgram::with_base_url("http://gateway.internal/deepgram/")
             .unwrap()
             .with_agent_rest_url("http://agent.internal/agent/")

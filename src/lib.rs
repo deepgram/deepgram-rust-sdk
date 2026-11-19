@@ -496,10 +496,12 @@ impl Deepgram {
         U::Error: std::fmt::Debug,
     {
         let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
+        #[cfg(feature = "manage")]
+        let agent_rest_url = DEEPGRAM_AGENT_REST_BASE_URL.try_into().unwrap();
         Self::inner_constructor(
-            base_url.clone(),
-            #[cfg(feature = "manage")]
             base_url,
+            #[cfg(feature = "manage")]
+            agent_rest_url,
             None,
         )
     }
@@ -568,10 +570,12 @@ impl Deepgram {
     {
         let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
         let auth = AuthMethod::ApiKey(RedactedString(api_key.as_ref().to_owned()));
+        #[cfg(feature = "manage")]
+        let agent_rest_url = DEEPGRAM_AGENT_REST_BASE_URL.try_into().unwrap();
         Self::inner_constructor(
-            base_url.clone(),
-            #[cfg(feature = "manage")]
             base_url,
+            #[cfg(feature = "manage")]
+            agent_rest_url,
             Some(auth),
         )
     }
@@ -594,10 +598,12 @@ impl Deepgram {
     {
         let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
         let auth = AuthMethod::TempToken(RedactedString(temp_token.as_ref().to_owned()));
+        #[cfg(feature = "manage")]
+        let agent_rest_url = DEEPGRAM_AGENT_REST_BASE_URL.try_into().unwrap();
         Self::inner_constructor(
-            base_url.clone(),
-            #[cfg(feature = "manage")]
             base_url,
+            #[cfg(feature = "manage")]
+            agent_rest_url,
             Some(auth),
         )
     }
@@ -732,8 +738,10 @@ impl Deepgram {
     }
 
     /// Override the HTTP base URL used only for Voice Agent Think-model
-    /// discovery. Saved Voice Agent configurations and variables continue to
-    /// use the ordinary API base URL.
+    /// discovery. It defaults to `https://agent.deepgram.com`, even when a
+    /// [`Deepgram::with_base_url`] constructor overrides the ordinary API
+    /// base URL. Saved Voice Agent configurations and variables continue to
+    /// use that ordinary API base URL.
     #[cfg(feature = "manage")]
     pub fn with_agent_rest_url<U>(mut self, agent_rest_url: U) -> Result<Self>
     where
@@ -821,6 +829,20 @@ async fn send_and_translate_response<R: DeserializeOwned>(
 
     match response.error_for_status_ref() {
         Ok(_) => Ok(response.json().await?),
+        Err(err) => Err(DeepgramError::DeepgramApiError {
+            body: response.text().await?,
+            err,
+        }),
+    }
+}
+
+/// Sends a request and accepts any successful response body.
+#[cfg(feature = "manage")]
+async fn send_and_check_response(request_builder: RequestBuilder) -> crate::Result<()> {
+    let response = request_builder.send().await?;
+
+    match response.error_for_status_ref() {
+        Ok(_) => Ok(()),
         Err(err) => Err(DeepgramError::DeepgramApiError {
             body: response.text().await?,
             err,

@@ -100,6 +100,9 @@ The `agent` feature's live Voice Agent client (`Deepgram::agent().start()`)
 is demonstrated in [`examples/agent/websocket/`](examples/agent/websocket/):
 `simple_agent` opens a session, applies `Settings`, and prints the event
 stream; `function_calling` shows the client-side function-call round-trip.
+The HTTP-only `manage` feature exposes `Deepgram::voice_agent()` for saved
+configurations, template variables, and Think-model discovery; use
+`Deepgram::agent()` for a live WebSocket conversation.
 
 For streaming text-to-speech, `dg.text_to_speech().speak_stream()` opens the
 Aura socket (`wss /v1/speak`); see

@@ -31,9 +31,13 @@ pub struct ThinkModel {
 #[non_exhaustive]
 pub struct AgentConfiguration {
     /// Saved configuration identifier.
-    pub agent_id: String,
-    /// Parsed Voice Agent configuration.
-    pub config: Value,
+    pub agent_uuid: String,
+    /// Member that owns the saved configuration.
+    pub member_id: String,
+    /// Voice Agent configuration API version.
+    pub api_version: u32,
+    /// JSON text for the saved Voice Agent configuration.
+    pub config: String,
     /// Optional labels associated with the configuration.
     #[serde(default)]
     pub metadata: Option<HashMap<String, String>>,
@@ -54,9 +58,17 @@ impl AgentConfiguration {
     /// not a UUID.
     pub fn saved_agent_config(&self) -> Result<crate::agent::AgentConfig, uuid::Error> {
         Ok(crate::agent::AgentConfig::saved(Uuid::parse_str(
-            &self.agent_id,
+            &self.agent_uuid,
         )?))
     }
+}
+
+/// Identifier returned after creating a saved Voice Agent configuration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct CreatedAgentConfiguration {
+    /// Identifier of the newly created configuration.
+    pub agent_uuid: String,
 }
 
 /// Saved Voice Agent configurations for a project.
@@ -78,17 +90,31 @@ pub struct DeletedAgentConfiguration {}
 #[non_exhaustive]
 pub struct AgentVariable {
     /// Template variable identifier.
-    pub variable_id: String,
+    pub agent_variable_uuid: String,
+    /// Member that owns the template variable.
+    pub member_id: String,
+    /// Voice Agent variable API version.
+    pub api_version: u32,
     /// Template variable name.
     pub key: String,
     /// JSON value substituted into saved configurations.
     pub value: Value,
+    /// Whether the server treats this variable as sensitive.
+    pub is_sensitive: bool,
     /// Variable creation timestamp.
     #[serde(default)]
     pub created_at: Option<String>,
     /// Variable update timestamp.
     #[serde(default)]
     pub updated_at: Option<String>,
+}
+
+/// Identifier returned after creating a Voice Agent template variable.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct CreatedAgentVariable {
+    /// Identifier of the newly created template variable.
+    pub agent_variable_uuid: String,
 }
 
 /// Voice Agent template variables for a project.
@@ -129,16 +155,25 @@ mod tests {
     fn deserializes_configurations_and_variables() {
         let configuration: AgentConfiguration = serde_json::from_str(
             r#"{
-                "agent_id": "agent",
-                "config": {"greeting": "Hello"},
+                "agent_uuid": "550e8400-e29b-41d4-a716-446655440000",
+                "member_id": "member",
+                "api_version": 1,
+                "config": "{\"greeting\":\"Hello\"}",
                 "metadata": {"environment": "test"}
             }"#,
         )
         .unwrap();
-        assert_eq!(configuration.config["greeting"], "Hello");
+        assert_eq!(configuration.config, r#"{"greeting":"Hello"}"#);
 
         let variable: AgentVariable = serde_json::from_str(
-            r#"{"variable_id":"variable","key":"DG_ACCOUNT","value":{"tier":"gold"}}"#,
+            r#"{
+                "agent_variable_uuid":"550e8400-e29b-41d4-a716-446655440001",
+                "member_id":"member",
+                "api_version":1,
+                "key":"DG_ACCOUNT",
+                "value":{"tier":"gold"},
+                "is_sensitive":false
+            }"#,
         )
         .unwrap();
         assert_eq!(variable.value["tier"], "gold");
@@ -157,7 +192,12 @@ mod tests {
     #[test]
     fn configuration_builds_a_saved_agent_reference() {
         let configuration: AgentConfiguration = serde_json::from_str(
-            r#"{"agent_id":"550e8400-e29b-41d4-a716-446655440000","config":{}}"#,
+            r#"{
+                "agent_uuid":"550e8400-e29b-41d4-a716-446655440000",
+                "member_id":"member",
+                "api_version":1,
+                "config":"{}"
+            }"#,
         )
         .unwrap();
         assert!(matches!(

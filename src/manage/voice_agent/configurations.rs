@@ -9,7 +9,9 @@ use std::collections::HashMap;
 use serde::Serialize;
 use url::Url;
 
-use crate::{manage::voice_agent::response, send_and_translate_response, Deepgram};
+use crate::{
+    manage::voice_agent::response, send_and_check_response, send_and_translate_response, Deepgram,
+};
 
 /// Manage reusable Voice Agent configurations.
 #[derive(Debug, Clone)]
@@ -117,7 +119,7 @@ impl Configurations<'_> {
         &self,
         project_id: &str,
         options: &CreateOptions,
-    ) -> crate::Result<response::AgentConfiguration> {
+    ) -> crate::Result<response::CreatedAgentConfiguration> {
         let request = self
             .0
             .client
@@ -162,12 +164,8 @@ impl Configurations<'_> {
     }
 
     /// Delete a saved Voice Agent configuration.
-    pub async fn delete(
-        &self,
-        project_id: &str,
-        agent_id: &str,
-    ) -> crate::Result<response::DeletedAgentConfiguration> {
-        send_and_translate_response(
+    pub async fn delete(&self, project_id: &str, agent_id: &str) -> crate::Result<()> {
+        send_and_check_response(
             self.0
                 .client
                 .delete(self.configuration_url(project_id, agent_id)?),
