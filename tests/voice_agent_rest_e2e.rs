@@ -35,8 +35,9 @@ async fn voice_agent_rest_read_operations_are_available() -> Result<(), Box<dyn 
         .to_string();
 
     let voice_agent = dg.voice_agent();
-    let _ = voice_agent.configurations().list(&project_id).await?;
-    let _ = voice_agent.variables().list(&project_id).await?;
+    let configurations = voice_agent.configurations().list(&project_id).await?;
+    let variables = voice_agent.variables().list(&project_id).await?;
+    let _ = (configurations.agents, variables.variables);
 
     Ok(())
 }

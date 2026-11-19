@@ -1,4 +1,10 @@
 //! Manage reusable Voice Agent resources and discover available Think models.
+//!
+//! See the [reusable Voice Agent configurations guide][configurations] and
+//! [Voice Agent LLM models reference][models].
+//!
+//! [configurations]: https://developers.deepgram.com/docs/voice-agent/reusable-agent-configurations
+//! [models]: https://developers.deepgram.com/docs/voice-agent/voice-agent-llm-models
 
 use url::Url;
 

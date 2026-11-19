@@ -3,6 +3,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+#[cfg(feature = "agent")]
+use uuid::Uuid;
 
 /// Available Voice Agent Think models.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -43,13 +45,27 @@ pub struct AgentConfiguration {
     pub updated_at: Option<String>,
 }
 
+#[cfg(feature = "agent")]
+impl AgentConfiguration {
+    /// Convert this REST resource's identifier into a saved Voice Agent
+    /// configuration reference for a live Voice Agent session.
+    ///
+    /// Returns [`uuid::Error`] if the server supplied an identifier that is
+    /// not a UUID.
+    pub fn saved_agent_config(&self) -> Result<crate::agent::AgentConfig, uuid::Error> {
+        Ok(crate::agent::AgentConfig::saved(Uuid::parse_str(
+            &self.agent_id,
+        )?))
+    }
+}
+
 /// Saved Voice Agent configurations for a project.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[serde(transparent)]
 pub struct Configurations {
     /// Saved configurations returned by the API.
-    #[serde(default)]
-    pub agents: Option<Vec<AgentConfiguration>>,
+    pub agents: Vec<AgentConfiguration>,
 }
 
 /// Successful deletion response for a saved Voice Agent configuration.
@@ -78,10 +94,10 @@ pub struct AgentVariable {
 /// Voice Agent template variables for a project.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[serde(transparent)]
 pub struct Variables {
     /// Variables returned by the API.
-    #[serde(default)]
-    pub variables: Option<Vec<AgentVariable>>,
+    pub variables: Vec<AgentVariable>,
 }
 
 /// Successful deletion response for a Voice Agent template variable.
@@ -130,10 +146,23 @@ mod tests {
 
     #[test]
     fn accepts_empty_configuration_and_variable_lists() {
-        let configurations: Configurations = serde_json::from_str("{}").unwrap();
-        assert!(configurations.agents.is_none());
+        let configurations: Configurations = serde_json::from_str("[]").unwrap();
+        assert!(configurations.agents.is_empty());
 
-        let variables: Variables = serde_json::from_str("{}").unwrap();
-        assert!(variables.variables.is_none());
+        let variables: Variables = serde_json::from_str("[]").unwrap();
+        assert!(variables.variables.is_empty());
+    }
+
+    #[cfg(feature = "agent")]
+    #[test]
+    fn configuration_builds_a_saved_agent_reference() {
+        let configuration: AgentConfiguration = serde_json::from_str(
+            r#"{"agent_id":"550e8400-e29b-41d4-a716-446655440000","config":{}}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            configuration.saved_agent_config().unwrap(),
+            crate::agent::AgentConfig::Saved(_)
+        ));
     }
 }

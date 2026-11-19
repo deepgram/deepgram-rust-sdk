@@ -1,4 +1,8 @@
 //! Reusable Voice Agent configuration management.
+//!
+//! See the [reusable Voice Agent configurations guide][api].
+//!
+//! [api]: https://developers.deepgram.com/docs/voice-agent/reusable-agent-configurations
 
 use std::collections::HashMap;
 

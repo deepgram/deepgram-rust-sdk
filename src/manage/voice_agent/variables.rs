@@ -1,4 +1,8 @@
 //! Voice Agent template variable management.
+//!
+//! See the [reusable Voice Agent configurations guide][api].
+//!
+//! [api]: https://developers.deepgram.com/docs/voice-agent/reusable-agent-configurations
 
 use serde::Serialize;
 use serde_json::Value;
