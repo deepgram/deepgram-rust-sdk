@@ -707,6 +707,11 @@ impl Deepgram {
     /// API key, a temporary token, or private traffic is involved, including
     /// self-hosted deployments.
     ///
+    /// A client configured with
+    /// [`Deepgram::with_streaming_transport_factory`] bypasses this setting
+    /// for its streaming connections. The factory owns TLS and certificate
+    /// trust for the transport it creates.
+    ///
     /// REST requests are made with `reqwest` and are not affected.
     ///
     /// ```

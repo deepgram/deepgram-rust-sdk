@@ -17,6 +17,19 @@ use deepgram::{
 };
 use futures::{Sink, Stream, StreamExt};
 
+#[test]
+fn transport_request_constructor_supports_factory_unit_tests() {
+    let request = TransportRequest::new(
+        StreamingService::Listen,
+        "wss://example.test/v1/listen?model=nova-3"
+            .parse()
+            .expect("valid test URL"),
+        http::HeaderMap::new(),
+    );
+    assert_eq!(request.service, StreamingService::Listen);
+    assert_eq!(request.url.path(), "/v1/listen");
+}
+
 #[derive(Debug, Default)]
 struct RecordingFactory {
     requests: Mutex<Vec<TransportRequest>>,
@@ -119,6 +132,86 @@ impl StreamingTransportFactory for PingThenFailFactory {
     fn connect(&self, _request: TransportRequest) -> TransportConnectFuture<'_> {
         Box::pin(async {
             Ok(Box::new(PingThenFailTransport { sent_ping: false }) as BoxedStreamingTransport)
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ScriptedTransportMode {
+    ReadError,
+    AbnormalClose,
+}
+
+/// Delivers exactly one terminal inbound condition through the factory path.
+#[derive(Debug)]
+struct ScriptedTransport {
+    mode: ScriptedTransportMode,
+    delivered: bool,
+}
+
+impl Stream for ScriptedTransport {
+    type Item = Result<TransportMessage, DeepgramError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if self.delivered {
+            return Poll::Ready(None);
+        }
+        self.delivered = true;
+        Poll::Ready(Some(match self.mode {
+            ScriptedTransportMode::ReadError => Err(DeepgramError::InvalidOptions(
+                "test custom transport read failure".to_string(),
+            )),
+            ScriptedTransportMode::AbnormalClose => Ok(TransportMessage::Close(Some(
+                deepgram::transport::TransportCloseFrame::new(1011, "test close"),
+            ))),
+        }))
+    }
+}
+
+impl Sink<TransportMessage> for ScriptedTransport {
+    type Error = DeepgramError;
+
+    fn poll_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn start_send(self: Pin<&mut Self>, _message: TransportMessage) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+}
+
+#[derive(Debug)]
+struct ScriptedTransportFactory(ScriptedTransportMode);
+
+impl StreamingTransportFactory for ScriptedTransportFactory {
+    fn connect(&self, _request: TransportRequest) -> TransportConnectFuture<'_> {
+        let mode = self.0;
+        Box::pin(async move {
+            Ok(Box::new(ScriptedTransport {
+                mode,
+                delivered: false,
+            }) as BoxedStreamingTransport)
+        })
+    }
+}
+
+#[derive(Debug)]
+struct FailingFactory;
+
+impl StreamingTransportFactory for FailingFactory {
+    fn connect(&self, _request: TransportRequest) -> TransportConnectFuture<'_> {
+        Box::pin(async {
+            Err(DeepgramError::InvalidOptions(
+                "test factory connection failure".to_string(),
+            ))
         })
     }
 }
@@ -309,4 +402,67 @@ async fn failed_automatic_pongs_end_every_factory_backed_session() {
         .expect("Pong write error is forwarded")
         .is_err());
     assert!(agent.keep_alive().await.is_err());
+}
+
+#[tokio::test]
+async fn factory_connection_errors_reach_handle_creation() {
+    let client = Deepgram::new("test-api-key")
+        .expect("valid client")
+        .with_streaming_transport_factory(Arc::new(FailingFactory));
+
+    assert!(matches!(
+        client.transcription().stream_request().handle().await,
+        Err(DeepgramError::InvalidOptions(message)) if message == "test factory connection failure"
+    ));
+}
+
+#[tokio::test]
+async fn factory_read_error_reaches_receive_once_then_ends() {
+    let client = Deepgram::new("test-api-key")
+        .expect("valid client")
+        .with_streaming_transport_factory(Arc::new(ScriptedTransportFactory(
+            ScriptedTransportMode::ReadError,
+        )));
+    let mut handle = client
+        .transcription()
+        .stream_request()
+        .handle()
+        .await
+        .expect("Listen V1 uses factory");
+
+    assert!(handle
+        .receive()
+        .await
+        .expect("terminal read error is forwarded")
+        .is_err());
+    assert!(
+        handle.receive().await.is_none(),
+        "the terminal read error is delivered exactly once"
+    );
+    assert!(handle.send_data(vec![0]).await.is_err());
+}
+
+#[tokio::test]
+async fn factory_close_frame_reaches_receive_once_then_ends() {
+    let client = Deepgram::new("test-api-key")
+        .expect("valid client")
+        .with_streaming_transport_factory(Arc::new(ScriptedTransportFactory(
+            ScriptedTransportMode::AbnormalClose,
+        )));
+    let mut handle = client
+        .transcription()
+        .stream_request()
+        .handle()
+        .await
+        .expect("Listen V1 uses factory");
+
+    assert!(matches!(
+        handle.receive().await,
+        Some(Err(DeepgramError::WebsocketClose { code: 1011, .. }))
+    ));
+    assert!(
+        handle.receive().await.is_none(),
+        "the close error is delivered exactly once"
+    );
+    assert!(handle.send_data(vec![0]).await.is_err());
 }

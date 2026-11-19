@@ -638,11 +638,15 @@ async fn run_worker(
                         return Ok(());
                     }
                     Some(Ok(TransportMessage::Close(Some(closeframe)))) => {
-                        // eprintln!("<worker> received websocket close");
-                        return Err(DeepgramError::WebsocketClose {
+                        // Forward an abnormal peer close before ending the
+                        // worker. Returning the error from this detached task
+                        // would silently discard it instead.
+                        let _ = response_tx.start_send(Err(DeepgramError::WebsocketClose {
                             code: closeframe.code,
                             reason: closeframe.reason,
-                        });
+                        }));
+                        is_open = false;
+                        break;
                     }
                     Some(Ok(TransportMessage::Binary(_) | TransportMessage::Pong(_))) => {
                         // We don't expect binary messages or pongs from the API.

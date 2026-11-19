@@ -67,7 +67,12 @@ pub struct TransportRequest {
 }
 
 impl TransportRequest {
-    pub(crate) fn new(service: StreamingService, url: Url, headers: HeaderMap) -> Self {
+    /// Construct a transport request for a factory unit test or adapter.
+    ///
+    /// Production requests are created by the SDK and include its resolved
+    /// endpoint URL plus User-Agent and Authorization headers. Do not include
+    /// real credentials in test fixtures or logs.
+    pub fn new(service: StreamingService, url: Url, headers: HeaderMap) -> Self {
         Self {
             service,
             url,
