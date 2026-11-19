@@ -58,11 +58,20 @@ async fn phase_one_management_endpoints_are_available() -> Result<(), Box<dyn st
         .list_with_options(&project_id, &key_options)
         .await?;
 
-    let billing_breakdown_options = billing::breakdown_options::Options::builder().build();
-    let _ = dg
-        .billing()
-        .get_breakdown(&project_id, &billing_breakdown_options)
-        .await?;
+    for grouping in [
+        billing::breakdown_options::Grouping::Accessor,
+        billing::breakdown_options::Grouping::Deployment,
+        billing::breakdown_options::Grouping::LineItem,
+        billing::breakdown_options::Grouping::Tags,
+    ] {
+        let billing_breakdown_options = billing::breakdown_options::Options::builder()
+            .grouping([grouping])
+            .build();
+        let _ = dg
+            .billing()
+            .get_breakdown(&project_id, &billing_breakdown_options)
+            .await?;
+    }
 
     let billing_fields_options = billing::fields_options::Options::builder().build();
     let _ = dg
@@ -88,11 +97,23 @@ async fn phase_one_management_endpoints_are_available() -> Result<(), Box<dyn st
 
     let _ = dg.invitations().list(&project_id).await?;
 
-    let usage_breakdown_options = usage::get_breakdown_options::Options::builder().build();
-    let _ = dg
-        .usage()
-        .get_breakdown(&project_id, &usage_breakdown_options)
-        .await?;
+    for grouping in [
+        usage::get_breakdown_options::Grouping::Accessor,
+        usage::get_breakdown_options::Grouping::Endpoint,
+        usage::get_breakdown_options::Grouping::FeatureSet,
+        usage::get_breakdown_options::Grouping::Models,
+        usage::get_breakdown_options::Grouping::Method,
+        usage::get_breakdown_options::Grouping::Tags,
+        usage::get_breakdown_options::Grouping::Deployment,
+    ] {
+        let usage_breakdown_options = usage::get_breakdown_options::Options::builder()
+            .grouping(grouping)
+            .build();
+        let _ = dg
+            .usage()
+            .get_breakdown(&project_id, &usage_breakdown_options)
+            .await?;
+    }
 
     Ok(())
 }

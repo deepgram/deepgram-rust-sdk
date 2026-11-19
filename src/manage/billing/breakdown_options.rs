@@ -2,6 +2,8 @@
 
 use serde::{ser::SerializeSeq, Serialize};
 
+pub use crate::manage::usage::get_usage_options::Deployment;
+
 /// Query options for a project billing breakdown.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Options {
@@ -19,21 +21,6 @@ pub struct Options {
 pub struct OptionsBuilder(Options);
 
 pub(crate) struct SerializableOptions<'a>(&'a Options);
-
-/// Deployment filter for billing requests.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
-#[non_exhaustive]
-#[serde(rename_all = "kebab-case")]
-pub enum Deployment {
-    #[allow(missing_docs)]
-    Hosted,
-
-    #[allow(missing_docs)]
-    Beta,
-
-    #[allow(missing_docs)]
-    SelfHosted,
-}
 
 /// Dimension used to group a billing breakdown.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]

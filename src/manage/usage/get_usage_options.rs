@@ -76,7 +76,7 @@ pub enum Method {
     Streaming,
 }
 
-/// Deployment filter for usage requests.
+/// Deployment filter for Management API usage and billing requests.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
 #[non_exhaustive]
 #[serde(rename_all = "kebab-case")]

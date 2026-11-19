@@ -372,8 +372,8 @@ pub struct UsageBreakdownGrouping {
     pub accessor: Option<String>,
     /// API endpoint when grouped by endpoint.
     pub endpoint: Option<String>,
-    /// Feature set when grouped by feature set.
-    pub feature_set: Option<String>,
+    /// Feature names when grouped by feature set.
+    pub feature_set: Option<Vec<String>>,
     /// Models when grouped by model.
     pub models: Option<Vec<Option<String>>>,
     /// Processing method when grouped by method.
@@ -403,7 +403,11 @@ mod breakdown_tests {
                     "tokens_out": 20,
                     "tts_characters": 30,
                     "requests": 4,
-                    "grouping": { "endpoint": "listen", "models": ["nova-3"] }
+                    "grouping": {
+                        "endpoint": "listen",
+                        "models": ["nova-3"],
+                        "feature_set": ["numerals", "redact"]
+                    }
                 }]
             }"#,
         )
@@ -413,6 +417,10 @@ mod breakdown_tests {
         assert_eq!(
             response.results[0].grouping.endpoint.as_deref(),
             Some("listen")
+        );
+        assert_eq!(
+            response.results[0].grouping.feature_set,
+            Some(vec!["numerals".to_string(), "redact".to_string()])
         );
     }
 }

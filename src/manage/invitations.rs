@@ -77,6 +77,7 @@ impl Invitations<'_> {
     }
 
     fn invite_url(&self, project_id: &str, email: &str) -> crate::Result<Url> {
+        let email = url::form_urlencoded::byte_serialize(email.as_bytes()).collect::<String>();
         self.0
             .api_url(&format!("v1/projects/{project_id}/invites/{email}"))
     }
@@ -103,6 +104,19 @@ mod tests {
         assert_eq!(
             dg.invitations().leave_url("proj").unwrap().as_str(),
             "http://deepgram.internal/v1/projects/proj/leave"
+        );
+    }
+
+    #[test]
+    fn invitation_email_is_percent_encoded_in_its_path_segment() {
+        let dg = Deepgram::new("token").unwrap();
+
+        assert_eq!(
+            dg.invitations()
+                .invite_url("proj", "person+test@example.com")
+                .unwrap()
+                .as_str(),
+            "https://api.deepgram.com/v1/projects/proj/invites/person%2Btest%40example.com"
         );
     }
 }

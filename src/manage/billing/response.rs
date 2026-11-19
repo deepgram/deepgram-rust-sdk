@@ -87,6 +87,20 @@ pub struct BillingBreakdownResult {
     pub dollars: f64,
     /// Dimensions identifying this result.
     pub grouping: BillingGrouping,
+    /// Usage-rate details returned when grouping by billing line item.
+    pub usage_detail: Option<UsageDetail>,
+}
+
+/// Quantity and rate applied to a billing line item.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct UsageDetail {
+    /// Quantity billed for the line item.
+    pub quantity: f64,
+    /// Rate applied to each billed unit.
+    pub rate_applied: f64,
+    /// Unit used by the quantity and rate.
+    pub unit: String,
 }
 
 /// Dimensions identifying a billing breakdown result.
@@ -164,7 +178,8 @@ mod tests {
                 "resolution": { "units": "day", "amount": 1 },
                 "results": [{
                     "dollars": 0.25,
-                    "grouping": { "deployment": "hosted", "tags": ["production"] }
+                    "grouping": { "deployment": "hosted", "tags": ["production"] },
+                    "usage_detail": { "quantity": 1.5, "rate_applied": 0.25, "unit": "hour" }
                 }]
             }"#,
         )
@@ -174,6 +189,14 @@ mod tests {
         assert_eq!(
             response.results[0].grouping.deployment.as_deref(),
             Some("hosted")
+        );
+        assert_eq!(
+            response.results[0]
+                .usage_detail
+                .as_ref()
+                .expect("usage detail is preserved")
+                .rate_applied,
+            0.25
         );
     }
 

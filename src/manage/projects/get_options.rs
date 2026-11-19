@@ -40,7 +40,7 @@ impl OptionsBuilder {
         self
     }
 
-    /// Set the zero-based results page.
+    /// Set the zero-based result page.
     pub fn page(mut self, value: usize) -> Self {
         self.0.page = Some(value);
         self

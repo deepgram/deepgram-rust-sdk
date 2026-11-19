@@ -63,7 +63,7 @@ pub(crate) struct SerializableOptions<'a>(pub(crate) &'a Options);
 /// Dimension used to group a usage breakdown.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
 #[non_exhaustive]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum Grouping {
     #[allow(missing_docs)]
     Accessor,
@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn serializes_filters_and_repeated_tags() {
         let options = Options::builder()
-            .grouping(Grouping::Deployment)
+            .grouping(Grouping::FeatureSet)
             .tag(["production", "billing"])
             .detect_entities(true)
             .summarize(false)
@@ -398,7 +398,7 @@ mod tests {
 
         assert_eq!(
             options.urlencoded().unwrap(),
-            "grouping=deployment&tag=production&tag=billing&detect_entities=true&summarize=false"
+            "grouping=feature_set&tag=production&tag=billing&detect_entities=true&summarize=false"
         );
     }
 
