@@ -1,0 +1,506 @@
+[
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1Settings",
+    "action": "send",
+    "sdk_method": "sendSettings"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1UpdateListen",
+    "action": "send",
+    "sdk_method": "sendUpdateListen"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1ListenUpdated",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1UpdateThink",
+    "action": "send",
+    "sdk_method": "sendUpdateThink"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1UpdateThinkLive",
+    "action": "send",
+    "sdk_method": "sendUpdateThinkLive"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1ThinkLiveUpdated",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1FrustrationDetected",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1UpdateSpeak",
+    "action": "send",
+    "sdk_method": "sendUpdateSpeak"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1InjectUserMessage",
+    "action": "send",
+    "sdk_method": "sendInjectUserMessage"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1InjectAgentMessage",
+    "action": "send",
+    "sdk_method": "sendInjectAgentMessage"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1InjectDynamicAgentMessage",
+    "action": "send",
+    "sdk_method": "sendInjectDynamicAgentMessage"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1SendFunctionCallResponse",
+    "action": "send",
+    "sdk_method": "sendFunctionCallResponse"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1ReceiveFunctionCallResponse",
+    "action": "receive",
+    "sdk_method": "onFunctionCallResponse"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1KeepAlive",
+    "action": "send",
+    "sdk_method": "sendKeepAlive"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1UpdatePrompt",
+    "action": "send",
+    "sdk_method": "sendUpdatePrompt"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1ForceEndTurn",
+    "action": "send",
+    "sdk_method": "sendForceEndTurn"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1CustomToThinkProvider",
+    "action": "send",
+    "sdk_method": "sendCustomToThinkProvider"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1PromptUpdated",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1ThinkUpdated",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1SpeakUpdated",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1InjectionRefused",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1Welcome",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1SettingsApplied",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1ConversationText",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1UserStartedSpeaking",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1AgentThinking",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1LatencyReport",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1FunctionCallRequest",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1FunctionCallCancelled",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1AgentStartedSpeaking",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1AgentAudioDone",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1CustomFromThinkProvider",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1Error",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1Warning",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1History",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1Media",
+    "action": "send",
+    "sdk_method": "sendMedia"
+  },
+  {
+    "schema_file": "agent.v1.yml",
+    "operation": "AgentV1Audio",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1Media",
+    "action": "send",
+    "sdk_method": "sendMedia"
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1Finalize",
+    "action": "send",
+    "sdk_method": "sendFinalize"
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1CloseStream",
+    "action": "send",
+    "sdk_method": "sendCloseStream"
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1KeepAlive",
+    "action": "send",
+    "sdk_method": "sendKeepAlive"
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1Configure",
+    "action": "send",
+    "sdk_method": "sendConfigure"
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1ConfigureSuccess",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1ConfigureFailure",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1Results",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1Metadata",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1UtteranceEnd",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1SpeechStarted",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v1.yml",
+    "operation": "ListenV1Error",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2Media",
+    "action": "send",
+    "sdk_method": "sendMedia"
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2CloseStream",
+    "action": "send",
+    "sdk_method": "sendCloseStream"
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2ForceEndTurn",
+    "action": "send",
+    "sdk_method": "sendForceEndTurn"
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2Configure",
+    "action": "send",
+    "sdk_method": "sendConfigure"
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2Connected",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2TurnInfo",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2ConfigureSuccess",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2ConfigureFailure",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2Warning",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "listen.v2.yml",
+    "operation": "ListenV2FatalError",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v1.yml",
+    "operation": "SpeakV1Text",
+    "action": "send",
+    "sdk_method": "sendText"
+  },
+  {
+    "schema_file": "speak.v1.yml",
+    "operation": "SpeakV1Flush",
+    "action": "send",
+    "sdk_method": "sendFlush"
+  },
+  {
+    "schema_file": "speak.v1.yml",
+    "operation": "SpeakV1Clear",
+    "action": "send",
+    "sdk_method": "sendClear"
+  },
+  {
+    "schema_file": "speak.v1.yml",
+    "operation": "SpeakV1Close",
+    "action": "send",
+    "sdk_method": "sendClose"
+  },
+  {
+    "schema_file": "speak.v1.yml",
+    "operation": "SpeakV1Audio",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v1.yml",
+    "operation": "SpeakV1Metadata",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v1.yml",
+    "operation": "SpeakV1Flushed",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v1.yml",
+    "operation": "SpeakV1Cleared",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v1.yml",
+    "operation": "SpeakV1Warning",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Speak",
+    "action": "send",
+    "sdk_method": "sendSpeak"
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Flush",
+    "action": "send",
+    "sdk_method": "sendFlush"
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Interrupt",
+    "action": "send",
+    "sdk_method": "sendInterrupt"
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Configure",
+    "action": "send",
+    "sdk_method": "sendConfigure"
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Close",
+    "action": "send",
+    "sdk_method": "sendClose"
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Audio",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Connected",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2SpeechStarted",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2SpeechMetadata",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2SpeechInterrupted",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Flushed",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2SessionMetadata",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2ConfigureSuccess",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2ConfigureFailure",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Warning",
+    "action": "receive",
+    "sdk_method": null
+  },
+  {
+    "schema_file": "speak.v2.yml",
+    "operation": "SpeakV2Error",
+    "action": "receive",
+    "sdk_method": null
+  }
+]

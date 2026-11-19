@@ -1,0 +1,252 @@
+[
+  {
+    "operation_id": "agent.v1.settings.think.models.list",
+    "method": "GET",
+    "path": "/v1/agent/settings/think/models"
+  },
+  {
+    "operation_id": "agent.v1.configurations.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/agents"
+  },
+  {
+    "operation_id": "agent.v1.configurations.create",
+    "method": "POST",
+    "path": "/v1/projects/{project_id}/agents"
+  },
+  {
+    "operation_id": "agent.v1.configurations.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/agents/{agent_id}"
+  },
+  {
+    "operation_id": "agent.v1.configurations.update",
+    "method": "PUT",
+    "path": "/v1/projects/{project_id}/agents/{agent_id}"
+  },
+  {
+    "operation_id": "agent.v1.configurations.delete",
+    "method": "DELETE",
+    "path": "/v1/projects/{project_id}/agents/{agent_id}"
+  },
+  {
+    "operation_id": "agent.v1.variables.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/agent-variables"
+  },
+  {
+    "operation_id": "agent.v1.variables.create",
+    "method": "POST",
+    "path": "/v1/projects/{project_id}/agent-variables"
+  },
+  {
+    "operation_id": "agent.v1.variables.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/agent-variables/{variable_id}"
+  },
+  {
+    "operation_id": "agent.v1.variables.update",
+    "method": "PATCH",
+    "path": "/v1/projects/{project_id}/agent-variables/{variable_id}"
+  },
+  {
+    "operation_id": "agent.v1.variables.delete",
+    "method": "DELETE",
+    "path": "/v1/projects/{project_id}/agent-variables/{variable_id}"
+  },
+  {
+    "operation_id": "auth.v1.tokens.grant",
+    "method": "POST",
+    "path": "/v1/auth/grant"
+  },
+  {
+    "operation_id": "listen.v1.media.transcribe",
+    "method": "POST",
+    "path": "/v1/listen"
+  },
+  {
+    "operation_id": "manage.v1.models.list",
+    "method": "GET",
+    "path": "/v1/models"
+  },
+  {
+    "operation_id": "manage.v1.models.get",
+    "method": "GET",
+    "path": "/v1/models/{model_id}"
+  },
+  {
+    "operation_id": "manage.v1.projects.list",
+    "method": "GET",
+    "path": "/v1/projects"
+  },
+  {
+    "operation_id": "manage.v1.projects.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}"
+  },
+  {
+    "operation_id": "manage.projects.update",
+    "method": "PATCH",
+    "path": "/v1/projects/{project_id}"
+  },
+  {
+    "operation_id": "manage.projects.delete",
+    "method": "DELETE",
+    "path": "/v1/projects/{project_id}"
+  },
+  {
+    "operation_id": "manage.v1.projects.billing.balances.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/balances"
+  },
+  {
+    "operation_id": "manage.v1.projects.billing.balances.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/balances/{balance_id}"
+  },
+  {
+    "operation_id": "manage.v1.projects.billing.breakdown.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/billing/breakdown"
+  },
+  {
+    "operation_id": "manage.v1.projects.billing.fields.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/billing/fields"
+  },
+  {
+    "operation_id": "manage.v1.projects.members.invites.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/invites"
+  },
+  {
+    "operation_id": "manage.v1.projects.members.invites.create",
+    "method": "POST",
+    "path": "/v1/projects/{project_id}/invites"
+  },
+  {
+    "operation_id": "manage.v1.projects.members.invites.delete",
+    "method": "DELETE",
+    "path": "/v1/projects/{project_id}/invites/{email}"
+  },
+  {
+    "operation_id": "manage.v1.projects.keys.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/keys"
+  },
+  {
+    "operation_id": "manage.projects.keys.create",
+    "method": "POST",
+    "path": "/v1/projects/{project_id}/keys"
+  },
+  {
+    "operation_id": "manage.v1.projects.keys.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/keys/{key_id}"
+  },
+  {
+    "operation_id": "manage.projects.keys.delete",
+    "method": "DELETE",
+    "path": "/v1/projects/{project_id}/keys/{key_id}"
+  },
+  {
+    "operation_id": "manage.v1.projects.leave",
+    "method": "DELETE",
+    "path": "/v1/projects/{project_id}/leave"
+  },
+  {
+    "operation_id": "manage.v1.projects.members.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/members"
+  },
+  {
+    "operation_id": "manage.v1.projects.members.delete",
+    "method": "DELETE",
+    "path": "/v1/projects/{project_id}/members/{member_id}"
+  },
+  {
+    "operation_id": "manage.v1.projects.members.scopes.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/members/{member_id}/scopes"
+  },
+  {
+    "operation_id": "manage.projects.members.scopes.update",
+    "method": "PUT",
+    "path": "/v1/projects/{project_id}/members/{member_id}/scopes"
+  },
+  {
+    "operation_id": "manage.v1.projects.models.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/models"
+  },
+  {
+    "operation_id": "manage.v1.projects.models.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/models/{model_id}"
+  },
+  {
+    "operation_id": "manage.v1.projects.billing.purchases.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/purchases"
+  },
+  {
+    "operation_id": "manage.v1.projects.requests.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/requests"
+  },
+  {
+    "operation_id": "manage.v1.projects.requests.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/requests/{request_id}"
+  },
+  {
+    "operation_id": "selfHosted.v1.distributionCredentials.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/self-hosted/distribution/credentials"
+  },
+  {
+    "operation_id": "selfHosted.v1.distributionCredentials.create",
+    "method": "POST",
+    "path": "/v1/projects/{project_id}/self-hosted/distribution/credentials"
+  },
+  {
+    "operation_id": "selfHosted.v1.distributionCredentials.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/self-hosted/distribution/credentials/{distribution_credentials_id}"
+  },
+  {
+    "operation_id": "selfHosted.v1.distributionCredentials.delete",
+    "method": "DELETE",
+    "path": "/v1/projects/{project_id}/self-hosted/distribution/credentials/{distribution_credentials_id}"
+  },
+  {
+    "operation_id": "manage.v1.projects.usage.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/usage"
+  },
+  {
+    "operation_id": "manage.v1.projects.usage.breakdown.get",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/usage/breakdown"
+  },
+  {
+    "operation_id": "manage.v1.projects.usage.fields.list",
+    "method": "GET",
+    "path": "/v1/projects/{project_id}/usage/fields"
+  },
+  {
+    "operation_id": "read.v1.text.analyze",
+    "method": "POST",
+    "path": "/v1/read"
+  },
+  {
+    "operation_id": "speak.v1.audio.generate",
+    "method": "POST",
+    "path": "/v1/speak"
+  },
+  {
+    "operation_id": "speak.v2.audio.generate",
+    "method": "POST",
+    "path": "/v2/speak"
+  }
+]
