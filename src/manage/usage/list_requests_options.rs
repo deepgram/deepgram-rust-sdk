@@ -24,11 +24,11 @@ pub struct Options {
     deployment: Option<Deployment>,
     endpoint: Option<Endpoint>,
     method: Option<Method>,
-    status: Option<Status>,
+    status: Option<StatusFilter>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::status`].
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 #[non_exhaustive]
 pub enum Status {
     #[allow(missing_docs)]
@@ -36,8 +36,11 @@ pub enum Status {
 
     #[allow(missing_docs)]
     Failed,
+}
 
-    /// A server-supported status value not yet represented by this SDK.
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum StatusFilter {
+    Known(Status),
     Other(String),
 }
 
@@ -219,7 +222,14 @@ impl OptionsBuilder {
     ///     .build();
     /// ```
     pub fn status(mut self, status: Status) -> Self {
-        self.0.status = Some(status);
+        self.0.status = Some(StatusFilter::Known(status));
+        self
+    }
+
+    /// Filter by a server-supported status value not yet represented by
+    /// [`Status`].
+    pub fn status_other(mut self, status: impl Into<String>) -> Self {
+        self.0.status = Some(StatusFilter::Other(status.into()));
         self
     }
 
@@ -261,17 +271,12 @@ impl<'a> From<&'a Options> for SerializableOptions<'a> {
             deployment,
             endpoint,
             method,
-            status: status.as_ref().map(AsRef::as_ref),
-        }
-    }
-}
-
-impl AsRef<str> for Status {
-    fn as_ref(&self) -> &str {
-        match self {
-            Self::Succeeded => "succeeded",
-            Self::Failed => "failed",
-            Self::Other(value) => value,
+            status: match status {
+                Some(StatusFilter::Known(Status::Succeeded)) => Some("succeeded"),
+                Some(StatusFilter::Known(Status::Failed)) => Some("failed"),
+                Some(StatusFilter::Other(value)) => Some(value.as_str()),
+                None => None,
+            },
         }
     }
 }
@@ -279,6 +284,13 @@ impl AsRef<str> for Status {
 #[cfg(test)]
 mod tests {
     use super::{Deployment, Endpoint, Method, Options, Status};
+
+    #[test]
+    fn status_remains_copy() {
+        fn assert_copy<T: Copy>() {}
+
+        assert_copy::<Status>();
+    }
 
     #[test]
     fn serializes_every_request_list_filter() {
@@ -304,7 +316,7 @@ mod tests {
     #[test]
     fn serializes_server_statuses_not_yet_modeled_by_the_sdk() {
         let options = Options::builder()
-            .status(Status::Other("partially_succeeded".to_owned()))
+            .status_other("partially_succeeded")
             .build();
 
         assert_eq!(options.urlencoded().unwrap(), "status=partially_succeeded");
