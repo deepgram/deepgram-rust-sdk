@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.14.0...0.15.0) (2026-11-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **listen:** Abnormal Listen V1 peer closes now reach `receive()` as `DeepgramError::WebsocketClose` instead of ending silently. A failed automatic Pong reply also ends the session with one error. Continue to treat code-1000 closes as clean end-of-stream, and handle `Err` items from `receive()` as terminal transport failures.
+* **agent:** `__customFromThinkProvider` frames now arrive as `AgentResponse::CustomFromThinkProvider` instead of `AgentResponse::Unknown`. Update raw-event handlers to match the typed variant. Frames missing required `content` now return a deserialization error instead of being preserved as `Unknown`.
+
+### Added
+
+* **agent:** add custom Think provider messages ([#207](https://github.com/deepgram/deepgram-rust-sdk/issues/207)) — Send arbitrary JSON to an application-owned custom Think provider and receive typed provider responses. ([4ae069e](https://github.com/deepgram/deepgram-rust-sdk/commit/4ae069e4a80abebdd1292261926c3c00b4fe52d1))
+* **agent:** add Deepgram Think and Think Live ([#206](https://github.com/deepgram/deepgram-rust-sdk/issues/206)) — Configure typed Think and Think Live providers, apply live settings updates and dynamic filler phrases, and handle their server events. ([4b155ca](https://github.com/deepgram/deepgram-rust-sdk/commit/4b155cadc09bec2dd1c18afd57c10053304dba07))
+* **agent:** add multilingual Flux TTS models ([#210](https://github.com/deepgram/deepgram-rust-sdk/issues/210)) — Use every currently documented multilingual Flux TTS model as a named Voice Agent settings variant. ([7116ca7](https://github.com/deepgram/deepgram-rust-sdk/commit/7116ca7a7a253cca304cef7422036543a056f96b))
+* **listen:** add current transcription options and metadata ([#209](https://github.com/deepgram/deepgram-rust-sdk/issues/209)) — Configure `diarize_model`, `redact_usage`, `mip_opt_out`, and repeated `extra` values, and read documented metadata and alternative-analysis fields. ([bcd632c](https://github.com/deepgram/deepgram-rust-sdk/commit/bcd632cb6eab3cad62df6aed573a0b5bc93ca6ea))
+* **manage:** add Voice Agent REST management ([#205](https://github.com/deepgram/deepgram-rust-sdk/issues/205)) — Manage saved Voice Agent configurations and template variables, discover Think models, and convert a saved configuration into a live-session reference. ([0968ce0](https://github.com/deepgram/deepgram-rust-sdk/commit/0968ce0100e6b84d85b4a012225fb09550542183))
+* **manage:** complete billing, invitations, and usage endpoints ([#204](https://github.com/deepgram/deepgram-rust-sdk/issues/204)) — Query billing breakdowns, fields, and purchases; manage invitations; filter usage records and breakdowns; and leave a project through `dg.projects()`. ([deb21a8](https://github.com/deepgram/deepgram-rust-sdk/commit/deb21a8ffbf1d944e3ad9dbb4c8e294651e1b41a))
+* **transport:** add custom streaming transport factory ([#213](https://github.com/deepgram/deepgram-rust-sdk/issues/213)) — Supply an application-owned transport factory across all five streaming surfaces while retaining control of TLS, handshake, and reconnect behavior. ([8fe099d](https://github.com/deepgram/deepgram-rust-sdk/commit/8fe099d1d7b9b3ab5b7e6bae07725aedc550eece))
+
+### Migration guides
+
+* [v0.14 to v0.15](docs/Migrating-v0.14-to-v0.15.md) covers the new Listen V1 terminal-error behavior and typed custom Think-provider events.
+* [v0.13 to v0.14](docs/Migrating-v0.13-to-v0.14.md) covers WebSocket request-ID accessors that changed from `Uuid` to `Option<Uuid>`.
+
 ## [0.14.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.13.0...0.14.0) (2026-10-16)
 
 

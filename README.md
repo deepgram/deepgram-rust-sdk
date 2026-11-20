@@ -17,7 +17,9 @@ Documentation and examples can be found on our [Docs.rs page](https://docs.rs/de
 
 ### Migrating Between Versions
 
-- [v0.12 to v0.13](./docs/Migrating-v0.12-to-v0.13.md) (current)
+- [v0.14 to v0.15](./docs/Migrating-v0.14-to-v0.15.md) (current)
+- [v0.13 to v0.14](./docs/Migrating-v0.13-to-v0.14.md)
+- [v0.12 to v0.13](./docs/Migrating-v0.12-to-v0.13.md)
 
 ## Quick Start
 
