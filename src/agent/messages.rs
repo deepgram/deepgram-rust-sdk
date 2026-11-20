@@ -1,16 +1,16 @@
 //! Client-to-server message types for the Voice Agent WebSocket.
 //!
 //! Mirrors `AgentV1*Message` schemas in
-//! `asyncapi/schemas/schemas.agent.v1.yml`. Nine are dynamic-control
+//! `asyncapi/schemas/schemas.agent.v1.yml`. Ten are dynamic-control
 //! messages sent during a session (`UpdateListen`, `UpdateSpeak`,
 //! `UpdateThink`, `UpdateThink_Live`, `UpdatePrompt`, `InjectUserMessage`,
-//! `InjectAgentMessage` (fixed or Think Live-generated),
-//! `FunctionCallResponse`, `ForceEndTurn`); one is a connection keep-alive
-//! (`KeepAlive`); the eleventh (`Settings`) is
+//! fixed or Think Live-generated `InjectAgentMessage`, `FunctionCallResponse`,
+//! `ForceEndTurn`, and `__customToThinkProvider`); `KeepAlive` is a connection
+//! keep-alive; `Settings` is
 //! defined in [`crate::agent::settings`] and is the only message that can
 //! carry the agent's full configuration.
 //!
-//! [`ClientMessage`] wraps all ten as a discriminated union. Wire
+//! [`ClientMessage`] wraps every supported client message as a discriminated union. Wire
 //! discrimination is structural via each variant's own `type` field
 //! (modeled as a single-variant marker enum); on the Rust side serde
 //! [`#[serde(untagged)]`](serde::Deserialize) tries each variant in
@@ -71,6 +71,8 @@ pub enum ClientMessage {
     KeepAlive(KeepAliveMessage),
     /// End the current user turn immediately (Flux STT listen providers only).
     ForceEndTurn(ForceEndTurnMessage),
+    /// Forward an arbitrary JSON payload to a custom Think provider.
+    CustomToThinkProvider(CustomToThinkProviderMessage),
 }
 
 impl ClientMessage {
@@ -142,6 +144,11 @@ impl ClientMessage {
     /// Convenience: a `KeepAlive` message.
     pub fn keep_alive() -> Self {
         Self::KeepAlive(KeepAliveMessage::default())
+    }
+
+    /// Convenience: forward a JSON payload to a custom Think provider.
+    pub fn custom_to_think_provider(content: serde_json::Value) -> Self {
+        Self::CustomToThinkProvider(CustomToThinkProviderMessage::new(content))
     }
 }
 
@@ -653,6 +660,47 @@ pub struct ForceEndTurnMessage {
     pub message_type: ForceEndTurnType,
 }
 
+// ---------- __customToThinkProvider ----------
+
+/// Marker for the `"__customToThinkProvider"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum CustomToThinkProviderType {
+    /// Always serializes as `"__customToThinkProvider"`.
+    #[default]
+    #[serde(rename = "__customToThinkProvider")]
+    CustomToThinkProvider,
+}
+
+/// An experimental arbitrary JSON payload forwarded to a custom Think provider.
+///
+/// The Voice Agent forwards [`CustomToThinkProviderMessage::content`] as
+/// semantically equivalent JSON to the custom provider configured at
+/// `agent.think.endpoint.url`. JSON object-key order and extreme numeric
+/// precision are not byte-for-byte preserved. That endpoint must use `wss://`;
+/// its response arrives as
+/// [`crate::agent::response::CustomFromThinkProviderEvent`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct CustomToThinkProviderMessage {
+    /// Always [`CustomToThinkProviderType::CustomToThinkProvider`].
+    #[serde(rename = "type", default)]
+    pub message_type: CustomToThinkProviderType,
+
+    /// Any valid JSON value forwarded to the custom Think provider.
+    pub content: serde_json::Value,
+}
+
+impl CustomToThinkProviderMessage {
+    /// Construct a custom Think-provider payload.
+    pub fn new(content: serde_json::Value) -> Self {
+        Self {
+            message_type: CustomToThinkProviderType::CustomToThinkProvider,
+            content,
+        }
+    }
+}
+
 // ---------- one-or-many serde helpers ----------
 
 fn serialize_speak_one_or_many<S>(values: &[SpeakSettings], ser: S) -> Result<S::Ok, S::Error>
@@ -868,6 +916,31 @@ mod tests {
             serde_json::to_value(ClientMessage::force_end_turn()).unwrap(),
             raw
         );
+    }
+
+    #[test]
+    fn custom_to_think_provider_preserves_every_json_shape() {
+        for content in [
+            json!({"tool": "lookup", "arguments": {"city": "Seattle"}}),
+            json!(["token", 7, true]),
+            json!("provider returned plain text"),
+            json!(42),
+            json!(false),
+            serde_json::Value::Null,
+        ] {
+            let raw = json!({
+                "type": "__customToThinkProvider",
+                "content": content
+            });
+            let message: ClientMessage = serde_json::from_value(raw.clone()).unwrap();
+            match &message {
+                ClientMessage::CustomToThinkProvider(custom) => {
+                    assert_eq!(custom.content, raw["content"]);
+                }
+                other => panic!("expected CustomToThinkProvider, got {other:?}"),
+            }
+            assert_eq!(serde_json::to_value(message).unwrap(), raw);
+        }
     }
 
     #[test]
@@ -1122,6 +1195,7 @@ mod tests {
         let _ = ClientMessage::inject_dynamic_agent_message();
         let _ = ClientMessage::function_call_response("fn", "{}");
         let _ = ClientMessage::keep_alive();
+        let _ = ClientMessage::custom_to_think_provider(json!({"action": "lookup"}));
         let _ = ClientMessage::update_listen(AgentListenSettings::new(
             AgentListenProvider::DeepgramV2(DeepgramListenV2Provider::new("flux-general-en")),
         ));

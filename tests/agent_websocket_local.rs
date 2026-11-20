@@ -15,7 +15,7 @@ mod mock {
     use std::sync::Arc;
     use std::time::{Duration, Instant};
 
-    use deepgram::agent::messages::FunctionCallResponseMessage;
+    use deepgram::agent::messages::{CustomToThinkProviderMessage, FunctionCallResponseMessage};
     use deepgram::agent::{AgentEvent, AgentResponse};
     use deepgram::{Deepgram, DeepgramError};
     use futures::{SinkExt, StreamExt};
@@ -136,6 +136,25 @@ mod mock {
         while let Some(Ok(msg)) = ws.next().await {
             if let Message::Text(text) = msg {
                 let _ = text_tx.send(text.to_string());
+            }
+        }
+    }
+
+    /// Accept one connection, emit Welcome, then echo a custom Think-provider
+    /// response after recording a custom Think-provider request.
+    async fn custom_think_server(listener: TcpListener, text_tx: mpsc::UnboundedSender<String>) {
+        let (stream, _) = listener.accept().await.unwrap();
+        let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
+        ws.send(Message::Text(WELCOME.into())).await.unwrap();
+        while let Some(Ok(msg)) = ws.next().await {
+            if let Message::Text(text) = msg {
+                let _ = text_tx.send(text.to_string());
+                ws.send(Message::Text(
+                    r#"{"type":"__customFromThinkProvider","content":["weather",{"city":"Seattle"},true,null]}"#
+                        .into(),
+                ))
+                .await
+                .unwrap();
             }
         }
     }
@@ -549,6 +568,64 @@ mod mock {
         let parsed: serde_json::Value = serde_json::from_str(&received[1]).unwrap();
         assert_eq!(parsed, raw);
         assert_eq!(parsed["agent"]["think"]["provider"]["type"], "nvidia");
+
+        handle.close().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn custom_think_provider_payload_reaches_wire_and_response_is_typed() {
+        let (listener, addr) = bind().await;
+        let (text_tx, mut text_rx) = mpsc::unbounded_channel::<String>();
+        tokio::spawn(custom_think_server(listener, text_tx));
+
+        let dg = client();
+        let (mut handle, mut events) = dg.agent().start_at_url(&agent_url(addr)).await.unwrap();
+        let first = tokio::time::timeout(BOUND, events.next())
+            .await
+            .expect("welcome within bound")
+            .expect("stream open");
+        assert!(matches!(
+            first,
+            Ok(AgentEvent::Json(AgentResponse::Welcome(_)))
+        ));
+
+        let content = serde_json::json!({
+            "action": "lookup_weather",
+            "arguments": { "city": "Seattle" },
+            "attempt": 2,
+            "enabled": false
+        });
+        handle
+            .send_custom_to_think_provider(CustomToThinkProviderMessage::new(content.clone()))
+            .await
+            .unwrap();
+
+        let outbound = tokio::time::timeout(BOUND, text_rx.recv())
+            .await
+            .expect("custom request should reach the server")
+            .expect("server alive");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&outbound).unwrap(),
+            serde_json::json!({
+                "type": "__customToThinkProvider",
+                "content": content
+            })
+        );
+
+        let response = tokio::time::timeout(BOUND, events.next())
+            .await
+            .expect("custom response within bound")
+            .expect("stream open")
+            .expect("typed custom response");
+        match response {
+            AgentEvent::Json(AgentResponse::CustomFromThinkProvider(event)) => {
+                assert_eq!(
+                    event.content,
+                    serde_json::json!(["weather", {"city": "Seattle"}, true, null])
+                );
+            }
+            other => panic!("expected CustomFromThinkProvider, got {other:?}"),
+        }
 
         handle.close().await.unwrap();
     }

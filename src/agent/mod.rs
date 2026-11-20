@@ -19,17 +19,19 @@
 //! - [`settings`] — top-level `SettingsMessage` and the `AgentConfig`
 //!   oneOf (`Inline(InlineAgentConfig)` vs. `Saved(Uuid)`).
 //! - [`messages`] — the remaining client-to-server messages
-//!   (`UpdateListen`, `UpdateSpeak`, `UpdateThink`, `UpdateThink_Live`, `UpdatePrompt`,
-//!   `InjectUserMessage`, fixed or Think Live-generated `InjectAgentMessage`, `FunctionCallResponse`,
-//!   `KeepAlive`, `ForceEndTurn`) plus the `ClientMessage` discriminated
-//!   union over all supported messages.
+//!   (`UpdateListen`, `UpdateSpeak`, `UpdateThink`, `UpdateThink_Live`,
+//!   `UpdatePrompt`, `InjectUserMessage`, fixed or Think Live-generated
+//!   `InjectAgentMessage`, `FunctionCallResponse`, `KeepAlive`,
+//!   `ForceEndTurn`, `__customToThinkProvider`) plus the `ClientMessage`
+//!   discriminated union.
 //! - [`response`] — every server-emitted JSON event (`Welcome`,
 //!   `SettingsApplied`, `ConversationText`, `UserStartedSpeaking`,
 //!   `AgentThinking`, `FunctionCallRequest`, `FunctionCallCancelled`,
 //!   `AgentStartedSpeaking`, `AgentAudioDone`, `Error`, `Warning`,
 //!   `History`, `LatencyReport`, `ListenUpdated`, `PromptUpdated`,
-//!   `SpeakUpdated`, `ThinkUpdated`, `ThinkLiveUpdated`, `FrustrationDetected`, `InjectionRefused`,
-//!   `FunctionCallResponse`) plus an `Unknown` catch-all for forward
+//!   `SpeakUpdated`, `ThinkUpdated`, `ThinkLiveUpdated`,
+//!   `FrustrationDetected`, `InjectionRefused`, `FunctionCallResponse`,
+//!   `__customFromThinkProvider`) plus an `Unknown` catch-all for forward
 //!   compatibility, all unified under the [`response::AgentResponse`] enum.
 //!   Dispatch is on the event's `type`, so `AgentResponse::Unknown` holds
 //!   exactly the *events* this SDK does not model; a recognized event
@@ -83,25 +85,27 @@ pub use listen::{
     DeepgramListenV2Provider, DeepgramListenV2Version, DeepgramProviderType,
 };
 pub use messages::{
-    ClientMessage, ForceEndTurnMessage, ForceEndTurnType, FunctionCallResponseMessage,
-    FunctionCallResponseType, InjectAgentBehavior, InjectAgentMessageMessage,
-    InjectAgentMessageType, InjectDynamicAgentMessage, InjectUserMessageMessage,
-    InjectUserMessageType, KeepAliveMessage, KeepAliveType, UpdateListenMessage, UpdateListenType,
-    UpdatePromptMessage, UpdatePromptType, UpdateSpeakMessage, UpdateSpeakType,
-    UpdateThinkLiveMessage, UpdateThinkLiveType, UpdateThinkMessage, UpdateThinkType,
+    ClientMessage, CustomToThinkProviderMessage, CustomToThinkProviderType, ForceEndTurnMessage,
+    ForceEndTurnType, FunctionCallResponseMessage, FunctionCallResponseType, InjectAgentBehavior,
+    InjectAgentMessageMessage, InjectAgentMessageType, InjectDynamicAgentMessage,
+    InjectUserMessageMessage, InjectUserMessageType, KeepAliveMessage, KeepAliveType,
+    UpdateListenMessage, UpdateListenType, UpdatePromptMessage, UpdatePromptType,
+    UpdateSpeakMessage, UpdateSpeakType, UpdateThinkLiveMessage, UpdateThinkLiveType,
+    UpdateThinkMessage, UpdateThinkType,
 };
 pub use response::{
     AgentAudioDoneEvent, AgentAudioDoneType, AgentFunctionCall, AgentResponse,
     AgentStartedSpeakingEvent, AgentStartedSpeakingType, AgentThinkingEvent, AgentThinkingType,
     CancelledFunctionCall, ConversationTextEvent, ConversationTextType, ConversationalBehavior,
-    ErrorEvent, ErrorType, FrustrationDetectedEvent, FrustrationDetectedType,
-    FunctionCallCancelledEvent, FunctionCallCancelledType, FunctionCallRequestEvent,
-    FunctionCallRequestType, InjectionRefusedEvent, InjectionRefusedType, LatencyReportEvent,
-    LatencyReportType, ListenUpdatedEvent, ListenUpdatedType, PromptUpdatedEvent,
-    PromptUpdatedType, SettingsAppliedEvent, SettingsAppliedType, SpeakUpdatedEvent,
-    SpeakUpdatedType, ThinkLiveUpdatedEvent, ThinkLiveUpdatedType, ThinkUpdatedEvent,
-    ThinkUpdatedType, UserStartedSpeakingEvent, UserStartedSpeakingType, WarningEvent, WarningType,
-    WelcomeEvent, WelcomeType,
+    CustomFromThinkProviderEvent, CustomFromThinkProviderType, ErrorEvent, ErrorType,
+    FrustrationDetectedEvent, FrustrationDetectedType, FunctionCallCancelledEvent,
+    FunctionCallCancelledType, FunctionCallRequestEvent, FunctionCallRequestType,
+    InjectionRefusedEvent, InjectionRefusedType, LatencyReportEvent, LatencyReportType,
+    ListenUpdatedEvent, ListenUpdatedType, PromptUpdatedEvent, PromptUpdatedType,
+    SettingsAppliedEvent, SettingsAppliedType, SpeakUpdatedEvent, SpeakUpdatedType,
+    ThinkLiveUpdatedEvent, ThinkLiveUpdatedType, ThinkUpdatedEvent, ThinkUpdatedType,
+    UserStartedSpeakingEvent, UserStartedSpeakingType, WarningEvent, WarningType, WelcomeEvent,
+    WelcomeType,
 };
 pub use settings::{
     AgentConfig, AgentContext, InlineAgentConfig, SettingsFlags, SettingsMessage,

@@ -75,9 +75,10 @@ use tungstenite::handshake::client;
 use uuid::Uuid;
 
 use crate::agent::messages::{
-    ForceEndTurnMessage, FunctionCallResponseMessage, InjectAgentMessageMessage,
-    InjectDynamicAgentMessage, InjectUserMessageMessage, KeepAliveMessage, UpdateListenMessage,
-    UpdatePromptMessage, UpdateSpeakMessage, UpdateThinkLiveMessage, UpdateThinkMessage,
+    CustomToThinkProviderMessage, ForceEndTurnMessage, FunctionCallResponseMessage,
+    InjectAgentMessageMessage, InjectDynamicAgentMessage, InjectUserMessageMessage,
+    KeepAliveMessage, UpdateListenMessage, UpdatePromptMessage, UpdateSpeakMessage,
+    UpdateThinkLiveMessage, UpdateThinkMessage,
 };
 use crate::agent::response::AgentResponse;
 use crate::agent::settings::SettingsMessage;
@@ -408,6 +409,18 @@ impl AgentHandle {
     pub async fn send_inject_dynamic_agent_message(
         &mut self,
         message: InjectDynamicAgentMessage,
+    ) -> Result<()> {
+        self.send_json(&message).await
+    }
+
+    /// Send an arbitrary JSON payload to a custom Think provider.
+    ///
+    /// This experimental protocol requires `agent.think.endpoint.url` to
+    /// name a custom `wss://` endpoint. The provider's response arrives as
+    /// [`crate::agent::AgentResponse::CustomFromThinkProvider`].
+    pub async fn send_custom_to_think_provider(
+        &mut self,
+        message: CustomToThinkProviderMessage,
     ) -> Result<()> {
         self.send_json(&message).await
     }
@@ -822,7 +835,8 @@ mod tests {
 
     use super::*;
     use crate::agent::messages::{
-        InjectAgentBehavior, InjectDynamicAgentMessage, KeepAliveMessage, UpdateThinkLiveMessage,
+        CustomToThinkProviderMessage, InjectAgentBehavior, InjectDynamicAgentMessage,
+        KeepAliveMessage, UpdateThinkLiveMessage,
     };
     use crate::agent::settings::{AgentConfig, SettingsMessage};
     use crate::agent::{
@@ -1117,6 +1131,10 @@ mod tests {
         .expect("inject_dynamic_agent serializes");
         serde_json::to_string(&FunctionCallResponseMessage::with_id("f1", "fn", "{}"))
             .expect("function_call_response serializes");
+        serde_json::to_string(&CustomToThinkProviderMessage::new(serde_json::json!({
+            "operation": "lookup"
+        })))
+        .expect("custom_to_think_provider serializes");
         serde_json::to_string(&KeepAliveMessage::default()).expect("keep_alive serializes");
         serde_json::to_string(&UpdateListenMessage::new(AgentListenSettings::new(
             AgentListenProvider::DeepgramV2(DeepgramListenV2Provider::new("flux-general-en")),

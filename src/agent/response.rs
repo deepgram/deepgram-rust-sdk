@@ -94,6 +94,8 @@ pub enum AgentResponse {
     InjectionRefused(InjectionRefusedEvent),
     /// Server-side function execution completed (server emits its own result).
     FunctionCallResponse(FunctionCallResponseMessage),
+    /// Arbitrary JSON returned by a custom Think provider.
+    CustomFromThinkProvider(CustomFromThinkProviderEvent),
     /// Forward-compatibility escape — any JSON event the SDK does not
     /// yet model lands here with its raw payload preserved.
     Unknown(serde_json::Value),
@@ -159,6 +161,9 @@ impl<'de> Deserialize<'de> for AgentResponse {
             "InjectionRefused" => known_event(&event_type, value).map(Self::InjectionRefused),
             "FunctionCallResponse" => {
                 known_event(&event_type, value).map(Self::FunctionCallResponse)
+            }
+            "__customFromThinkProvider" => {
+                known_event(&event_type, value).map(Self::CustomFromThinkProvider)
             }
             // Forward compatibility: an event type this SDK does not yet
             // model reaches the consumer with its payload intact.
@@ -591,6 +596,35 @@ pub struct AgentAudioDoneEvent {
     #[serde(rename = "type", default)]
     #[allow(missing_docs)]
     pub message_type: AgentAudioDoneType,
+}
+
+// ---------- __customFromThinkProvider ----------
+
+/// Marker for the `"__customFromThinkProvider"` discriminator value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub enum CustomFromThinkProviderType {
+    /// Always serializes as `"__customFromThinkProvider"`.
+    #[default]
+    #[serde(rename = "__customFromThinkProvider")]
+    CustomFromThinkProvider,
+}
+
+/// An experimental arbitrary JSON payload returned by a custom Think provider.
+///
+/// The Voice Agent forwards [`CustomFromThinkProviderEvent::content`] as
+/// semantically equivalent JSON. JSON object-key order and extreme numeric
+/// precision are not byte-for-byte preserved. Non-JSON provider responses
+/// arrive as a JSON string.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct CustomFromThinkProviderEvent {
+    /// Always [`CustomFromThinkProviderType::CustomFromThinkProvider`].
+    #[serde(rename = "type", default)]
+    pub message_type: CustomFromThinkProviderType,
+
+    /// Any JSON payload returned by the custom Think provider.
+    pub content: serde_json::Value,
 }
 
 // ---------- Error ----------
@@ -1314,6 +1348,31 @@ mod tests {
     }
 
     #[test]
+    fn custom_from_think_provider_preserves_every_json_shape() {
+        for content in [
+            json!({"decision": "continue", "arguments": {"city": "Seattle"}}),
+            json!(["token", 7, true]),
+            json!("the provider returned non-JSON text"),
+            json!(42),
+            json!(false),
+            serde_json::Value::Null,
+        ] {
+            let raw = json!({
+                "type": "__customFromThinkProvider",
+                "content": content
+            });
+            let event: AgentResponse = serde_json::from_value(raw.clone()).unwrap();
+            match &event {
+                AgentResponse::CustomFromThinkProvider(custom) => {
+                    assert_eq!(custom.content, raw["content"]);
+                }
+                other => panic!("expected CustomFromThinkProvider, got {other:?}"),
+            }
+            assert_eq!(serde_json::to_value(event).unwrap(), raw);
+        }
+    }
+
+    #[test]
     fn error_round_trip() {
         let raw = json!({
             "type": "Error",
@@ -1538,6 +1597,11 @@ mod tests {
                 json!({ "type": "FrustrationDetected", "count": 1 }),
                 "FrustrationDetected",
                 "escalated",
+            ),
+            (
+                json!({ "type": "__customFromThinkProvider" }),
+                "__customFromThinkProvider",
+                "content",
             ),
         ] {
             let err = serde_json::from_value::<AgentResponse>(raw.clone()).expect_err(&format!(
