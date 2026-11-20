@@ -92,4 +92,54 @@ mod tests {
             "http://agent.internal/agent/v1/agent/settings/think/models"
         );
     }
+
+    #[test]
+    fn custom_base_with_api_key_does_not_change_the_agent_rest_default() {
+        let dg = Deepgram::with_base_url_and_api_key("http://gateway.internal/deepgram/", "token")
+            .unwrap();
+
+        assert_eq!(
+            dg.voice_agent().think_models_url().unwrap().as_str(),
+            "https://agent.deepgram.com/v1/agent/settings/think/models"
+        );
+    }
+
+    #[test]
+    fn agent_rest_url_can_be_overridden_with_api_key() {
+        let dg = Deepgram::with_base_url_and_api_key("http://gateway.internal/deepgram/", "token")
+            .unwrap()
+            .with_agent_rest_url("http://agent.internal/agent/")
+            .unwrap();
+
+        assert_eq!(
+            dg.voice_agent().think_models_url().unwrap().as_str(),
+            "http://agent.internal/agent/v1/agent/settings/think/models"
+        );
+    }
+
+    #[test]
+    fn custom_base_with_temp_token_does_not_change_the_agent_rest_default() {
+        let dg =
+            Deepgram::with_base_url_and_temp_token("http://gateway.internal/deepgram/", "token")
+                .unwrap();
+
+        assert_eq!(
+            dg.voice_agent().think_models_url().unwrap().as_str(),
+            "https://agent.deepgram.com/v1/agent/settings/think/models"
+        );
+    }
+
+    #[test]
+    fn agent_rest_url_can_be_overridden_with_temp_token() {
+        let dg =
+            Deepgram::with_base_url_and_temp_token("http://gateway.internal/deepgram/", "token")
+                .unwrap()
+                .with_agent_rest_url("http://agent.internal/agent/")
+                .unwrap();
+
+        assert_eq!(
+            dg.voice_agent().think_models_url().unwrap().as_str(),
+            "http://agent.internal/agent/v1/agent/settings/think/models"
+        );
+    }
 }
