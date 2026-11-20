@@ -80,13 +80,13 @@ trim dependencies, disable the defaults and pick only what you need:
 cargo add deepgram --no-default-features --features read
 ```
 
-| Feature  | Enables                                                                                  |
-| -------- | ---------------------------------------------------------------------------------------- |
-| `listen` | Speech-to-text: pre-recorded REST, live WebSocket streaming, Flux STT                    |
-| `speak`  | Text-to-speech: Aura REST and streaming WebSocket, Flux TTS REST and streaming WebSocket |
-| `read`   | Text Intelligence (`/v1/read`): sentiment, summary, topics, intents                      |
+| Feature  | Enables                                                                                                                                    |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `listen` | Speech-to-text: pre-recorded REST, live WebSocket streaming, Flux STT                                                                      |
+| `speak`  | Text-to-speech: Aura REST and streaming WebSocket, Flux TTS REST and streaming WebSocket                                                   |
+| `read`   | Text Intelligence (`/v1/read`): sentiment, summary, topics, intents                                                                        |
 | `manage` | Management API: projects, keys, members, usage, billing, models, and Voice Agent REST configurations, variables, and Think-model discovery |
-| `agent`  | Voice Agent WebSocket client (`/v1/agent/converse`)                                      |
+| `agent`  | Voice Agent WebSocket client (`/v1/agent/converse`)                                                                                        |
 
 Token-based authentication (`auth`) is always available. The `listen`,
 `speak`, and `agent` features pull in WebSocket dependencies; `read` and

@@ -83,6 +83,10 @@ pub struct Configurations {
 }
 
 /// A Voice Agent template variable.
+///
+/// `Debug` redacts `value` when `is_sensitive` is true; `Serialize` writes the
+/// value as received, so do not log the serialized form of a sensitive
+/// variable.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct AgentVariable {
