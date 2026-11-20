@@ -90,6 +90,9 @@ pub enum Deployment {
     SelfHosted,
 
     /// A server-supported deployment value not yet represented by this SDK.
+    ///
+    /// `Other` compares by its string, so `Other("self-hosted".into())` is not equal to
+    /// [`Deployment::SelfHosted`] even though both serialize to the same query value.
     Other(String),
 }
 
@@ -110,6 +113,9 @@ pub enum Endpoint {
     Agent,
 
     /// A server-supported endpoint value not yet represented by this SDK.
+    ///
+    /// `Other` compares by its string, so `Other("listen".into())` is not equal to
+    /// [`Endpoint::Listen`] even though both serialize to the same query value.
     Other(String),
 }
 

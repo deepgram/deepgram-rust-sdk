@@ -12,6 +12,9 @@ pub enum Status {
     Expired,
 
     /// A server-supported status value not yet represented by this SDK.
+    ///
+    /// `Other` compares by its string, so `Other("active".into())` is not equal to
+    /// [`Status::Active`] even though both serialize to the same query value.
     Other(String),
 }
 

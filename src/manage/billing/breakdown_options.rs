@@ -39,6 +39,9 @@ pub enum Grouping {
     Tags,
 
     /// A server-supported grouping dimension not yet represented by this SDK.
+    ///
+    /// `Other` compares by its string, so `Other("line_item".into())` is not equal to
+    /// [`Grouping::LineItem`] even though both serialize to the same query value.
     Other(String),
 }
 

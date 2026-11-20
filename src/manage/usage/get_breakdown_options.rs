@@ -86,6 +86,9 @@ pub enum Grouping {
     Deployment,
 
     /// A server-supported grouping dimension not yet represented by this SDK.
+    ///
+    /// `Other` compares by its string, so `Other("feature_set".into())` is not equal to
+    /// [`Grouping::FeatureSet`] even though both serialize to the same query value.
     Other(String),
 }
 
