@@ -77,9 +77,11 @@ impl Invitations<'_> {
     }
 
     fn invite_url(&self, project_id: &str, email: &str) -> crate::Result<Url> {
-        let email = url::form_urlencoded::byte_serialize(email.as_bytes()).collect::<String>();
-        self.0
-            .api_url(&format!("v1/projects/{project_id}/invites/{email}"))
+        let mut url = self.invites_url(project_id)?;
+        url.path_segments_mut()
+            .map_err(|_| crate::DeepgramError::InvalidUrl)?
+            .push(email);
+        Ok(url)
     }
 }
 
@@ -116,7 +118,14 @@ mod tests {
                 .invite_url("proj", "person+test@example.com")
                 .unwrap()
                 .as_str(),
-            "https://api.deepgram.com/v1/projects/proj/invites/person%2Btest%40example.com"
+            "https://api.deepgram.com/v1/projects/proj/invites/person+test@example.com"
+        );
+        assert_eq!(
+            dg.invitations()
+                .invite_url("proj", "person/test@example.com")
+                .unwrap()
+                .as_str(),
+            "https://api.deepgram.com/v1/projects/proj/invites/person%2Ftest@example.com"
         );
     }
 }

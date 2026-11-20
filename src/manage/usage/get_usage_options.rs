@@ -77,9 +77,8 @@ pub enum Method {
 }
 
 /// Deployment filter for Management API usage and billing requests.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
-#[serde(rename_all = "kebab-case")]
 pub enum Deployment {
     #[allow(missing_docs)]
     Hosted,
@@ -89,12 +88,14 @@ pub enum Deployment {
 
     #[allow(missing_docs)]
     SelfHosted,
+
+    /// A server-supported deployment value not yet represented by this SDK.
+    Other(String),
 }
 
 /// API endpoint filter for usage requests.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
-#[serde(rename_all = "lowercase")]
 pub enum Endpoint {
     #[allow(missing_docs)]
     Listen,
@@ -107,6 +108,9 @@ pub enum Endpoint {
 
     #[allow(missing_docs)]
     Agent,
+
+    /// A server-supported endpoint value not yet represented by this SDK.
+    Other(String),
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -921,6 +925,47 @@ impl AsRef<str> for Method {
     }
 }
 
+impl AsRef<str> for Deployment {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Hosted => "hosted",
+            Self::Beta => "beta",
+            Self::SelfHosted => "self-hosted",
+            Self::Other(value) => value,
+        }
+    }
+}
+
+impl Serialize for Deployment {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_ref())
+    }
+}
+
+impl AsRef<str> for Endpoint {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Listen => "listen",
+            Self::Read => "read",
+            Self::Speak => "speak",
+            Self::Agent => "agent",
+            Self::Other(value) => value,
+        }
+    }
+}
+
+impl Serialize for Endpoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_ref())
+    }
+}
+
 #[cfg(test)]
 mod serialize_options_tests {
     use std::collections::BTreeSet;
@@ -941,6 +986,19 @@ mod serialize_options_tests {
         assert_eq!(
             options.urlencoded().unwrap(),
             "callback=true&custom_topic_mode=false&deployment=hosted&detect_entities=true&smart_format=true&version=false"
+        );
+    }
+
+    #[test]
+    fn serializes_server_values_not_yet_modeled_by_the_sdk() {
+        let options = Options::builder()
+            .deployment(Deployment::Other("on-premise".to_owned()))
+            .endpoint(Endpoint::Other("custom".to_owned()))
+            .build();
+
+        assert_eq!(
+            options.urlencoded().unwrap(),
+            "deployment=on-premise&endpoint=custom"
         );
     }
 

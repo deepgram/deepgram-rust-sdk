@@ -28,7 +28,7 @@ pub struct Options {
 }
 
 /// Used as a parameter for [`OptionsBuilder::status`].
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum Status {
     #[allow(missing_docs)]
@@ -36,6 +36,9 @@ pub enum Status {
 
     #[allow(missing_docs)]
     Failed,
+
+    /// A server-supported status value not yet represented by this SDK.
+    Other(String),
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -74,7 +77,7 @@ pub(crate) struct SerializableOptions<'a> {
     method: &'a Option<Method>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    status: Option<&'static str>,
+    status: Option<&'a str>,
 }
 
 impl Options {
@@ -258,11 +261,17 @@ impl<'a> From<&'a Options> for SerializableOptions<'a> {
             deployment,
             endpoint,
             method,
-            status: match status {
-                Some(Status::Succeeded) => Some("succeeded"),
-                Some(Status::Failed) => Some("failed"),
-                None => None,
-            },
+            status: status.as_ref().map(AsRef::as_ref),
+        }
+    }
+}
+
+impl AsRef<str> for Status {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::Other(value) => value,
         }
     }
 }
@@ -290,5 +299,14 @@ mod tests {
             options.urlencoded().unwrap(),
             "start=2026-01-01T00%3A00%3A00Z&end=2026-01-31T23%3A59%3A59Z&limit=25&page=2&accessor=accessor-id&request_id=request-id&deployment=hosted&endpoint=listen&method=streaming&status=succeeded"
         );
+    }
+
+    #[test]
+    fn serializes_server_statuses_not_yet_modeled_by_the_sdk() {
+        let options = Options::builder()
+            .status(Status::Other("partially_succeeded".to_owned()))
+            .build();
+
+        assert_eq!(options.urlencoded().unwrap(), "status=partially_succeeded");
     }
 }

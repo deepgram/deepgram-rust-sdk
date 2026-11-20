@@ -61,9 +61,8 @@ pub struct OptionsBuilder(Options);
 pub(crate) struct SerializableOptions<'a>(pub(crate) &'a Options);
 
 /// Dimension used to group a usage breakdown.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
-#[serde(rename_all = "snake_case")]
 pub enum Grouping {
     #[allow(missing_docs)]
     Accessor,
@@ -85,6 +84,33 @@ pub enum Grouping {
 
     #[allow(missing_docs)]
     Deployment,
+
+    /// A server-supported grouping dimension not yet represented by this SDK.
+    Other(String),
+}
+
+impl AsRef<str> for Grouping {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Accessor => "accessor",
+            Self::Endpoint => "endpoint",
+            Self::FeatureSet => "feature_set",
+            Self::Models => "models",
+            Self::Method => "method",
+            Self::Tags => "tags",
+            Self::Deployment => "deployment",
+            Self::Other(value) => value,
+        }
+    }
+}
+
+impl Serialize for Grouping {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_ref())
+    }
 }
 
 macro_rules! boolean_filter {
@@ -400,6 +426,15 @@ mod tests {
             options.urlencoded().unwrap(),
             "grouping=feature_set&tag=production&tag=billing&detect_entities=true&summarize=false"
         );
+    }
+
+    #[test]
+    fn serializes_server_groupings_not_yet_modeled_by_the_sdk() {
+        let options = Options::builder()
+            .grouping(Grouping::Other("future_dimension".to_owned()))
+            .build();
+
+        assert_eq!(options.urlencoded().unwrap(), "grouping=future_dimension");
     }
 
     #[test]

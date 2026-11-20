@@ -163,11 +163,11 @@ async fn every_management_request_uses_the_configured_base_url() {
 
     let _ = dg
         .invitations()
-        .delete("proj", "developer@example.com")
+        .delete("proj", "person+test@example.com")
         .await;
     assert_captured(
         &mut rx,
-        "DELETE /v1/projects/proj/invites/developer@example.com",
+        "DELETE /v1/projects/proj/invites/person+test@example.com",
     )
     .await;
 
