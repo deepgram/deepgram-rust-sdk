@@ -4,6 +4,8 @@
 //!
 //! [api]: https://developers.deepgram.com/docs/voice-agent/reusable-agent-configurations
 
+use std::fmt;
+
 use serde::Serialize;
 use serde_json::Value;
 use url::Url;
@@ -23,12 +25,28 @@ impl<'a> From<&'a Deepgram> for Variables<'a> {
 }
 
 /// Request options for creating a Voice Agent template variable.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct CreateOptions {
     key: String,
     value: Value,
     api_version: Option<u32>,
     is_sensitive: Option<bool>,
+}
+
+impl fmt::Debug for CreateOptions {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut debug = formatter.debug_struct("CreateOptions");
+        debug
+            .field("key", &self.key)
+            .field("api_version", &self.api_version)
+            .field("is_sensitive", &self.is_sensitive);
+        if self.is_sensitive == Some(true) {
+            debug.field("value", &"<redacted>");
+        } else {
+            debug.field("value", &self.value);
+        }
+        debug.finish()
+    }
 }
 
 /// Builds [`CreateOptions`].
@@ -86,6 +104,11 @@ impl CreateOptionsBuilder {
     }
 
     /// Mark whether the variable value contains sensitive data.
+    ///
+    /// The Voice Agent REST API currently rejects `true` in production and
+    /// staging with `400 BAD_REQUEST: Sensitive template variables are not
+    /// supported yet`. Do not enable this option until the service supports
+    /// sensitive template variables.
     pub fn is_sensitive(mut self, is_sensitive: bool) -> Self {
         self.0.is_sensitive = Some(is_sensitive);
         self
@@ -207,6 +230,17 @@ mod tests {
 
         let update = UpdateOptions::new(json!(false));
         assert_eq!(update.json().unwrap(), r#"{"value":false}"#);
+    }
+
+    #[test]
+    fn debug_redacts_sensitive_creation_values() {
+        let options = CreateOptions::builder("DG_SECRET", json!("do-not-log-me"))
+            .is_sensitive(true)
+            .build();
+
+        let debug = format!("{options:?}");
+        assert!(debug.contains("<redacted>"));
+        assert!(!debug.contains("do-not-log-me"));
     }
 
     #[test]
