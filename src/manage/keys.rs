@@ -15,6 +15,7 @@ use crate::{
 use response::Message;
 use url::Url;
 
+pub mod list_options;
 pub mod options;
 pub mod response;
 
@@ -75,9 +76,25 @@ impl Keys<'_> {
     /// # }
     /// ```
     pub async fn list(&self, project_id: &str) -> crate::Result<MembersAndApiKeys> {
+        self.list_with_options(project_id, &list_options::Options::default())
+            .await
+    }
+
+    /// Get keys for the specified project with a status filter.
+    pub async fn list_with_options(
+        &self,
+        project_id: &str,
+        options: &list_options::Options,
+    ) -> crate::Result<MembersAndApiKeys> {
         let url = self.keys_url(project_id)?;
 
-        send_and_translate_response(self.0.client.get(url)).await
+        send_and_translate_response(
+            self.0
+                .client
+                .get(url)
+                .query(&list_options::SerializableOptions::from(options)),
+        )
+        .await
     }
 
     /// Get details of the specified key.

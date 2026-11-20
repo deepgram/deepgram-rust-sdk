@@ -8,8 +8,10 @@ use url::Url;
 
 use crate::{send_and_translate_response, Deepgram};
 
-use response::Message;
+use options::{Options, SerializableOptions};
+use response::{Invites, Message};
 
+pub mod options;
 pub mod response;
 
 /// Manage the invitations to a Deepgram Project.
@@ -37,37 +39,41 @@ impl<'a> From<&'a Deepgram> for Invitations<'a> {
 }
 
 impl Invitations<'_> {
-    /// Remove the authenticated account from the specified project.
+    /// List the outstanding invitations for a project.
     ///
     /// See the [Deepgram API Reference][api] for more info.
     ///
-    /// [api]: https://developers.deepgram.com/api-reference/#invitations
+    /// [api]: https://developers.deepgram.com/reference/manage/invites/list
+    pub async fn list(&self, project_id: &str) -> crate::Result<Invites> {
+        send_and_translate_response(self.0.client.get(self.invites_url(project_id)?)).await
+    }
+
+    /// Invite an email address to a project.
     ///
-    /// # Examples
+    /// See the [Deepgram API Reference][api] for more info.
     ///
-    /// ```no_run
-    /// # use std::env;
-    /// #
-    /// # use deepgram::{Deepgram, DeepgramError};
-    /// #
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), DeepgramError> {
-    /// # let deepgram_api_key =
-    /// #     env::var("DEEPGRAM_API_KEY").expect("DEEPGRAM_API_KEY environmental variable");
-    /// #
-    /// # let project_id =
-    /// #     env::var("DEEPGRAM_PROJECT_ID").expect("DEEPGRAM_PROJECT_ID environmental variable");
-    /// #
-    /// let dg_client = Deepgram::new(&deepgram_api_key)?;
+    /// [api]: https://developers.deepgram.com/reference/manage/invites/create
+    pub async fn create(&self, project_id: &str, options: &Options) -> crate::Result<Message> {
+        let request = self
+            .0
+            .client
+            .post(self.invites_url(project_id)?)
+            .json(&SerializableOptions::from(options));
+
+        send_and_translate_response(request).await
+    }
+
+    /// Revoke a project invitation.
     ///
-    /// dg_client
-    ///     .invitations()
-    ///     .leave_project(&project_id)
-    ///     .await?;
-    /// #
-    /// # Ok(())
-    /// # }
-    /// ```
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/invites/delete
+    pub async fn delete(&self, project_id: &str, email: &str) -> crate::Result<Message> {
+        send_and_translate_response(self.0.client.delete(self.invite_url(project_id, email)?)).await
+    }
+
+    /// Deprecated alias for [`Projects::leave`](crate::manage::projects::Projects::leave).
+    #[deprecated(note = "use `Deepgram::projects().leave(project_id)` instead")]
     pub async fn leave_project(&self, project_id: &str) -> crate::Result<Message> {
         let url = self.leave_url(project_id)?;
 
@@ -76,6 +82,18 @@ impl Invitations<'_> {
 
     fn leave_url(&self, project_id: &str) -> crate::Result<Url> {
         self.0.api_url(&format!("v1/projects/{project_id}/leave"))
+    }
+
+    fn invites_url(&self, project_id: &str) -> crate::Result<Url> {
+        self.0.api_url(&format!("v1/projects/{project_id}/invites"))
+    }
+
+    fn invite_url(&self, project_id: &str, email: &str) -> crate::Result<Url> {
+        let mut url = self.invites_url(project_id)?;
+        url.path_segments_mut()
+            .map_err(|_| crate::DeepgramError::InvalidUrl)?
+            .push(email);
+        Ok(url)
     }
 }
 
@@ -100,6 +118,26 @@ mod tests {
         assert_eq!(
             dg.invitations().leave_url("proj").unwrap().as_str(),
             "http://deepgram.internal/v1/projects/proj/leave"
+        );
+    }
+
+    #[test]
+    fn invitation_email_is_percent_encoded_in_its_path_segment() {
+        let dg = Deepgram::new("token").unwrap();
+
+        assert_eq!(
+            dg.invitations()
+                .invite_url("proj", "person+test@example.com")
+                .unwrap()
+                .as_str(),
+            "https://api.deepgram.com/v1/projects/proj/invites/person+test@example.com"
+        );
+        assert_eq!(
+            dg.invitations()
+                .invite_url("proj", "person/test@example.com")
+                .unwrap()
+                .as_str(),
+            "https://api.deepgram.com/v1/projects/proj/invites/person%2Ftest@example.com"
         );
     }
 }

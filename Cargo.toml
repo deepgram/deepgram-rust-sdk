@@ -163,6 +163,11 @@ path = "examples/manage/models.rs"
 required-features = ["manage"]
 
 [[example]]
+name = "invitations"
+path = "examples/manage/invitations.rs"
+required-features = ["manage"]
+
+[[example]]
 name = "microphone_stream"
 path = "examples/transcription/websocket/microphone_stream.rs"
 required-features = ["listen"]

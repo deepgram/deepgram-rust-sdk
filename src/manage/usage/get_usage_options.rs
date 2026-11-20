@@ -32,11 +32,39 @@ pub struct Options {
     redact: Option<bool>,
     alternatives: Option<bool>,
     numerals: Option<bool>,
+    callback_method: Option<bool>,
+    callback: Option<bool>,
+    channels: Option<bool>,
+    custom_intent_mode: Option<bool>,
+    custom_intent: Option<bool>,
+    custom_topic_mode: Option<bool>,
+    custom_topic: Option<bool>,
+    deployment: Option<Deployment>,
+    detect_entities: Option<bool>,
+    detect_language: Option<bool>,
+    dictation: Option<bool>,
+    encoding: Option<bool>,
+    endpoint: Option<Endpoint>,
+    extra: Option<bool>,
+    filler_words: Option<bool>,
+    intents: Option<bool>,
+    keyterm: Option<bool>,
+    language: Option<bool>,
+    measurements: Option<bool>,
+    paragraphs: Option<bool>,
+    sample_rate: Option<bool>,
+    sentiment: Option<bool>,
+    smart_format: Option<bool>,
+    summarize: Option<bool>,
+    topics: Option<bool>,
+    utt_split: Option<bool>,
+    version: Option<bool>,
 }
 
 /// Used as a parameter for [`OptionsBuilder::method`].
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Serialize)]
 #[non_exhaustive]
+#[serde(rename_all = "lowercase")]
 pub enum Method {
     #[allow(missing_docs)]
     Sync,
@@ -46,6 +74,49 @@ pub enum Method {
 
     #[allow(missing_docs)]
     Streaming,
+}
+
+/// Deployment filter for Management API usage and billing requests.
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[non_exhaustive]
+pub enum Deployment {
+    #[allow(missing_docs)]
+    Hosted,
+
+    #[allow(missing_docs)]
+    Beta,
+
+    #[allow(missing_docs)]
+    SelfHosted,
+
+    /// A server-supported deployment value not yet represented by this SDK.
+    ///
+    /// `Other` compares by its string, so `Other("self-hosted".into())` is not equal to
+    /// [`Deployment::SelfHosted`] even though both serialize to the same query value.
+    Other(String),
+}
+
+/// API endpoint filter for usage requests.
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[non_exhaustive]
+pub enum Endpoint {
+    #[allow(missing_docs)]
+    Listen,
+
+    #[allow(missing_docs)]
+    Read,
+
+    #[allow(missing_docs)]
+    Speak,
+
+    #[allow(missing_docs)]
+    Agent,
+
+    /// A server-supported endpoint value not yet represented by this SDK.
+    ///
+    /// `Other` compares by its string, so `Other("listen".into())` is not equal to
+    /// [`Endpoint::Listen`] even though both serialize to the same query value.
+    Other(String),
 }
 
 /// Builds an [`Options`] object using [the Builder pattern][builder].
@@ -104,6 +175,33 @@ impl OptionsBuilder {
             redact: None,
             alternatives: None,
             numerals: None,
+            callback_method: None,
+            callback: None,
+            channels: None,
+            custom_intent_mode: None,
+            custom_intent: None,
+            custom_topic_mode: None,
+            custom_topic: None,
+            deployment: None,
+            detect_entities: None,
+            detect_language: None,
+            dictation: None,
+            encoding: None,
+            endpoint: None,
+            extra: None,
+            filler_words: None,
+            intents: None,
+            keyterm: None,
+            language: None,
+            measurements: None,
+            paragraphs: None,
+            sample_rate: None,
+            sentiment: None,
+            smart_format: None,
+            summarize: None,
+            topics: None,
+            utt_split: None,
+            version: None,
         })
     }
 
@@ -468,6 +566,168 @@ impl OptionsBuilder {
         self
     }
 
+    /// Filter by callback method use.
+    pub fn callback_method(mut self, value: bool) -> Self {
+        self.0.callback_method = Some(value);
+        self
+    }
+
+    /// Filter by callback use.
+    pub fn callback(mut self, value: bool) -> Self {
+        self.0.callback = Some(value);
+        self
+    }
+
+    /// Filter by channel-count configuration.
+    pub fn channels(mut self, value: bool) -> Self {
+        self.0.channels = Some(value);
+        self
+    }
+
+    /// Filter by custom intent mode use.
+    pub fn custom_intent_mode(mut self, value: bool) -> Self {
+        self.0.custom_intent_mode = Some(value);
+        self
+    }
+
+    /// Filter by custom intent use.
+    pub fn custom_intent(mut self, value: bool) -> Self {
+        self.0.custom_intent = Some(value);
+        self
+    }
+
+    /// Filter by custom topic mode use.
+    pub fn custom_topic_mode(mut self, value: bool) -> Self {
+        self.0.custom_topic_mode = Some(value);
+        self
+    }
+
+    /// Filter by custom topic use.
+    pub fn custom_topic(mut self, value: bool) -> Self {
+        self.0.custom_topic = Some(value);
+        self
+    }
+
+    /// Filter by deployment.
+    pub fn deployment(mut self, value: Deployment) -> Self {
+        self.0.deployment = Some(value);
+        self
+    }
+
+    /// Filter by named-entity recognition use.
+    pub fn detect_entities(mut self, value: bool) -> Self {
+        self.0.detect_entities = Some(value);
+        self
+    }
+
+    /// Filter by language detection use.
+    pub fn detect_language(mut self, value: bool) -> Self {
+        self.0.detect_language = Some(value);
+        self
+    }
+
+    /// Filter by dictation use.
+    pub fn dictation(mut self, value: bool) -> Self {
+        self.0.dictation = Some(value);
+        self
+    }
+
+    /// Filter by encoding use.
+    pub fn encoding(mut self, value: bool) -> Self {
+        self.0.encoding = Some(value);
+        self
+    }
+
+    /// Filter by API endpoint.
+    pub fn endpoint(mut self, value: Endpoint) -> Self {
+        self.0.endpoint = Some(value);
+        self
+    }
+
+    /// Filter by extra metadata use.
+    pub fn extra(mut self, value: bool) -> Self {
+        self.0.extra = Some(value);
+        self
+    }
+
+    /// Filter by filler-word reporting use.
+    pub fn filler_words(mut self, value: bool) -> Self {
+        self.0.filler_words = Some(value);
+        self
+    }
+
+    /// Filter by intent recognition use.
+    pub fn intents(mut self, value: bool) -> Self {
+        self.0.intents = Some(value);
+        self
+    }
+
+    /// Filter by keyterm use.
+    pub fn keyterm(mut self, value: bool) -> Self {
+        self.0.keyterm = Some(value);
+        self
+    }
+
+    /// Filter by explicit language use.
+    pub fn language(mut self, value: bool) -> Self {
+        self.0.language = Some(value);
+        self
+    }
+
+    /// Filter by measurement formatting use.
+    pub fn measurements(mut self, value: bool) -> Self {
+        self.0.measurements = Some(value);
+        self
+    }
+
+    /// Filter by paragraph formatting use.
+    pub fn paragraphs(mut self, value: bool) -> Self {
+        self.0.paragraphs = Some(value);
+        self
+    }
+
+    /// Filter by sample-rate use.
+    pub fn sample_rate(mut self, value: bool) -> Self {
+        self.0.sample_rate = Some(value);
+        self
+    }
+
+    /// Filter by sentiment analysis use.
+    pub fn sentiment(mut self, value: bool) -> Self {
+        self.0.sentiment = Some(value);
+        self
+    }
+
+    /// Filter by smart formatting use.
+    pub fn smart_format(mut self, value: bool) -> Self {
+        self.0.smart_format = Some(value);
+        self
+    }
+
+    /// Filter by summarization use.
+    pub fn summarize(mut self, value: bool) -> Self {
+        self.0.summarize = Some(value);
+        self
+    }
+
+    /// Filter by topic detection use.
+    pub fn topics(mut self, value: bool) -> Self {
+        self.0.topics = Some(value);
+        self
+    }
+
+    /// Filter by utterance splitting use.
+    pub fn utt_split(mut self, value: bool) -> Self {
+        self.0.utt_split = Some(value);
+        self
+    }
+
+    /// Filter by model version use.
+    pub fn version(mut self, value: bool) -> Self {
+        self.0.version = Some(value);
+        self
+    }
+
     /// Finish building the [`Options`] object.
     pub fn build(self) -> Options {
         self.0
@@ -514,6 +774,33 @@ impl Serialize for SerializableOptions<'_> {
             redact,
             alternatives,
             numerals,
+            callback_method,
+            callback,
+            channels,
+            custom_intent_mode,
+            custom_intent,
+            custom_topic_mode,
+            custom_topic,
+            deployment,
+            detect_entities,
+            detect_language,
+            dictation,
+            encoding,
+            endpoint,
+            extra,
+            filler_words,
+            intents,
+            keyterm,
+            language,
+            measurements,
+            paragraphs,
+            sample_rate,
+            sentiment,
+            smart_format,
+            summarize,
+            topics,
+            utt_split,
+            version,
         } = self.0;
 
         if let Some(start) = start {
@@ -564,10 +851,6 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("replace", replace))?;
         }
 
-        if let Some(replace) = replace {
-            seq.serialize_element(&("replace", replace))?;
-        }
-
         if let Some(profanity_filter) = profanity_filter {
             seq.serialize_element(&("profanity_filter", profanity_filter))?;
         }
@@ -596,6 +879,42 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("numerals", numerals))?;
         }
 
+        macro_rules! option {
+            ($name:literal, $value:expr) => {
+                if let Some(value) = $value {
+                    seq.serialize_element(&($name, value))?;
+                }
+            };
+        }
+
+        option!("callback_method", callback_method);
+        option!("callback", callback);
+        option!("channels", channels);
+        option!("custom_intent_mode", custom_intent_mode);
+        option!("custom_intent", custom_intent);
+        option!("custom_topic_mode", custom_topic_mode);
+        option!("custom_topic", custom_topic);
+        option!("deployment", deployment);
+        option!("detect_entities", detect_entities);
+        option!("detect_language", detect_language);
+        option!("dictation", dictation);
+        option!("encoding", encoding);
+        option!("endpoint", endpoint);
+        option!("extra", extra);
+        option!("filler_words", filler_words);
+        option!("intents", intents);
+        option!("keyterm", keyterm);
+        option!("language", language);
+        option!("measurements", measurements);
+        option!("paragraphs", paragraphs);
+        option!("sample_rate", sample_rate);
+        option!("sentiment", sentiment);
+        option!("smart_format", smart_format);
+        option!("summarize", summarize);
+        option!("topics", topics);
+        option!("utt_split", utt_split);
+        option!("version", version);
+
         seq.end()
     }
 }
@@ -612,6 +931,146 @@ impl AsRef<str> for Method {
     }
 }
 
+impl AsRef<str> for Deployment {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Hosted => "hosted",
+            Self::Beta => "beta",
+            Self::SelfHosted => "self-hosted",
+            Self::Other(value) => value,
+        }
+    }
+}
+
+impl Serialize for Deployment {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_ref())
+    }
+}
+
+impl AsRef<str> for Endpoint {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Listen => "listen",
+            Self::Read => "read",
+            Self::Speak => "speak",
+            Self::Agent => "agent",
+            Self::Other(value) => value,
+        }
+    }
+}
+
+impl Serialize for Endpoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_ref())
+    }
+}
+
+#[cfg(test)]
 mod serialize_options_tests {
-    // TODO
+    use std::collections::BTreeSet;
+
+    use super::{Deployment, Endpoint, Options};
+
+    #[test]
+    fn serializes_current_documented_filters() {
+        let options = Options::builder()
+            .deployment(Deployment::Hosted)
+            .detect_entities(true)
+            .callback(true)
+            .custom_topic_mode(false)
+            .smart_format(true)
+            .version(false)
+            .build();
+
+        assert_eq!(
+            options.urlencoded().unwrap(),
+            "callback=true&custom_topic_mode=false&deployment=hosted&detect_entities=true&smart_format=true&version=false"
+        );
+    }
+
+    #[test]
+    fn serializes_server_values_not_yet_modeled_by_the_sdk() {
+        let options = Options::builder()
+            .deployment(Deployment::Other("on-premise".to_owned()))
+            .endpoint(Endpoint::Other("custom".to_owned()))
+            .build();
+
+        assert_eq!(
+            options.urlencoded().unwrap(),
+            "deployment=on-premise&endpoint=custom"
+        );
+    }
+
+    #[test]
+    fn serializes_every_added_usage_filter() {
+        let options = Options::builder()
+            .callback_method(true)
+            .callback(false)
+            .channels(true)
+            .custom_intent_mode(false)
+            .custom_intent(true)
+            .custom_topic_mode(false)
+            .custom_topic(true)
+            .deployment(Deployment::Hosted)
+            .detect_entities(true)
+            .detect_language(false)
+            .dictation(true)
+            .encoding(false)
+            .endpoint(Endpoint::Listen)
+            .extra(true)
+            .filler_words(false)
+            .intents(true)
+            .keyterm(false)
+            .language(true)
+            .measurements(false)
+            .paragraphs(true)
+            .sample_rate(false)
+            .sentiment(true)
+            .smart_format(false)
+            .summarize(true)
+            .topics(false)
+            .utt_split(true)
+            .version(false)
+            .build();
+        let query = options.urlencoded().unwrap();
+        let actual: BTreeSet<_> = query.split('&').collect();
+        let expected = BTreeSet::from([
+            "callback_method=true",
+            "callback=false",
+            "channels=true",
+            "custom_intent_mode=false",
+            "custom_intent=true",
+            "custom_topic_mode=false",
+            "custom_topic=true",
+            "deployment=hosted",
+            "detect_entities=true",
+            "detect_language=false",
+            "dictation=true",
+            "encoding=false",
+            "endpoint=listen",
+            "extra=true",
+            "filler_words=false",
+            "intents=true",
+            "keyterm=false",
+            "language=true",
+            "measurements=false",
+            "paragraphs=true",
+            "sample_rate=false",
+            "sentiment=true",
+            "smart_format=false",
+            "summarize=true",
+            "topics=false",
+            "utt_split=true",
+            "version=false",
+        ]);
+
+        assert_eq!(actual, expected);
+    }
 }

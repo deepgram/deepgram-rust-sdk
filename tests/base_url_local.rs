@@ -100,7 +100,7 @@ async fn assert_captured(rx: &mut UnboundedReceiver<String>, expected: &str) {
 #[cfg(feature = "manage")]
 #[tokio::test]
 async fn every_management_request_uses_the_configured_base_url() {
-    use deepgram::manage::{keys, projects, usage};
+    use deepgram::manage::{billing, invitations, keys, projects, usage};
 
     let (addr, mut rx) = capture_server().await;
     let base_url = format!("http://{addr}");
@@ -121,6 +121,9 @@ async fn every_management_request_uses_the_configured_base_url() {
 
     let _ = dg.projects().delete("proj").await;
     assert_captured(&mut rx, "DELETE /v1/projects/proj").await;
+
+    let _ = dg.projects().leave("proj").await;
+    assert_captured(&mut rx, "DELETE /v1/projects/proj/leave").await;
 
     // keys
     let _ = dg.keys().list("proj").await;
@@ -151,8 +154,32 @@ async fn every_management_request_uses_the_configured_base_url() {
     assert_captured(&mut rx, "PUT /v1/projects/proj/members/mem/scopes").await;
 
     // invitations
-    let _ = dg.invitations().leave_project("proj").await;
-    assert_captured(&mut rx, "DELETE /v1/projects/proj/leave").await;
+    let _ = dg.invitations().list("proj").await;
+    assert_captured(&mut rx, "GET /v1/projects/proj/invites").await;
+
+    let options = invitations::options::Options::builder("developer@example.com", "member").build();
+    let _ = dg.invitations().create("proj", &options).await;
+    assert_captured(&mut rx, "POST /v1/projects/proj/invites").await;
+
+    let _ = dg
+        .invitations()
+        .delete("proj", "person+test@example.com")
+        .await;
+    assert_captured(
+        &mut rx,
+        "DELETE /v1/projects/proj/invites/person+test@example.com",
+    )
+    .await;
+
+    let _ = dg
+        .invitations()
+        .delete("proj", "person/test@example.com")
+        .await;
+    assert_captured(
+        &mut rx,
+        "DELETE /v1/projects/proj/invites/person%2Ftest@example.com",
+    )
+    .await;
 
     // billing
     let _ = dg.billing().list_balance("proj").await;
@@ -160,6 +187,18 @@ async fn every_management_request_uses_the_configured_base_url() {
 
     let _ = dg.billing().get_balance("proj", "bal").await;
     assert_captured(&mut rx, "GET /v1/projects/proj/balances/bal").await;
+
+    let options = billing::breakdown_options::Options::builder().build();
+    let _ = dg.billing().get_breakdown("proj", &options).await;
+    assert_captured(&mut rx, "GET /v1/projects/proj/billing/breakdown").await;
+
+    let options = billing::fields_options::Options::builder().build();
+    let _ = dg.billing().get_fields("proj", &options).await;
+    assert_captured(&mut rx, "GET /v1/projects/proj/billing/fields").await;
+
+    let options = billing::purchases_options::Options::builder().build();
+    let _ = dg.billing().list_purchases("proj", &options).await;
+    assert_captured(&mut rx, "GET /v1/projects/proj/purchases").await;
 
     // usage
     let options = usage::list_requests_options::Options::builder().build();
@@ -176,6 +215,10 @@ async fn every_management_request_uses_the_configured_base_url() {
     let options = usage::get_fields_options::Options::builder().build();
     let _ = dg.usage().get_fields("proj", &options).await;
     assert_captured(&mut rx, "GET /v1/projects/proj/usage/fields").await;
+
+    let options = usage::get_breakdown_options::Options::builder().build();
+    let _ = dg.usage().get_breakdown("proj", &options).await;
+    assert_captured(&mut rx, "GET /v1/projects/proj/usage/breakdown").await;
 }
 
 /// A base URL that carries a path prefix keeps it, and query parameters are
@@ -183,7 +226,7 @@ async fn every_management_request_uses_the_configured_base_url() {
 #[cfg(feature = "manage")]
 #[tokio::test]
 async fn base_url_path_prefix_and_query_parameters_are_preserved() {
-    use deepgram::manage::usage;
+    use deepgram::manage::{keys, projects, usage};
 
     let (addr, mut rx) = capture_server().await;
     let base_url = format!("http://{addr}/gateway/");
@@ -201,6 +244,19 @@ async fn base_url_path_prefix_and_query_parameters_are_preserved() {
         "GET /gateway/v1/projects/proj/requests?start=2024-01-01",
     )
     .await;
+
+    let options = projects::get_options::Options::builder()
+        .limit(25)
+        .page(2)
+        .build();
+    let _ = dg.projects().get_with_options("proj", &options).await;
+    assert_captured(&mut rx, "GET /gateway/v1/projects/proj?limit=25&page=2").await;
+
+    let options = keys::list_options::Options::builder()
+        .status(keys::list_options::Status::Active)
+        .build();
+    let _ = dg.keys().list_with_options("proj", &options).await;
+    assert_captured(&mut rx, "GET /gateway/v1/projects/proj/keys?status=active").await;
 }
 
 /// `POST /v1/auth/grant` goes to the configured base URL too, with and
