@@ -452,13 +452,6 @@ impl Deepgram {
     /// elsewhere, build a second client with [`Deepgram::new`] and make
     /// those calls on that one.
     ///
-    /// With the `manage` feature, this does not change the
-    /// `https://agent.deepgram.com` host used by
-    /// [`Deepgram::voice_agent`] Think-model discovery. That request uses this
-    /// client's credential against the hosted Agent REST endpoint unless you
-    /// call [`Deepgram::with_agent_rest_url`]. Saved configurations and
-    /// template variables continue to use this ordinary API base URL.
-    ///
     /// A base URL that carries a path prefix must end in a slash to keep it.
     /// Endpoint paths are joined on by RFC 3986 relative resolution, which
     /// replaces the last segment of a path that does not end in one: with
@@ -497,6 +490,10 @@ impl Deepgram {
     ///
     /// Errors under the same conditions as [`reqwest::Client::new`], or if `base_url`
     /// is not a valid URL.
+    #[cfg_attr(
+        feature = "manage",
+        doc = "\n\nWith the `manage` feature, this does not change the `https://agent.deepgram.com` host used by [`Deepgram::voice_agent`] Think-model discovery. That request uses this client's credential against the hosted Agent REST endpoint unless you call [`Deepgram::with_agent_rest_url`]. Saved configurations and template variables continue to use this ordinary API base URL."
+    )]
     pub fn with_base_url<U>(base_url: U) -> Result<Self>
     where
         U: TryInto<Url>,
@@ -536,13 +533,6 @@ impl Deepgram {
     /// while your audio goes elsewhere, build a second client with
     /// [`Deepgram::new`] and make those calls on that one.
     ///
-    /// With the `manage` feature, this does not change the
-    /// `https://agent.deepgram.com` host used by
-    /// [`Deepgram::voice_agent`] Think-model discovery. That request carries
-    /// `api_key` to the hosted Agent REST endpoint unless you call
-    /// [`Deepgram::with_agent_rest_url`]. Saved configurations and template
-    /// variables continue to use this ordinary API base URL.
-    ///
     /// A base URL that carries a path prefix must end in a slash to keep it.
     /// Endpoint paths are joined on by RFC 3986 relative resolution, which
     /// replaces the last segment of a path that does not end in one: with
@@ -576,6 +566,10 @@ impl Deepgram {
     ///
     /// Errors under the same conditions as [`reqwest::ClientBuilder::build`], or if `base_url`
     /// is not a valid URL.
+    #[cfg_attr(
+        feature = "manage",
+        doc = "\n\nWith the `manage` feature, this does not change the `https://agent.deepgram.com` host used by [`Deepgram::voice_agent`] Think-model discovery. That request carries `api_key` to the hosted Agent REST endpoint unless you call [`Deepgram::with_agent_rest_url`]. Saved configurations and template variables continue to use this ordinary API base URL."
+    )]
     pub fn with_base_url_and_api_key<U, K>(base_url: U, api_key: K) -> Result<Self>
     where
         U: TryInto<Url>,
@@ -605,12 +599,10 @@ impl Deepgram {
     /// segment of a path that does not end in one, so without the slash the
     /// prefix is silently dropped.
     ///
-    /// With the `manage` feature, this does not change the
-    /// `https://agent.deepgram.com` host used by
-    /// [`Deepgram::voice_agent`] Think-model discovery. That request carries
-    /// `temp_token` to the hosted Agent REST endpoint unless you call
-    /// [`Deepgram::with_agent_rest_url`]. Saved configurations and template
-    /// variables continue to use this ordinary API base URL.
+    #[cfg_attr(
+        feature = "manage",
+        doc = "\n\nWith the `manage` feature, this does not change the `https://agent.deepgram.com` host used by [`Deepgram::voice_agent`] Think-model discovery. That request carries `temp_token` to the hosted Agent REST endpoint unless you call [`Deepgram::with_agent_rest_url`]. Saved configurations and template variables continue to use this ordinary API base URL."
+    )]
     pub fn with_base_url_and_temp_token<U, T>(base_url: U, temp_token: T) -> Result<Self>
     where
         U: TryInto<Url>,
