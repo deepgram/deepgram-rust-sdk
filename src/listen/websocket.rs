@@ -641,10 +641,12 @@ async fn run_worker(
                         // Forward an abnormal peer close before ending the
                         // worker. Returning the error from this detached task
                         // would silently discard it instead.
-                        let _ = response_tx.start_send(Err(DeepgramError::WebsocketClose {
-                            code: closeframe.code,
-                            reason: closeframe.reason,
-                        }));
+                        if closeframe.code != 1000 {
+                            let _ = response_tx.start_send(Err(DeepgramError::WebsocketClose {
+                                code: closeframe.code,
+                                reason: closeframe.reason,
+                            }));
+                        }
                         is_open = false;
                         break;
                     }

@@ -139,6 +139,7 @@ impl StreamingTransportFactory for PingThenFailFactory {
 #[derive(Debug, Clone, Copy)]
 enum ScriptedTransportMode {
     ReadError,
+    NormalClose,
     AbnormalClose,
 }
 
@@ -161,6 +162,9 @@ impl Stream for ScriptedTransport {
             ScriptedTransportMode::ReadError => Err(DeepgramError::InvalidOptions(
                 "test custom transport read failure".to_string(),
             )),
+            ScriptedTransportMode::NormalClose => Ok(TransportMessage::Close(Some(
+                deepgram::transport::TransportCloseFrame::new(1000, "normal close"),
+            ))),
             ScriptedTransportMode::AbnormalClose => Ok(TransportMessage::Close(Some(
                 deepgram::transport::TransportCloseFrame::new(1011, "test close"),
             ))),
@@ -463,6 +467,27 @@ async fn factory_close_frame_reaches_receive_once_then_ends() {
     assert!(
         handle.receive().await.is_none(),
         "the close error is delivered exactly once"
+    );
+    assert!(handle.send_data(vec![0]).await.is_err());
+}
+
+#[tokio::test]
+async fn factory_normal_close_ends_listen_v1_without_an_error() {
+    let client = Deepgram::new("test-api-key")
+        .expect("valid client")
+        .with_streaming_transport_factory(Arc::new(ScriptedTransportFactory(
+            ScriptedTransportMode::NormalClose,
+        )));
+    let mut handle = client
+        .transcription()
+        .stream_request()
+        .handle()
+        .await
+        .expect("Listen V1 uses factory");
+
+    assert!(
+        handle.receive().await.is_none(),
+        "a normal 1000 close must end Listen V1 without an error item"
     );
     assert!(handle.send_data(vec![0]).await.is_err());
 }
