@@ -3,13 +3,16 @@
 use serde::Serialize;
 
 /// Status filter for project API keys.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum Status {
     /// Include active keys.
     Active,
     /// Include expired keys.
     Expired,
+
+    /// A server-supported status value not yet represented by this SDK.
+    Other(String),
 }
 
 /// Query options for listing project API keys.
@@ -23,9 +26,9 @@ pub struct Options {
 pub struct OptionsBuilder(Options);
 
 #[derive(Serialize)]
-pub(crate) struct SerializableOptions {
+pub(crate) struct SerializableOptions<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
-    status: Option<&'static str>,
+    status: Option<&'a str>,
 }
 
 impl Options {
@@ -53,14 +56,20 @@ impl OptionsBuilder {
     }
 }
 
-impl From<&Options> for SerializableOptions {
-    fn from(options: &Options) -> Self {
+impl<'a> From<&'a Options> for SerializableOptions<'a> {
+    fn from(options: &'a Options) -> Self {
         Self {
-            status: match options.status {
-                Some(Status::Active) => Some("active"),
-                Some(Status::Expired) => Some("expired"),
-                None => None,
-            },
+            status: options.status.as_ref().map(AsRef::as_ref),
+        }
+    }
+}
+
+impl AsRef<str> for Status {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Active => "active",
+            Self::Expired => "expired",
+            Self::Other(value) => value,
         }
     }
 }
@@ -74,5 +83,14 @@ mod tests {
         let options = Options::builder().status(Status::Expired).build();
 
         assert_eq!(options.urlencoded().unwrap(), "status=expired");
+    }
+
+    #[test]
+    fn serializes_server_statuses_not_yet_modeled_by_the_sdk() {
+        let options = Options::builder()
+            .status(Status::Other("pending_rotation".to_owned()))
+            .build();
+
+        assert_eq!(options.urlencoded().unwrap(), "status=pending_rotation");
     }
 }
