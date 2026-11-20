@@ -1,6 +1,6 @@
 schema_version: 1
 status: in_progress
-last_verified: 2026-11-16
+last_verified: 2026-11-19
 
 # This ledger defines the bounded comparison set for Rust SDK parity. Refresh
 # these revisions together before changing a parity status.
@@ -70,7 +70,8 @@ workstreams:
       - Settings, history, audio, listen, think, Think Live, speak, functions, and custom endpoints.
       - Every client control, server event, enum, default, and unknown-value path.
   runtime_capability_parity:
-    status: not_started
+    status: decision_recorded
+    evidence: docs/streaming-runtime-transport-parity.md
     scope:
       - Reconnection semantics.
       - Custom transport or transport-factory equivalent.
