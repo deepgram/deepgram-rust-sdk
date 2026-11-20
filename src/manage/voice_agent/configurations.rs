@@ -152,7 +152,7 @@ impl Configurations<'_> {
         project_id: &str,
         agent_id: &str,
         options: &UpdateOptions,
-    ) -> crate::Result<response::AgentConfiguration> {
+    ) -> crate::Result<()> {
         let request = self
             .0
             .client
@@ -160,7 +160,7 @@ impl Configurations<'_> {
             .json(&UpdateRequest {
                 metadata: &options.metadata,
             });
-        send_and_translate_response(request).await
+        send_and_check_response(request).await
     }
 
     /// Delete a saved Voice Agent configuration.

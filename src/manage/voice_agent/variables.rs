@@ -28,6 +28,7 @@ pub struct CreateOptions {
     key: String,
     value: Value,
     api_version: Option<u32>,
+    is_sensitive: Option<bool>,
 }
 
 /// Builds [`CreateOptions`].
@@ -46,6 +47,8 @@ struct CreateRequest<'a> {
     value: &'a Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     api_version: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    is_sensitive: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -60,6 +63,7 @@ impl CreateOptions {
             key: key.into(),
             value,
             api_version: None,
+            is_sensitive: None,
         })
     }
 
@@ -69,6 +73,7 @@ impl CreateOptions {
             key: &self.key,
             value: &self.value,
             api_version: self.api_version,
+            is_sensitive: self.is_sensitive,
         })
     }
 }
@@ -77,6 +82,12 @@ impl CreateOptionsBuilder {
     /// Set the Voice Agent variable API version.
     pub fn api_version(mut self, api_version: u32) -> Self {
         self.0.api_version = Some(api_version);
+        self
+    }
+
+    /// Mark whether the variable value contains sensitive data.
+    pub fn is_sensitive(mut self, is_sensitive: bool) -> Self {
+        self.0.is_sensitive = Some(is_sensitive);
         self
     }
 
@@ -118,6 +129,7 @@ impl Variables<'_> {
                 key: &options.key,
                 value: &options.value,
                 api_version: options.api_version,
+                is_sensitive: options.is_sensitive,
             });
         send_and_translate_response(request).await
     }
@@ -142,7 +154,7 @@ impl Variables<'_> {
         project_id: &str,
         variable_id: &str,
         options: &UpdateOptions,
-    ) -> crate::Result<response::AgentVariable> {
+    ) -> crate::Result<()> {
         let request = self
             .0
             .client
@@ -150,7 +162,7 @@ impl Variables<'_> {
             .json(&UpdateRequest {
                 value: &options.value,
             });
-        send_and_translate_response(request).await
+        send_and_check_response(request).await
     }
 
     /// Delete a Voice Agent template variable.
@@ -186,10 +198,11 @@ mod tests {
     fn serializes_json_values_verbatim() {
         let create = CreateOptions::builder("DG_CUSTOMER", json!({"tier": "gold"}))
             .api_version(1)
+            .is_sensitive(true)
             .build();
         assert_eq!(
             create.json().unwrap(),
-            r#"{"key":"DG_CUSTOMER","value":{"tier":"gold"},"api_version":1}"#
+            r#"{"key":"DG_CUSTOMER","value":{"tier":"gold"},"api_version":1,"is_sensitive":true}"#
         );
 
         let update = UpdateOptions::new(json!(false));

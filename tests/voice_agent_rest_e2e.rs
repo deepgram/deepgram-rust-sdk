@@ -1,17 +1,26 @@
-//! Read-only live checks for the Voice Agent REST management APIs.
+//! Live checks for the Voice Agent REST management APIs.
 
 #![cfg(feature = "manage")]
 
-use std::{env, io};
+use std::{
+    env, io,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
-use deepgram::{manage::voice_agent::variables::CreateOptions, Deepgram};
+use deepgram::{
+    manage::voice_agent::variables::{CreateOptions, UpdateOptions},
+    Deepgram,
+};
 use serde_json::json;
 
-/// Verifies Voice Agent REST discovery and read APIs without mutating project state.
+/// Verifies Voice Agent REST discovery and resource operations.
+///
+/// The test creates and deletes one uniquely named `DG_E2E_PROBE_*` template
+/// variable. It always attempts the deletion after creating the variable,
+/// including when validation fails.
 #[tokio::test]
 #[ignore = "requires DEEPGRAM_API_KEY and live Voice Agent REST API access"]
-async fn voice_agent_rest_read_operations_are_available() -> Result<(), Box<dyn std::error::Error>>
-{
+async fn voice_agent_rest_operations_are_available() -> Result<(), Box<dyn std::error::Error>> {
     let api_key = env::var("DEEPGRAM_API_KEY").map_err(|_| {
         io::Error::new(
             io::ErrorKind::NotFound,
@@ -40,11 +49,14 @@ async fn voice_agent_rest_read_operations_are_available() -> Result<(), Box<dyn 
     let variables = voice_agent.variables().list(&project_id).await?;
     let _ = (configurations.agents, variables.variables);
 
+    let nonce = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let variable_key = format!("DG_E2E_PROBE_{nonce:x}");
+    let expected_variable_key = variable_key.to_ascii_uppercase();
     let created = voice_agent
         .variables()
         .create(
             &project_id,
-            &CreateOptions::builder("DG_E2E_PROBE", json!({"source": "rust-sdk-e2e"}))
+            &CreateOptions::builder(&variable_key, json!({"source": "rust-sdk-e2e"}))
                 .api_version(1)
                 .build(),
         )
@@ -56,18 +68,45 @@ async fn voice_agent_rest_read_operations_are_available() -> Result<(), Box<dyn 
             .variables()
             .get(&project_id, &variable_id)
             .await?;
-        assert_eq!(variable.agent_variable_uuid, variable_id);
-        assert_eq!(variable.key, "DG_E2E_PROBE");
-        assert_eq!(variable.value, json!({"source": "rust-sdk-e2e"}));
+        if variable.agent_variable_uuid != variable_id {
+            return Err(io::Error::other("get() returned a different variable identifier").into());
+        }
+        if variable.key != expected_variable_key {
+            return Err(io::Error::other(format!(
+                "get() returned a different variable key: expected {expected_variable_key:?}, \
+                 got {:?}",
+                variable.key,
+            ))
+            .into());
+        }
+        if variable.value != json!({"source": "rust-sdk-e2e"}) {
+            return Err(io::Error::other("get() returned a different variable value").into());
+        }
+
+        voice_agent
+            .variables()
+            .update(
+                &project_id,
+                &variable_id,
+                &UpdateOptions::new(json!({"source": "rust-sdk-e2e-updated"})),
+            )
+            .await?;
+        let updated = voice_agent
+            .variables()
+            .get(&project_id, &variable_id)
+            .await?;
+        if updated.value != json!({"source": "rust-sdk-e2e-updated"}) {
+            return Err(io::Error::other("update() did not persist the variable value").into());
+        }
 
         let variables = voice_agent.variables().list(&project_id).await?;
-        assert!(
-            variables
-                .variables
-                .iter()
-                .any(|variable| variable.agent_variable_uuid == variable_id),
-            "the created variable appears in list()"
-        );
+        if !variables
+            .variables
+            .iter()
+            .any(|variable| variable.agent_variable_uuid == variable_id)
+        {
+            return Err(io::Error::other("the created variable does not appear in list()").into());
+        }
         Ok::<(), Box<dyn std::error::Error>>(())
     }
     .await;
@@ -75,8 +114,13 @@ async fn voice_agent_rest_read_operations_are_available() -> Result<(), Box<dyn 
         .variables()
         .delete(&project_id, &variable_id)
         .await;
-    cleanup?;
-    verification?;
-
-    Ok(())
+    match (verification, cleanup) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(verification), Ok(())) => Err(verification),
+        (Ok(()), Err(cleanup)) => Err(cleanup.into()),
+        (Err(verification), Err(cleanup)) => Err(io::Error::other(format!(
+            "validation failed: {verification}; cleanup also failed: {cleanup}"
+        ))
+        .into()),
+    }
 }

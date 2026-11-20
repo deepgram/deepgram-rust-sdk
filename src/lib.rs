@@ -452,6 +452,13 @@ impl Deepgram {
     /// elsewhere, build a second client with [`Deepgram::new`] and make
     /// those calls on that one.
     ///
+    /// With the `manage` feature, this does not change the
+    /// `https://agent.deepgram.com` host used by
+    /// [`Deepgram::voice_agent`] Think-model discovery. That request uses this
+    /// client's credential against the hosted Agent REST endpoint unless you
+    /// call [`Deepgram::with_agent_rest_url`]. Saved configurations and
+    /// template variables continue to use this ordinary API base URL.
+    ///
     /// A base URL that carries a path prefix must end in a slash to keep it.
     /// Endpoint paths are joined on by RFC 3986 relative resolution, which
     /// replaces the last segment of a path that does not end in one: with
@@ -529,6 +536,13 @@ impl Deepgram {
     /// while your audio goes elsewhere, build a second client with
     /// [`Deepgram::new`] and make those calls on that one.
     ///
+    /// With the `manage` feature, this does not change the
+    /// `https://agent.deepgram.com` host used by
+    /// [`Deepgram::voice_agent`] Think-model discovery. That request carries
+    /// `api_key` to the hosted Agent REST endpoint unless you call
+    /// [`Deepgram::with_agent_rest_url`]. Saved configurations and template
+    /// variables continue to use this ordinary API base URL.
+    ///
     /// A base URL that carries a path prefix must end in a slash to keep it.
     /// Endpoint paths are joined on by RFC 3986 relative resolution, which
     /// replaces the last segment of a path that does not end in one: with
@@ -590,6 +604,13 @@ impl Deepgram {
     /// are joined on by RFC 3986 relative resolution, which replaces the last
     /// segment of a path that does not end in one, so without the slash the
     /// prefix is silently dropped.
+    ///
+    /// With the `manage` feature, this does not change the
+    /// `https://agent.deepgram.com` host used by
+    /// [`Deepgram::voice_agent`] Think-model discovery. That request carries
+    /// `temp_token` to the hosted Agent REST endpoint unless you call
+    /// [`Deepgram::with_agent_rest_url`]. Saved configurations and template
+    /// variables continue to use this ordinary API base URL.
     pub fn with_base_url_and_temp_token<U, T>(base_url: U, temp_token: T) -> Result<Self>
     where
         U: TryInto<Url>,

@@ -1,8 +1,10 @@
 //! Voice Agent REST response types.
 
+use std::collections::HashMap;
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
 #[cfg(feature = "agent")]
 use uuid::Uuid;
 
@@ -80,13 +82,8 @@ pub struct Configurations {
     pub agents: Vec<AgentConfiguration>,
 }
 
-/// Successful deletion response for a saved Voice Agent configuration.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct DeletedAgentConfiguration {}
-
 /// A Voice Agent template variable.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct AgentVariable {
     /// Template variable identifier.
@@ -109,6 +106,27 @@ pub struct AgentVariable {
     pub updated_at: Option<String>,
 }
 
+impl fmt::Debug for AgentVariable {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut debug = formatter.debug_struct("AgentVariable");
+        debug
+            .field("agent_variable_uuid", &self.agent_variable_uuid)
+            .field("member_id", &self.member_id)
+            .field("api_version", &self.api_version)
+            .field("key", &self.key);
+        if self.is_sensitive {
+            debug.field("value", &"[redacted]");
+        } else {
+            debug.field("value", &self.value);
+        }
+        debug
+            .field("is_sensitive", &self.is_sensitive)
+            .field("created_at", &self.created_at)
+            .field("updated_at", &self.updated_at)
+            .finish()
+    }
+}
+
 /// Identifier returned after creating a Voice Agent template variable.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -125,11 +143,6 @@ pub struct Variables {
     /// Variables returned by the API.
     pub variables: Vec<AgentVariable>,
 }
-
-/// Successful deletion response for a Voice Agent template variable.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct DeletedAgentVariable {}
 
 #[cfg(test)]
 mod tests {
@@ -186,6 +199,25 @@ mod tests {
 
         let variables: Variables = serde_json::from_str("[]").unwrap();
         assert!(variables.variables.is_empty());
+    }
+
+    #[test]
+    fn debug_redacts_sensitive_variable_values() {
+        let variable: AgentVariable = serde_json::from_str(
+            r#"{
+                "agent_variable_uuid":"550e8400-e29b-41d4-a716-446655440001",
+                "member_id":"member",
+                "api_version":1,
+                "key":"DG_SECRET",
+                "value":"do-not-log-me",
+                "is_sensitive":true
+            }"#,
+        )
+        .unwrap();
+
+        let debug = format!("{variable:?}");
+        assert!(debug.contains("[redacted]"));
+        assert!(!debug.contains("do-not-log-me"));
     }
 
     #[cfg(feature = "agent")]
