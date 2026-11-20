@@ -620,6 +620,10 @@ impl Deepgram {
     /// (or the nil UUID for Aura streaming TTS, which keeps that surface's
     /// existing missing-header convention). Listen V1 connect diagnostics also
     /// apply only to the built-in WebSocket connector.
+    ///
+    /// See `examples/transport/in_memory_factory.rs` for an in-memory factory
+    /// used in tests. Run it with
+    /// `cargo run --example in_memory_transport_factory --features listen`.
     #[cfg_attr(
         feature = "connect-diagnostics",
         doc = "\n\nSee [`WebsocketBuilder::diagnostics`](crate::listen::websocket::WebsocketBuilder::diagnostics)."

@@ -9,6 +9,10 @@
 //! message after a transport failure. A transport that reconnects internally
 //! owns that lifecycle and must preserve the ordering and delivery semantics it
 //! promises to its caller.
+//!
+//! See `examples/transport/in_memory_factory.rs` for an in-memory factory used
+//! in tests. Run it with
+//! `cargo run --example in_memory_transport_factory --features listen`.
 
 use std::{
     fmt,
