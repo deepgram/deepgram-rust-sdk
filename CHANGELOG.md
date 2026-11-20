@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.14.0...0.15.0) (2026-11-20)
+
+
+### Added
+
+* **agent:** add custom Think provider messages ([#207](https://github.com/deepgram/deepgram-rust-sdk/issues/207)) ([4ae069e](https://github.com/deepgram/deepgram-rust-sdk/commit/4ae069e4a80abebdd1292261926c3c00b4fe52d1))
+* **agent:** add Deepgram Think and Think Live ([#206](https://github.com/deepgram/deepgram-rust-sdk/issues/206)) ([4b155ca](https://github.com/deepgram/deepgram-rust-sdk/commit/4b155cadc09bec2dd1c18afd57c10053304dba07))
+* **agent:** add multilingual Flux TTS models ([#210](https://github.com/deepgram/deepgram-rust-sdk/issues/210)) ([7116ca7](https://github.com/deepgram/deepgram-rust-sdk/commit/7116ca7a7a253cca304cef7422036543a056f96b))
+* **listen:** add current transcription options and metadata ([#209](https://github.com/deepgram/deepgram-rust-sdk/issues/209)) ([bcd632c](https://github.com/deepgram/deepgram-rust-sdk/commit/bcd632cb6eab3cad62df6aed573a0b5bc93ca6ea))
+* **manage:** add Voice Agent REST management ([#205](https://github.com/deepgram/deepgram-rust-sdk/issues/205)) ([0968ce0](https://github.com/deepgram/deepgram-rust-sdk/commit/0968ce0100e6b84d85b4a012225fb09550542183))
+* **manage:** complete billing, invitations, and usage endpoints ([#204](https://github.com/deepgram/deepgram-rust-sdk/issues/204)) ([deb21a8](https://github.com/deepgram/deepgram-rust-sdk/commit/deb21a8ffbf1d944e3ad9dbb4c8e294651e1b41a))
+* **transport:** add custom streaming transport factory ([#213](https://github.com/deepgram/deepgram-rust-sdk/issues/213)) ([8fe099d](https://github.com/deepgram/deepgram-rust-sdk/commit/8fe099d1d7b9b3ab5b7e6bae07725aedc550eece))
+
 ## [0.14.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.13.0...0.14.0) (2026-10-16)
 
 
