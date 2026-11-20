@@ -1,9 +1,18 @@
 schema_version: 1
 status: in_progress
-last_verified: 2026-11-16
+last_verified: 2026-11-19
 
 # This ledger defines the bounded comparison set for Rust SDK parity. Refresh
 # these revisions together before changing a parity status.
+#
+# Status values:
+#   not_started                   no work has begun on the workstream.
+#   pending                       the audit is planned but has not run.
+#   pending_prs_cover_*           open pull requests cover the named gap.
+#   pending_product_contract      blocked on a product decision.
+#   blocked_by_browser_auth_contract  blocked on a browser authentication contract.
+#   decision_recorded             the decision is made and documented.
+# evidence: optional repo-relative path to the document that records the decision.
 sources:
   api_spec:
     repository: deepgram/deepgram-docs
@@ -70,7 +79,8 @@ workstreams:
       - Settings, history, audio, listen, think, Think Live, speak, functions, and custom endpoints.
       - Every client control, server event, enum, default, and unknown-value path.
   runtime_capability_parity:
-    status: not_started
+    status: decision_recorded
+    evidence: docs/streaming-runtime-transport-parity.md
     scope:
       - Reconnection semantics.
       - Custom transport or transport-factory equivalent.
