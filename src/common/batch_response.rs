@@ -80,6 +80,38 @@ pub struct ListenMetadata {
     #[allow(missing_docs)]
     pub channels: usize,
 
+    /// Model UUIDs that processed the request.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub models: Vec<String>,
+
+    /// Metadata keyed by each model UUID in [`ListenMetadata::models`].
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub model_info: HashMap<String, ModelInfo>,
+
+    /// The diarization model that produced speaker labels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diarize_info: Option<DiarizeInfo>,
+
+    /// Summarization model usage metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary_info: Option<AnalysisInfo>,
+
+    /// Sentiment model usage metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sentiment_info: Option<AnalysisInfo>,
+
+    /// Topic model usage metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topics_info: Option<AnalysisInfo>,
+
+    /// Intent model usage metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub intents_info: Option<AnalysisInfo>,
+
+    /// Request tags echoed by the service.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+
     #[allow(missing_docs)]
     pub language: Option<String>,
 
@@ -91,6 +123,51 @@ pub struct ListenMetadata {
     /// [docs]: https://developers.deepgram.com/docs/extra-metadata
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub extra: Option<HashMap<String, String>>,
+}
+
+/// Metadata for a speech-to-text model used in a request.
+#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ModelInfo {
+    /// Model name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+
+    /// Model version.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+
+    /// Model architecture.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arch: Option<String>,
+}
+
+/// The diarization model that produced speaker labels.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct DiarizeInfo {
+    /// Diarization model UUID.
+    pub model_uuid: String,
+
+    /// Diarization model architecture.
+    pub arch: String,
+}
+
+/// Token usage metadata for an Audio Intelligence feature.
+#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct AnalysisInfo {
+    /// Model UUID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_uuid: Option<String>,
+
+    /// Number of input tokens.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<usize>,
+
+    /// Number of output tokens.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<usize>,
 }
 
 /// Transcription results.
@@ -172,6 +249,10 @@ pub struct Utterance {
     #[allow(missing_docs)]
     pub transcript: String,
 
+    /// Languages detected in the utterance, sorted by word count.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub languages: Vec<String>,
+
     #[allow(missing_docs)]
     pub words: Vec<Word>,
 
@@ -221,6 +302,10 @@ pub struct Sentence {
 pub struct Paragraph {
     /// The sentences this paragraph was divided into, in spoken order.
     pub sentences: Vec<Sentence>,
+
+    /// Speaker identifier when diarization is enabled.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker: Option<usize>,
 
     /// Count of the words in this paragraph.
     pub num_words: usize,
@@ -488,9 +573,71 @@ pub struct ResultAlternative {
     #[allow(missing_docs)]
     pub entities: Option<Vec<Entity>>,
 
+    /// Summaries for transcript spans.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summaries: Option<Vec<AlternativeSummary>>,
+
+    /// Topics for transcript spans.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub topics: Option<Vec<AlternativeTopic>>,
+
     #[allow(missing_docs)]
     #[serde(default)]
     pub languages: Vec<String>,
+
+    /// Normalized `language_hint` values active for this response.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub languages_hinted: Vec<String>,
+}
+
+/// A summary for a span of transcript words.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct AlternativeSummary {
+    /// Generated summary text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+
+    /// Inclusive position of the first summarized word.
+    ///
+    /// The service documents this as a number, so decimal values are
+    /// preserved when returned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_word: Option<f64>,
+
+    /// Inclusive position of the last summarized word.
+    ///
+    /// The service documents this as a number, so decimal values are
+    /// preserved when returned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_word: Option<f64>,
+}
+
+/// Topics detected in a span of transcript words.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct AlternativeTopic {
+    /// Transcript text covered by this topic result.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+
+    /// Inclusive position of the first covered word.
+    ///
+    /// The service documents this as a number, so decimal values are
+    /// preserved when returned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_word: Option<f64>,
+
+    /// Inclusive position of the last covered word.
+    ///
+    /// The service documents this as a number, so decimal values are
+    /// preserved when returned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_word: Option<f64>,
+
+    /// Topic strings detected in this span.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub topics: Vec<String>,
 }
 
 /// A single transcribed word.
@@ -513,10 +660,19 @@ pub struct Word {
     #[allow(missing_docs)]
     pub confidence: f64,
 
+    /// Detected BCP-47 language tag, present for multilingual transcription.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+
     /// [`None`] unless the [Diarization feature][docs] is set.
     ///
     /// [docs]: https://developers.deepgram.com/documentation/features/diarize/
     pub speaker: Option<usize>,
+
+    /// Confidence in the speaker assignment, present for pre-recorded
+    /// diarization.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speaker_confidence: Option<f64>,
 
     /// [`None`] unless the [Punctuation feature][docs] is set.
     ///
@@ -593,6 +749,175 @@ mod tests {
         assert_eq!(metadata.duration, 12.5);
         assert_eq!(metadata.channels, 1);
         assert!(metadata.extra.is_none());
+    }
+
+    // Contract fixture for documented metadata fields. It is not a captured
+    // live payload; the live-captured entity and sentiment fixtures below
+    // retain their provenance separately.
+    #[test]
+    fn listen_metadata_exposes_documented_model_and_analysis_fields() {
+        let raw = serde_json::json!({
+            "transaction_key": "deprecated",
+            "request_id": "550e8400-e29b-41d4-a716-446655440000",
+            "sha256": "abc123",
+            "created": "2026-11-16T10:00:00.000Z",
+            "duration": 12.5,
+            "channels": 1,
+            "language": null,
+            "models": ["30089e05-99d1-4376-b32e-c263170674af"],
+            "model_info": {
+                "30089e05-99d1-4376-b32e-c263170674af": {
+                    "name": "nova-3",
+                    "version": "2026-01-01",
+                    "arch": "nova-3"
+                }
+            },
+            "diarize_info": { "model_uuid": "diarizer-id", "arch": "v2" },
+            "summary_info": { "model_uuid": "summary-id", "input_tokens": 95, "output_tokens": 63 },
+            "sentiment_info": { "model_uuid": "sentiment-id", "input_tokens": 105, "output_tokens": 105 },
+            "topics_info": { "model_uuid": "topics-id", "input_tokens": 105, "output_tokens": 7 },
+            "intents_info": { "model_uuid": "intents-id", "input_tokens": 105, "output_tokens": 4 },
+            "tags": ["production", "customer:42"]
+        });
+        let metadata: ListenMetadata = serde_json::from_value(raw.clone()).unwrap();
+
+        assert_eq!(
+            metadata.models,
+            vec!["30089e05-99d1-4376-b32e-c263170674af"]
+        );
+        assert_eq!(
+            metadata.model_info["30089e05-99d1-4376-b32e-c263170674af"]
+                .arch
+                .as_deref(),
+            Some("nova-3")
+        );
+        assert_eq!(metadata.diarize_info.as_ref().unwrap().arch, "v2");
+        assert_eq!(
+            metadata.summary_info.as_ref().unwrap().output_tokens,
+            Some(63)
+        );
+        assert_eq!(metadata.tags, vec!["production", "customer:42"]);
+        assert_eq!(serde_json::to_value(metadata).unwrap(), raw);
+    }
+
+    // Contract fixture based on the documented alternative-scoped summary and
+    // topic response shape. It is not a captured live payload: the available
+    // live sample did not produce summaries or topics.
+    #[test]
+    fn alternatives_and_utterances_expose_multilingual_and_analysis_fields() {
+        let raw_alternative = serde_json::json!({
+            "transcript": "Hola Deepgram",
+            "confidence": 0.99,
+            "languages": ["es"],
+            "languages_hinted": ["en", "es"],
+            "words": [{
+                "word": "Hola",
+                "start": 0.0,
+                "end": 0.3,
+                "confidence": 0.99,
+                "language": "es",
+                "speaker": 0,
+                "speaker_confidence": 0.98,
+                "punctuated_word": "Hola"
+            }],
+            "paragraphs": {
+                "transcript": "Hola Deepgram",
+                "paragraphs": [{
+                    "sentences": [{ "text": "Hola Deepgram", "start": 0.0, "end": 0.8 }],
+                    "speaker": 0,
+                    "num_words": 2,
+                    "start": 0.0,
+                    "end": 0.8
+                }]
+            },
+            "summaries": [{ "summary": "A greeting.", "start_word": 0.0, "end_word": 1.0 }],
+            "topics": [{ "text": "Hola Deepgram", "start_word": 0.0, "end_word": 1.0, "topics": ["greeting"] }]
+            ,"entities": null
+        });
+        let alternative: ResultAlternative =
+            serde_json::from_value(raw_alternative.clone()).unwrap();
+        assert_eq!(alternative.languages_hinted, vec!["en", "es"]);
+        assert_eq!(alternative.words[0].language.as_deref(), Some("es"));
+        assert_eq!(alternative.words[0].speaker_confidence, Some(0.98));
+        assert_eq!(
+            alternative.paragraphs.as_ref().unwrap().paragraphs[0].speaker,
+            Some(0)
+        );
+        assert_eq!(
+            alternative.summaries.as_ref().unwrap()[0]
+                .summary
+                .as_deref(),
+            Some("A greeting.")
+        );
+        assert_eq!(
+            alternative.topics.as_ref().unwrap()[0].topics,
+            vec!["greeting"]
+        );
+        assert_eq!(serde_json::to_value(alternative).unwrap(), raw_alternative);
+
+        let raw_utterance = serde_json::json!({
+            "start": 0.0,
+            "end": 0.8,
+            "confidence": 0.99,
+            "channel": 0,
+            "transcript": "Hola Deepgram",
+            "languages": ["es"],
+            "words": [],
+            "speaker": null,
+            "id": "550e8400-e29b-41d4-a716-446655440000"
+        });
+        let utterance: Utterance = serde_json::from_value(raw_utterance.clone()).unwrap();
+        assert_eq!(utterance.languages, vec!["es"]);
+        assert_eq!(serde_json::to_value(utterance).unwrap(), raw_utterance);
+    }
+
+    #[test]
+    fn alternative_scoped_analysis_entries_accept_sparse_server_payloads() {
+        let summary: AlternativeSummary = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(summary.summary.is_none());
+        assert!(summary.start_word.is_none());
+        assert!(summary.end_word.is_none());
+        assert_eq!(
+            serde_json::to_value(summary).unwrap(),
+            serde_json::json!({})
+        );
+
+        let topic: AlternativeTopic = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert!(topic.text.is_none());
+        assert!(topic.start_word.is_none());
+        assert!(topic.end_word.is_none());
+        assert!(topic.topics.is_empty());
+        assert_eq!(serde_json::to_value(topic).unwrap(), serde_json::json!({}));
+    }
+
+    #[test]
+    fn alternative_scoped_analysis_entries_accept_decimal_word_positions() {
+        let summary: AlternativeSummary = serde_json::from_value(serde_json::json!({
+            "summary": "A greeting.",
+            "start_word": 5.25,
+            "end_word": 8.75
+        }))
+        .unwrap();
+        assert_eq!(summary.start_word, Some(5.25));
+        assert_eq!(summary.end_word, Some(8.75));
+
+        let integer_summary: AlternativeSummary = serde_json::from_value(serde_json::json!({
+            "start_word": 29,
+            "end_word": 30
+        }))
+        .unwrap();
+        assert_eq!(integer_summary.start_word, Some(29.0));
+        assert_eq!(integer_summary.end_word, Some(30.0));
+
+        let topic: AlternativeTopic = serde_json::from_value(serde_json::json!({
+            "text": "Hello Deepgram",
+            "start_word": 5.25,
+            "end_word": 8.75,
+            "topics": ["greeting"]
+        }))
+        .unwrap();
+        assert_eq!(topic.start_word, Some(5.25));
+        assert_eq!(topic.end_word, Some(8.75));
     }
 
     // Captured from a live `POST /v1/listen` response on 2026-09-15

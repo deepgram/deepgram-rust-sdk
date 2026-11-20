@@ -26,8 +26,10 @@ pub struct Options {
     punctuate: Option<bool>,
     profanity_filter: Option<bool>,
     redact: Vec<Redact>,
+    redact_usage: Option<bool>,
     diarize: Option<bool>,
     diarize_version: Option<String>,
+    diarize_model: Option<DiarizeModel>,
     ner: Option<bool>,
     multichannel: Option<Multichannel>,
     alternatives: Option<usize>,
@@ -57,7 +59,9 @@ pub struct Options {
     dictation: Option<bool>,
     measurements: Option<bool>,
     extra: Option<HashMap<String, String>>,
+    extra_values: Vec<String>,
     callback_method: Option<CallbackMethod>,
+    mip_opt_out: Option<bool>,
     eager_eot_threshold: Option<f64>,
     eot_threshold: Option<f64>,
     eot_timeout_ms: Option<u32>,
@@ -705,6 +709,38 @@ pub enum Redact {
     Other(String),
 }
 
+/// Selects and enables a diarization model.
+///
+/// Specifying a model enables diarization, so it does not require
+/// [`OptionsBuilder::diarize`] as well. Do not combine it with
+/// [`OptionsBuilder::diarize`] or [`OptionsBuilder::diarize_version`]: the
+/// server rejects that combination. Batch requests support `latest`, `v1`, and
+/// `v2`; streaming requests support `latest` and `v1`.
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[non_exhaustive]
+pub enum DiarizeModel {
+    /// Use the server's current diarization model.
+    Latest,
+    /// Use diarization model v1.
+    V1,
+    /// Use diarization model v2.
+    V2,
+    /// A future server-recognized model identifier.
+    Other(String),
+}
+
+impl DiarizeModel {
+    /// Wire string representation.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Latest => "latest",
+            Self::V1 => "v1",
+            Self::V2 => "v2",
+            Self::Other(value) => value,
+        }
+    }
+}
+
 /// Used as a parameter for [`OptionsBuilder::custom_intent_mode`].
 ///
 /// See the [Deepgram Intent Detection feature docs][docs] for more info.
@@ -865,8 +901,10 @@ impl OptionsBuilder {
             punctuate: None,
             profanity_filter: None,
             redact: Vec::new(),
+            redact_usage: None,
             diarize: None,
             diarize_version: None,
+            diarize_model: None,
             ner: None,
             multichannel: None,
             alternatives: None,
@@ -896,7 +934,9 @@ impl OptionsBuilder {
             dictation: None,
             measurements: None,
             extra: None,
+            extra_values: Vec::new(),
             callback_method: None,
+            mip_opt_out: None,
             eager_eot_threshold: None,
             eot_threshold: None,
             eot_timeout_ms: None,
@@ -1058,7 +1098,21 @@ impl OptionsBuilder {
         self
     }
 
+    /// Redact caller-supplied text parameters from usage records.
+    ///
+    /// This does not change the transcription or response. It affects
+    /// `keyterm`, `keywords`, `replace`, `search`, `extra`, `custom_topic`,
+    /// and `custom_intent` in usage records.
+    pub fn redact_usage(mut self, redact_usage: bool) -> Self {
+        self.0.redact_usage = Some(redact_usage);
+        self
+    }
+
     /// Set the Diarization feature.
+    ///
+    /// For model selection, prefer [`OptionsBuilder::diarize_model`]. Do not
+    /// combine this option with `diarize_model`; the server rejects the
+    /// combination.
     ///
     /// See the [Deepgram Diarization feature docs][docs] for more info.
     ///
@@ -1080,6 +1134,10 @@ impl OptionsBuilder {
 
     /// Set the Diarization Version feature.
     ///
+    /// This legacy option is superseded by
+    /// [`OptionsBuilder::diarize_model`]. Do not combine it with
+    /// `diarize_model`; the server rejects the combination.
+    ///
     /// See the [Deepgram Diarization Version feature docs][docs] for more info.
     ///
     /// [docs]: https://deepgram.com/changelog/improved-speaker-diarization
@@ -1095,6 +1153,15 @@ impl OptionsBuilder {
     /// ```
     pub fn diarize_version(mut self, diarize_version: &str) -> Self {
         self.0.diarize_version = Some(diarize_version.into());
+        self
+    }
+
+    /// Select and enable a diarization model.
+    ///
+    /// Unlike [`OptionsBuilder::diarize_version`], this emits the current
+    /// `diarize_model` API parameter.
+    pub fn diarize_model(mut self, diarize_model: DiarizeModel) -> Self {
+        self.0.diarize_model = Some(diarize_model);
         self
     }
 
@@ -2065,6 +2132,24 @@ impl OptionsBuilder {
         self
     }
 
+    /// Add arbitrary `extra` values exactly as the API accepts them.
+    ///
+    /// This complements [`OptionsBuilder::extra`], whose map form encodes
+    /// each item as `key:value`. Use this method for a plain value or repeated
+    /// values that are not key-value pairs.
+    pub fn extra_values(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.0
+            .extra_values
+            .extend(values.into_iter().map(Into::into));
+        self
+    }
+
+    /// Opt out of the Deepgram Model Improvement Program for this request.
+    pub fn mip_opt_out(mut self, mip_opt_out: bool) -> Self {
+        self.0.mip_opt_out = Some(mip_opt_out);
+        self
+    }
+
     /// Deepgrams Callback Method feature
     ///
     /// See the [Deepgram Callback Method feature docs][docs] for more info.
@@ -2263,8 +2348,10 @@ impl Serialize for SerializableOptions<'_> {
             punctuate,
             profanity_filter,
             redact,
+            redact_usage,
             diarize,
             diarize_version,
+            diarize_model,
             ner,
             multichannel,
             alternatives,
@@ -2294,7 +2381,9 @@ impl Serialize for SerializableOptions<'_> {
             dictation,
             measurements,
             extra,
+            extra_values,
             callback_method,
+            mip_opt_out,
             eager_eot_threshold,
             eot_threshold,
             eot_timeout_ms,
@@ -2350,12 +2439,20 @@ impl Serialize for SerializableOptions<'_> {
             seq.serialize_element(&("redact", element.as_ref()))?;
         }
 
+        if let Some(redact_usage) = redact_usage {
+            seq.serialize_element(&("redact_usage", redact_usage))?;
+        }
+
         if let Some(diarize) = diarize {
             seq.serialize_element(&("diarize", diarize))?;
         }
 
         if let Some(diarize_version) = diarize_version {
             seq.serialize_element(&("diarize_version", diarize_version))?;
+        }
+
+        if let Some(diarize_model) = diarize_model {
+            seq.serialize_element(&("diarize_model", diarize_model.as_str()))?;
         }
 
         if let Some(ner) = ner {
@@ -2497,8 +2594,16 @@ impl Serialize for SerializableOptions<'_> {
             }
         }
 
+        for value in extra_values {
+            seq.serialize_element(&("extra", value))?;
+        }
+
         if let Some(callback_method) = callback_method {
             seq.serialize_element(&("callback_method", callback_method.as_str()))?;
+        }
+
+        if let Some(mip_opt_out) = mip_opt_out {
+            seq.serialize_element(&("mip_opt_out", mip_opt_out))?;
         }
 
         for element in keyterms {
@@ -2962,6 +3067,7 @@ mod serialize_options_tests {
     use super::CustomIntentMode;
     use super::CustomTopicMode;
     use super::DetectLanguage;
+    use super::DiarizeModel;
     use super::Encoding;
     use super::Keyword;
     use super::Language;
@@ -3480,6 +3586,19 @@ mod serialize_options_tests {
         check_serialization(
             &Options::builder().encoding(Encoding::Linear16).build(),
             "encoding=linear16",
+        );
+    }
+
+    #[test]
+    fn current_listen_request_options() {
+        check_serialization(
+            &Options::builder()
+                .diarize_model(DiarizeModel::V2)
+                .redact_usage(true)
+                .extra_values(["tenant:acme", "plain value"])
+                .mip_opt_out(false)
+                .build(),
+            "redact_usage=true&diarize_model=v2&extra=tenant%3Aacme&extra=plain+value&mip_opt_out=false",
         );
     }
 

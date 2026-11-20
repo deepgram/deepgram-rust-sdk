@@ -130,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 - Prerecorded entrypoints: `prerecorded(...)`, `prerecorded_callback(...)`, `make_prerecorded_request_builder(...)`.
 - Streaming entrypoints: `stream_request()`, `stream_request_with_options(options)`, then `.file(...)`, `.stream(...)`, or `.handle().await?`.
-- Core `Options` builder fields: `model`, `language`, `punctuate`, `smart_format`, `diarize`, `multichannel`, `utterances`, `detect_language`, `keywords`, `search`, `replace`, `paragraphs`.
+- Core `Options` builder fields: `model`, `language`, `punctuate`, `smart_format`, `diarize`, `diarize_model`, `multichannel`, `utterances`, `detect_language`, `keywords`, `keyterms`, `search`, `replace`, `paragraphs`, `redact_usage`, and `mip_opt_out`. Use `extra_values` for plain or repeated `extra` values; `extra` remains the key-value convenience form.
 - Streaming-only builder fields: `encoding`, `sample_rate`, `channels`, `endpointing`, `utterance_end_ms`, `interim_results`, `no_delay`, `vad_events`, `keep_alive`, `callback`.
 - Main response types: prerecorded `common::batch_response::Response`; live `common::stream_response::StreamResponse`.
 

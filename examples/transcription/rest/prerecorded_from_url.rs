@@ -1,9 +1,12 @@
-use std::{collections::HashMap, env};
+use std::env;
 
 use deepgram::{
     common::{
         audio_source::AudioSource,
-        options::{CustomIntentMode, DetectLanguage, Encoding, Language, Model, Options, Redact},
+        options::{
+            CustomIntentMode, CustomTopicMode, DetectLanguage, DiarizeModel, Encoding, Language,
+            Model, Options, Redact,
+        },
     },
     Deepgram, DeepgramError,
 };
@@ -25,8 +28,7 @@ async fn main() -> Result<(), DeepgramError> {
         .paragraphs(true)
         .redact([Redact::Pci, Redact::Other(String::from("cvv"))])
         .detect_language(DetectLanguage::Restricted(vec![Language::en, Language::es]))
-        .diarize(true)
-        .diarize_version("2021-07-14.0")
+        .diarize_model(DiarizeModel::V2)
         .filler_words(true)
         .smart_format(true)
         .encoding(Encoding::Linear16)
@@ -37,12 +39,14 @@ async fn main() -> Result<(), DeepgramError> {
         .custom_intents(["Phone repair", "Phone cancellation"])
         .sentiment(true)
         .topics(true)
-        .custom_intent_mode(CustomIntentMode::Strict)
-        .custom_intents(["Get support", "Complain"])
+        .custom_topic_mode(CustomTopicMode::Strict)
+        .custom_topics(["Get support", "Complain"])
         .summarize(true)
         .dictation(true)
         .measurements(true)
-        .extra(HashMap::from([("key".to_string(), "value".to_string())]))
+        .redact_usage(true)
+        .extra_values(["example:prerecorded-url"])
+        .mip_opt_out(false)
         .build();
 
     let response = dg_client
