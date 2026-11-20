@@ -9,3 +9,4 @@ pub mod projects;
 pub mod scopes;
 pub mod self_hosted;
 pub mod usage;
+pub mod voice_agent;

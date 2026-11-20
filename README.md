@@ -80,13 +80,13 @@ trim dependencies, disable the defaults and pick only what you need:
 cargo add deepgram --no-default-features --features read
 ```
 
-| Feature  | Enables                                                                                  |
-| -------- | ---------------------------------------------------------------------------------------- |
-| `listen` | Speech-to-text: pre-recorded REST, live WebSocket streaming, Flux STT                    |
-| `speak`  | Text-to-speech: Aura REST and streaming WebSocket, Flux TTS REST and streaming WebSocket |
-| `read`   | Text Intelligence (`/v1/read`): sentiment, summary, topics, intents                      |
-| `manage` | Management API: projects, keys, members, usage, billing, models                          |
-| `agent`  | Voice Agent WebSocket client (`/v1/agent/converse`)                                      |
+| Feature  | Enables                                                                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `listen` | Speech-to-text: pre-recorded REST, live WebSocket streaming, Flux STT                                                                                                                                  |
+| `speak`  | Text-to-speech: Aura REST and streaming WebSocket, Flux TTS REST and streaming WebSocket                                                                                                               |
+| `read`   | Text Intelligence (`/v1/read`): sentiment, summary, topics, intents                                                                                                                                    |
+| `manage` | Management API: projects, keys, members, usage, billing, models, and Voice Agent REST configurations, variables, and Think-model discovery (the API does not yet support creating sensitive variables) |
+| `agent`  | Voice Agent WebSocket client (`/v1/agent/converse`)                                                                                                                                                    |
 
 Token-based authentication (`auth`) is always available. The `listen`,
 `speak`, and `agent` features pull in WebSocket dependencies; `read` and
@@ -100,6 +100,9 @@ The `agent` feature's live Voice Agent client (`Deepgram::agent().start()`)
 is demonstrated in [`examples/agent/websocket/`](examples/agent/websocket/):
 `simple_agent` opens a session, applies `Settings`, and prints the event
 stream; `function_calling` shows the client-side function-call round-trip.
+The HTTP-only `manage` feature exposes `Deepgram::voice_agent()` for saved
+configurations, template variables, and Think-model discovery; use
+`Deepgram::agent()` for a live WebSocket conversation.
 
 For streaming text-to-speech, `dg.text_to_speech().speak_stream()` opens the
 Aura socket (`wss /v1/speak`); see

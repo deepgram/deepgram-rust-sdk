@@ -76,6 +76,8 @@ pub use listen::websocket::TranscriptionStream;
 pub use read::TextIntelligence;
 
 static DEEPGRAM_BASE_URL: &str = "https://api.deepgram.com";
+#[cfg(feature = "manage")]
+static DEEPGRAM_AGENT_REST_BASE_URL: &str = "https://agent.deepgram.com";
 
 /// The `Host` header for a WebSocket handshake to `url`: the authority
 /// without userinfo, so the host plus the port whenever the port is not
@@ -262,6 +264,8 @@ pub struct Deepgram {
     auth: Option<AuthMethod>,
     #[cfg_attr(not(feature = "listen"), allow(unused))]
     base_url: Url,
+    #[cfg(feature = "manage")]
+    agent_rest_url: Url,
     #[cfg_attr(not(feature = "listen"), allow(unused))]
     client: reqwest::Client,
     #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
@@ -400,7 +404,14 @@ impl Deepgram {
         // This cannot panic because we are converting a static value
         // that is known-good.
         let base_url = DEEPGRAM_BASE_URL.try_into().unwrap();
-        Self::inner_constructor(base_url, Some(auth))
+        #[cfg(feature = "manage")]
+        let agent_rest_url = DEEPGRAM_AGENT_REST_BASE_URL.try_into().unwrap();
+        Self::inner_constructor(
+            base_url,
+            #[cfg(feature = "manage")]
+            agent_rest_url,
+            Some(auth),
+        )
     }
 
     /// Construct a new Deepgram client with a temporary token.
@@ -409,7 +420,14 @@ impl Deepgram {
     pub fn with_temp_token<T: AsRef<str>>(temp_token: T) -> Result<Self> {
         let auth = AuthMethod::TempToken(RedactedString(temp_token.as_ref().to_owned()));
         let base_url = DEEPGRAM_BASE_URL.try_into().unwrap();
-        Self::inner_constructor(base_url, Some(auth))
+        #[cfg(feature = "manage")]
+        let agent_rest_url = DEEPGRAM_AGENT_REST_BASE_URL.try_into().unwrap();
+        Self::inner_constructor(
+            base_url,
+            #[cfg(feature = "manage")]
+            agent_rest_url,
+            Some(auth),
+        )
     }
 
     /// Construct a new Deepgram client with the specified base URL.
@@ -472,13 +490,24 @@ impl Deepgram {
     ///
     /// Errors under the same conditions as [`reqwest::Client::new`], or if `base_url`
     /// is not a valid URL.
+    #[cfg_attr(
+        feature = "manage",
+        doc = "\n\nWith the `manage` feature, this does not change the `https://agent.deepgram.com` host used by [`Deepgram::voice_agent`] Think-model discovery. That request uses this client's credential against the hosted Agent REST endpoint unless you call [`Deepgram::with_agent_rest_url`]. Saved configurations and template variables continue to use this ordinary API base URL."
+    )]
     pub fn with_base_url<U>(base_url: U) -> Result<Self>
     where
         U: TryInto<Url>,
         U::Error: std::fmt::Debug,
     {
         let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
-        Self::inner_constructor(base_url, None)
+        #[cfg(feature = "manage")]
+        let agent_rest_url = DEEPGRAM_AGENT_REST_BASE_URL.try_into().unwrap();
+        Self::inner_constructor(
+            base_url,
+            #[cfg(feature = "manage")]
+            agent_rest_url,
+            None,
+        )
     }
 
     /// Construct a new Deepgram client with the specified base URL and
@@ -537,6 +566,10 @@ impl Deepgram {
     ///
     /// Errors under the same conditions as [`reqwest::ClientBuilder::build`], or if `base_url`
     /// is not a valid URL.
+    #[cfg_attr(
+        feature = "manage",
+        doc = "\n\nWith the `manage` feature, this does not change the `https://agent.deepgram.com` host used by [`Deepgram::voice_agent`] Think-model discovery. That request carries `api_key` to the hosted Agent REST endpoint unless you call [`Deepgram::with_agent_rest_url`]. Saved configurations and template variables continue to use this ordinary API base URL."
+    )]
     pub fn with_base_url_and_api_key<U, K>(base_url: U, api_key: K) -> Result<Self>
     where
         U: TryInto<Url>,
@@ -545,7 +578,14 @@ impl Deepgram {
     {
         let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
         let auth = AuthMethod::ApiKey(RedactedString(api_key.as_ref().to_owned()));
-        Self::inner_constructor(base_url, Some(auth))
+        #[cfg(feature = "manage")]
+        let agent_rest_url = DEEPGRAM_AGENT_REST_BASE_URL.try_into().unwrap();
+        Self::inner_constructor(
+            base_url,
+            #[cfg(feature = "manage")]
+            agent_rest_url,
+            Some(auth),
+        )
     }
 
     /// Construct a new Deepgram client with the specified base URL and temp token.
@@ -558,6 +598,11 @@ impl Deepgram {
     /// are joined on by RFC 3986 relative resolution, which replaces the last
     /// segment of a path that does not end in one, so without the slash the
     /// prefix is silently dropped.
+    ///
+    #[cfg_attr(
+        feature = "manage",
+        doc = "\n\nWith the `manage` feature, this does not change the `https://agent.deepgram.com` host used by [`Deepgram::voice_agent`] Think-model discovery. That request carries `temp_token` to the hosted Agent REST endpoint unless you call [`Deepgram::with_agent_rest_url`]. Saved configurations and template variables continue to use this ordinary API base URL."
+    )]
     pub fn with_base_url_and_temp_token<U, T>(base_url: U, temp_token: T) -> Result<Self>
     where
         U: TryInto<Url>,
@@ -566,11 +611,26 @@ impl Deepgram {
     {
         let base_url = base_url.try_into().map_err(|_| DeepgramError::InvalidUrl)?;
         let auth = AuthMethod::TempToken(RedactedString(temp_token.as_ref().to_owned()));
-        Self::inner_constructor(base_url, Some(auth))
+        #[cfg(feature = "manage")]
+        let agent_rest_url = DEEPGRAM_AGENT_REST_BASE_URL.try_into().unwrap();
+        Self::inner_constructor(
+            base_url,
+            #[cfg(feature = "manage")]
+            agent_rest_url,
+            Some(auth),
+        )
     }
 
-    fn inner_constructor(base_url: Url, auth: Option<AuthMethod>) -> Result<Self> {
+    fn inner_constructor(
+        base_url: Url,
+        #[cfg(feature = "manage")] agent_rest_url: Url,
+        auth: Option<AuthMethod>,
+    ) -> Result<Self> {
         if base_url.cannot_be_a_base() {
+            return Err(DeepgramError::InvalidUrl);
+        }
+        #[cfg(feature = "manage")]
+        if agent_rest_url.cannot_be_a_base() {
             return Err(DeepgramError::InvalidUrl);
         }
         let authorization_header = {
@@ -592,6 +652,8 @@ impl Deepgram {
         Ok(Deepgram {
             auth,
             base_url,
+            #[cfg(feature = "manage")]
+            agent_rest_url,
             client: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
                 .default_headers(authorization_header)
@@ -688,6 +750,34 @@ impl Deepgram {
             .map_err(|_| DeepgramError::InvalidUrl)
     }
 
+    /// Override the HTTP base URL used only for Voice Agent Think-model
+    /// discovery. It defaults to `https://agent.deepgram.com`, even when a
+    /// [`Deepgram::with_base_url`] constructor overrides the ordinary API
+    /// base URL. Saved Voice Agent configurations and variables continue to
+    /// use that ordinary API base URL.
+    #[cfg(feature = "manage")]
+    pub fn with_agent_rest_url<U>(mut self, agent_rest_url: U) -> Result<Self>
+    where
+        U: TryInto<Url>,
+        U::Error: std::fmt::Debug,
+    {
+        let agent_rest_url = agent_rest_url
+            .try_into()
+            .map_err(|_| DeepgramError::InvalidUrl)?;
+        if agent_rest_url.cannot_be_a_base() {
+            return Err(DeepgramError::InvalidUrl);
+        }
+        self.agent_rest_url = agent_rest_url;
+        Ok(self)
+    }
+
+    #[cfg(feature = "manage")]
+    pub(crate) fn agent_rest_api_url(&self, path: &str) -> Result<Url> {
+        self.agent_rest_url
+            .join(path)
+            .map_err(|_| DeepgramError::InvalidUrl)
+    }
+
     /// Use your own [`rustls::ClientConfig`] for every `wss://` WebSocket
     /// connection this client opens (live transcription, Flux
     /// speech-to-text, streaming text-to-speech, Flux text-to-speech). It
@@ -752,6 +842,20 @@ async fn send_and_translate_response<R: DeserializeOwned>(
 
     match response.error_for_status_ref() {
         Ok(_) => Ok(response.json().await?),
+        Err(err) => Err(DeepgramError::DeepgramApiError {
+            body: response.text().await?,
+            err,
+        }),
+    }
+}
+
+/// Sends a request and accepts any successful response body.
+#[cfg(feature = "manage")]
+async fn send_and_check_response(request_builder: RequestBuilder) -> crate::Result<()> {
+    let response = request_builder.send().await?;
+
+    match response.error_for_status_ref() {
+        Ok(_) => Ok(()),
         Err(err) => Err(DeepgramError::DeepgramApiError {
             body: response.text().await?,
             err,
