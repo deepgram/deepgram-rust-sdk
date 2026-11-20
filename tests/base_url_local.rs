@@ -171,6 +171,16 @@ async fn every_management_request_uses_the_configured_base_url() {
     )
     .await;
 
+    let _ = dg
+        .invitations()
+        .delete("proj", "person/test@example.com")
+        .await;
+    assert_captured(
+        &mut rx,
+        "DELETE /v1/projects/proj/invites/person%2Ftest@example.com",
+    )
+    .await;
+
     // billing
     let _ = dg.billing().list_balance("proj").await;
     assert_captured(&mut rx, "GET /v1/projects/proj/balances").await;
