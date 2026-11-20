@@ -119,6 +119,10 @@ impl Billing<'_> {
     }
 
     /// Get billing totals for a time range, optionally filtered and grouped.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/billing/breakdown/get
     pub async fn get_breakdown(
         &self,
         project_id: &str,
@@ -134,6 +138,10 @@ impl Billing<'_> {
     }
 
     /// List the filter values available for a billing breakdown time range.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/billing/fields/get
     pub async fn get_fields(
         &self,
         project_id: &str,
@@ -149,6 +157,10 @@ impl Billing<'_> {
     }
 
     /// List purchase records for the specified project.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/billing/purchases/get
     pub async fn list_purchases(
         &self,
         project_id: &str,

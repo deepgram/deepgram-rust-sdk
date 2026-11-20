@@ -235,6 +235,10 @@ impl Usage<'_> {
     }
 
     /// Get usage totals grouped by a requested dimension.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/usage/breakdown/get
     pub async fn get_breakdown(
         &self,
         project_id: &str,

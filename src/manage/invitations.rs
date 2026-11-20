@@ -40,11 +40,19 @@ impl<'a> From<&'a Deepgram> for Invitations<'a> {
 
 impl Invitations<'_> {
     /// List the outstanding invitations for a project.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/invites/list
     pub async fn list(&self, project_id: &str) -> crate::Result<Invites> {
         send_and_translate_response(self.0.client.get(self.invites_url(project_id)?)).await
     }
 
     /// Invite an email address to a project.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/invites/create
     pub async fn create(&self, project_id: &str, options: &Options) -> crate::Result<Message> {
         let request = self
             .0
@@ -56,6 +64,10 @@ impl Invitations<'_> {
     }
 
     /// Revoke a project invitation.
+    ///
+    /// See the [Deepgram API Reference][api] for more info.
+    ///
+    /// [api]: https://developers.deepgram.com/reference/manage/invites/delete
     pub async fn delete(&self, project_id: &str, email: &str) -> crate::Result<Message> {
         send_and_translate_response(self.0.client.delete(self.invite_url(project_id, email)?)).await
     }
