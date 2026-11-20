@@ -4,6 +4,15 @@ last_verified: 2026-11-19
 
 # This ledger defines the bounded comparison set for Rust SDK parity. Refresh
 # these revisions together before changing a parity status.
+#
+# Status values:
+#   not_started                   no work has begun on the workstream.
+#   pending                       the audit is planned but has not run.
+#   pending_prs_cover_*           open pull requests cover the named gap.
+#   pending_product_contract      blocked on a product decision.
+#   blocked_by_browser_auth_contract  blocked on a browser authentication contract.
+#   decision_recorded             the decision is made and documented.
+# evidence: optional repo-relative path to the document that records the decision.
 sources:
   api_spec:
     repository: deepgram/deepgram-docs
