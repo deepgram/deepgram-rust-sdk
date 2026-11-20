@@ -9,7 +9,7 @@ use std::{
 
 use deepgram::{
     manage::voice_agent::variables::{CreateOptions, UpdateOptions},
-    Deepgram,
+    Deepgram, DeepgramError,
 };
 use serde_json::json;
 
@@ -29,7 +29,10 @@ async fn voice_agent_rest_operations_are_available() -> Result<(), Box<dyn std::
     })?;
     let dg = Deepgram::new(api_key)?;
 
-    let _ = dg.voice_agent().list_think_models().await?;
+    let think_models = dg.voice_agent().list_think_models().await?;
+    if think_models.models.is_empty() {
+        return Err(io::Error::other("list_think_models() returned no models").into());
+    }
 
     let projects = dg.projects().list().await?;
     let project_id = projects
@@ -114,6 +117,14 @@ async fn voice_agent_rest_operations_are_available() -> Result<(), Box<dyn std::
         .variables()
         .delete(&project_id, &variable_id)
         .await;
+    combine(verification, cleanup)
+}
+
+/// Report a verification failure, a cleanup failure, or both.
+fn combine(
+    verification: Result<(), Box<dyn std::error::Error>>,
+    cleanup: Result<(), DeepgramError>,
+) -> Result<(), Box<dyn std::error::Error>> {
     match (verification, cleanup) {
         (Ok(()), Ok(())) => Ok(()),
         (Err(verification), Ok(())) => Err(verification),
