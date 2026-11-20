@@ -17,17 +17,17 @@ use futures::{
 };
 use http::Request;
 use serde::Serialize;
-use tokio_tungstenite::{tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream};
-use tungstenite::{
-    handshake::client,
-    protocol::frame::coding::{CloseCode, Data, OpCode},
-    Utf8Bytes,
-};
+use tungstenite::handshake::client;
 use url::Url;
 use uuid::Uuid;
 
 use super::{options::Options, response::FluxSpeakResponse};
-use crate::{Deepgram, DeepgramError, Result, Speak};
+use crate::{
+    transport::{
+        BoxedStreamingTransport, NativeStreamingTransport, StreamingService, TransportMessage,
+    },
+    Deepgram, DeepgramError, Result, Speak,
+};
 
 static FLUX_SPEAK_URL_PATH: &str = "v2/speak";
 
@@ -182,6 +182,21 @@ impl FluxSpeakHandle {
         let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
         let host_header = crate::websocket_host_header(&url).ok_or(DeepgramError::InvalidUrl)?;
 
+        if let Some(transport) = builder
+            .deepgram
+            .custom_transport(StreamingService::FluxSpeak, url.clone())
+            .await?
+        {
+            let (message_tx, message_rx) = mpsc::channel(256);
+            let (response_tx, response_rx) = mpsc::channel(256);
+            tokio::task::spawn(run_flux_speak_worker(transport, message_rx, response_tx));
+            return Ok(FluxSpeakHandle {
+                message_tx,
+                response_rx,
+                request_id: None,
+            });
+        }
+
         let request = {
             let http_builder = Request::builder()
                 .method("GET")
@@ -234,7 +249,11 @@ impl FluxSpeakHandle {
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
 
-        tokio::task::spawn(run_flux_speak_worker(ws_stream, message_rx, response_tx));
+        tokio::task::spawn(run_flux_speak_worker(
+            Box::new(NativeStreamingTransport::new(ws_stream)),
+            message_rx,
+            response_tx,
+        ));
 
         Ok(FluxSpeakHandle {
             message_tx,
@@ -336,16 +355,11 @@ impl FluxSpeakHandle {
 }
 
 async fn run_flux_speak_worker(
-    ws_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
+    transport: BoxedStreamingTransport,
     mut message_rx: Receiver<ClientMessage>,
     mut response_tx: Sender<Result<FluxSpeakResponse>>,
 ) -> Result<()> {
-    // Partial frames are accumulated here until the final fragment
-    // arrives. Text fragments may split multi-byte characters, so bytes
-    // are collected and parsed only once the message is complete.
-    let mut partial_frame: Vec<u8> = Vec::new();
-    let mut partial_frame_is_text = false;
-    let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
+    let (mut ws_stream_send, ws_stream_recv) = transport.split();
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
     // A dedicated sender for the terminal write error. A `futures` mpsc
@@ -364,7 +378,7 @@ async fn run_flux_speak_worker(
     enum Step {
         /// An inbound frame arrived, with response-channel capacity already
         /// reserved for forwarding it.
-        Inbound(Option<std::result::Result<Message, tungstenite::Error>>),
+        Inbound(Option<Result<TransportMessage>>),
         /// An outbound message is ready to be written to the socket.
         Outbound(Option<ClientMessage>),
         /// The response consumer went away.
@@ -408,7 +422,7 @@ async fn run_flux_speak_worker(
             }
             Step::Inbound(response) => {
                 match response {
-                    Some(Ok(Message::Text(response))) => {
+                    Some(Ok(TransportMessage::Text(response))) => {
                         let response = serde_json::from_str(&response).map_err(DeepgramError::from);
                         // Capacity was reserved above, so this does not block.
                         if response_tx.start_send(response).is_err() {
@@ -416,7 +430,7 @@ async fn run_flux_speak_worker(
                             break;
                         }
                     }
-                    Some(Ok(Message::Binary(audio))) => {
+                    Some(Ok(TransportMessage::Binary(audio))) => {
                         if response_tx
                             .start_send(Ok(FluxSpeakResponse::Audio(audio)))
                             .is_err()
@@ -424,20 +438,23 @@ async fn run_flux_speak_worker(
                             break;
                         }
                     }
-                    Some(Ok(Message::Ping(value))) => {
-                        // We don't really care if the server receives the pong.
-                        let _ = ws_stream_send.send(Message::Pong(value)).await;
+                    Some(Ok(TransportMessage::Ping(value))) => {
+                        if let Err(err) = ws_stream_send.send(TransportMessage::Pong(value)).await {
+                            let _ = error_tx.try_send(Err(err));
+                            is_open = false;
+                            break;
+                        }
                     }
-                    Some(Ok(Message::Close(closeframe))) => {
+                    Some(Ok(TransportMessage::Close(closeframe))) => {
                         // A normal closure carries no error information;
                         // anything else is surfaced to the consumer before
                         // the response channel closes.
                         if let Some(closeframe) = closeframe {
-                            if closeframe.code != CloseCode::Normal {
+                            if closeframe.code != 1000 {
                                 let _ =
                                     response_tx.start_send(Err(DeepgramError::WebsocketClose {
-                                        code: closeframe.code.into(),
-                                        reason: closeframe.reason.to_string(),
+                                        code: closeframe.code,
+                                        reason: closeframe.reason,
                                     }));
                             }
                         }
@@ -451,39 +468,7 @@ async fn run_flux_speak_worker(
                         is_open = false;
                         break;
                     }
-                    Some(Ok(Message::Frame(frame))) => {
-                        match frame.header().opcode {
-                            OpCode::Data(Data::Text) => {
-                                partial_frame_is_text = true;
-                                partial_frame.extend(frame.payload());
-                            }
-                            OpCode::Data(Data::Binary) => {
-                                partial_frame_is_text = false;
-                                partial_frame.extend(frame.payload());
-                            }
-                            // We know which message we're continuing because
-                            // otherwise partial_frame would be empty.
-                            OpCode::Data(Data::Continue) if !partial_frame.is_empty() => {
-                                partial_frame.extend(frame.payload())
-                            }
-                            _ => {
-                                // Ignore other partial frames.
-                            }
-                        }
-                        if frame.header().is_final && !partial_frame.is_empty() {
-                            let payload = std::mem::take(&mut partial_frame);
-                            let response = if partial_frame_is_text {
-                                serde_json::from_slice(&payload).map_err(|err| err.into())
-                            } else {
-                                Ok(FluxSpeakResponse::Audio(payload.into()))
-                            };
-                            if response_tx.start_send(response).is_err() {
-                                // Responses are no longer being received; close the stream.
-                                break;
-                            }
-                        }
-                    }
-                    Some(Ok(Message::Pong(_))) => {
+                    Some(Ok(TransportMessage::Pong(_))) => {
                         // We don't expect pongs from the API. They can be
                         // safely ignored.
                     }
@@ -492,7 +477,7 @@ async fn run_flux_speak_worker(
                         // it once and end the worker, rather than keep polling
                         // a broken socket (which can surface duplicate errors)
                         // or accept further commands doomed to fail.
-                        let _ = response_tx.start_send(Err(err.into()));
+                        let _ = response_tx.start_send(Err(err));
                         is_open = false;
                         break;
                     }
@@ -520,9 +505,8 @@ async fn run_flux_speak_worker(
                     };
                     match serde_json::to_string(&message) {
                         Ok(json) => {
-                            if let Err(err) = ws_stream_send
-                                .send(Message::Text(Utf8Bytes::from(json)))
-                                .await
+                            if let Err(err) =
+                                ws_stream_send.send(TransportMessage::Text(json)).await
                             {
                                 // A failed write means the transport is broken:
                                 // forward the terminal error exactly once and
@@ -534,7 +518,7 @@ async fn run_flux_speak_worker(
                                 // (which would deadlock a caller that sends
                                 // without draining), and it cannot be dropped
                                 // for want of room either.
-                                let _ = error_tx.try_send(Err(err.into()));
+                                let _ = error_tx.try_send(Err(err));
                                 is_open = false;
                                 break;
                             }
@@ -558,15 +542,15 @@ async fn run_flux_speak_worker(
     // Post-loop cleanup: ensure Close is sent if the connection is still open
     if is_open {
         if let Err(err) = ws_stream_send
-            .send(Message::Text(Utf8Bytes::from(
+            .send(TransportMessage::Text(
                 serde_json::to_string(&ClientMessage::Close).unwrap_or_default(),
-            )))
+            ))
             .await
         {
             // The dedicated slot is still unused here (the loop exited
             // without a write failure), so this terminal error is delivered
             // even if the consumer never drained the audio ahead of it.
-            let _ = error_tx.try_send(Err(err.into()));
+            let _ = error_tx.try_send(Err(err));
         }
     }
     response_tx.close_channel();

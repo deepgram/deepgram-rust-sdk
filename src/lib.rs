@@ -29,6 +29,8 @@ pub use serde_urlencoded::ser::Error as SerdeUrlencodedError;
 use std::io;
 use std::ops::Deref;
 #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+use std::sync::Arc;
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub use tungstenite::Error as TungsteniteError;
 
 use reqwest::{
@@ -56,6 +58,8 @@ pub mod read;
 pub mod speak;
 #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
 pub mod tls;
+#[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+pub mod transport;
 
 /// The `rustls` crate this SDK's WebSocket connections are built on,
 /// re-exported so a [`rustls::ClientConfig`] passed to
@@ -262,6 +266,8 @@ pub struct Deepgram {
     client: reqwest::Client,
     #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
     tls: tls::TlsSettings,
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+    transport_factory: Option<Arc<dyn transport::StreamingTransportFactory>>,
 }
 
 /// Errors that may arise from the [`deepgram`](crate) crate.
@@ -592,7 +598,70 @@ impl Deepgram {
                 .build()?,
             #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
             tls: tls::TlsSettings::new(),
+            #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+            transport_factory: None,
         })
+    }
+
+    /// Use `factory` instead of the built-in WebSocket connector for future
+    /// streaming connections.
+    ///
+    /// The factory applies to Listen V1, Flux STT, Aura streaming TTS, Flux
+    /// TTS, and Voice Agent when their Cargo features are enabled. HTTP APIs
+    /// continue using the SDK's `reqwest` client.
+    ///
+    /// A custom transport owns any reconnect/retry behavior. The SDK does not
+    /// reconnect it or replay messages after a failure; its normal terminal
+    /// stream and handle semantics still apply.
+    ///
+    /// The factory owns the network connection, TLS, and any protocol
+    /// handshake. The SDK therefore cannot observe an upgrade response:
+    /// streaming request-ID accessors return `None` for a factory connection
+    /// (or the nil UUID for Aura streaming TTS, which keeps that surface's
+    /// existing missing-header convention). Listen V1 connect diagnostics also
+    /// apply only to the built-in WebSocket connector.
+    ///
+    /// See `examples/transport/in_memory_factory.rs` for an in-memory factory
+    /// used in tests. Run it with
+    /// `cargo run --example in_memory_transport_factory --features listen`.
+    #[cfg_attr(
+        feature = "connect-diagnostics",
+        doc = "\n\nSee [`WebsocketBuilder::diagnostics`](crate::listen::websocket::WebsocketBuilder::diagnostics)."
+    )]
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+    pub fn with_streaming_transport_factory(
+        mut self,
+        factory: Arc<dyn transport::StreamingTransportFactory>,
+    ) -> Self {
+        self.transport_factory = Some(factory);
+        self
+    }
+
+    #[cfg(any(feature = "listen", feature = "speak", feature = "agent"))]
+    pub(crate) async fn custom_transport(
+        &self,
+        service: transport::StreamingService,
+        url: Url,
+    ) -> Result<Option<transport::BoxedStreamingTransport>> {
+        let Some(factory) = &self.transport_factory else {
+            return Ok(None);
+        };
+
+        let mut request = {
+            let builder = http::Request::builder().header("user-agent", USER_AGENT);
+            let builder = if let Some(auth) = &self.auth {
+                builder.header("authorization", auth.header_value())
+            } else {
+                builder
+            };
+            builder.body(())?
+        };
+        if let Some(authorization) = request.headers_mut().get_mut("authorization") {
+            authorization.set_sensitive(true);
+        }
+        let request = transport::TransportRequest::new(service, url, request.headers().clone());
+
+        factory.connect(request).await.map(Some)
     }
 
     /// Join a relative API path, such as `v1/projects`, onto this client's
@@ -641,6 +710,11 @@ impl Deepgram {
     /// `http://` base URLs to local testing and use `https://` whenever an
     /// API key, a temporary token, or private traffic is involved, including
     /// self-hosted deployments.
+    ///
+    /// A client configured with
+    /// [`Deepgram::with_streaming_transport_factory`] bypasses this setting
+    /// for its streaming connections. The factory owns TLS and certificate
+    /// trust for the transport it creates.
     ///
     /// REST requests are made with `reqwest` and are not affected.
     ///

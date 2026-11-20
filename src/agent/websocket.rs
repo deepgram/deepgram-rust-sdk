@@ -70,7 +70,6 @@ use futures::{future::poll_fn, pin_mut, select, FutureExt, SinkExt, Stream};
 use http::Request;
 use pin_project::pin_project;
 use serde::Serialize;
-use tokio_tungstenite::{tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream};
 use tungstenite::handshake::client;
 use uuid::Uuid;
 
@@ -82,7 +81,12 @@ use crate::agent::messages::{
 };
 use crate::agent::response::AgentResponse;
 use crate::agent::settings::SettingsMessage;
-use crate::{Deepgram, DeepgramError, Result};
+use crate::{
+    transport::{
+        BoxedStreamingTransport, NativeStreamingTransport, StreamingService, TransportMessage,
+    },
+    Deepgram, DeepgramError, Result,
+};
 
 /// Default Voice Agent WebSocket endpoint (SaaS).
 const AGENT_WS_URL: &str = "wss://agent.deepgram.com/v1/agent/converse";
@@ -170,6 +174,26 @@ impl Agent<'_> {
         validate_agent_url(&url)?;
         let host = crate::websocket_host_header(&url).ok_or(DeepgramError::InvalidUrl)?;
 
+        if let Some(transport) = self
+            .0
+            .custom_transport(StreamingService::Agent, url.clone())
+            .await?
+        {
+            let (message_tx, message_rx) = mpsc::channel(256);
+            let (response_tx, response_rx) = mpsc::channel(256);
+            tokio::task::spawn(run_agent_worker(transport, message_rx, response_tx));
+            return Ok((
+                AgentHandle {
+                    message_tx,
+                    request_id: None,
+                },
+                AgentEventStream {
+                    rx: response_rx,
+                    request_id: None,
+                },
+            ));
+        }
+
         let request = {
             let http_builder = Request::builder()
                 .method("GET")
@@ -217,7 +241,11 @@ impl Agent<'_> {
         let (message_tx, message_rx) = mpsc::channel(256);
         let (response_tx, response_rx) = mpsc::channel(256);
 
-        tokio::task::spawn(run_agent_worker(ws_stream, message_rx, response_tx));
+        tokio::task::spawn(run_agent_worker(
+            Box::new(NativeStreamingTransport::new(ws_stream)),
+            message_rx,
+            response_tx,
+        ));
 
         let handle = AgentHandle {
             message_tx,
@@ -557,11 +585,11 @@ enum WsMessage {
 }
 
 async fn run_agent_worker(
-    ws_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
+    transport: BoxedStreamingTransport,
     message_rx: Receiver<WsMessage>,
     response_tx: Sender<Result<AgentEvent>>,
 ) -> Result<()> {
-    let (ws_send, ws_recv) = ws_stream.split();
+    let (ws_send, ws_recv) = transport.split();
     drive_agent_session(
         ws_send,
         ws_recv,
@@ -589,8 +617,8 @@ async fn drive_agent_session<Si, St>(
     close_drain_idle_timeout: Duration,
 ) -> Result<()>
 where
-    Si: futures::Sink<Message, Error = tungstenite::Error> + Unpin,
-    St: Stream<Item = std::result::Result<Message, tungstenite::Error>> + Unpin,
+    Si: futures::Sink<TransportMessage, Error = DeepgramError> + Unpin,
+    St: Stream<Item = Result<TransportMessage>> + Unpin,
 {
     let mut ws_recv = ws_recv.fuse();
     let mut is_open = true;
@@ -605,7 +633,7 @@ where
     enum Step {
         /// An inbound frame arrived, with response-channel capacity already
         /// reserved for forwarding it.
-        Inbound(Option<std::result::Result<Message, tungstenite::Error>>),
+        Inbound(Option<Result<TransportMessage>>),
         /// An outbound command is ready to be written to the socket (`None`
         /// once every sender has been dropped).
         Outbound(Option<WsMessage>),
@@ -692,28 +720,31 @@ where
                 }
             }
             Step::Outbound(Some(WsMessage::Json(json))) => {
-                if let Err(err) = ws_send.send(Message::Text(json.into())).await {
+                if let Err(err) = ws_send.send(TransportMessage::Text(json)).await {
                     // A failed write is terminal for the transport: forward it
                     // once through the reserved slot and end the worker.
                     // Continuing here would park on the read half with the
                     // command channel still open, so a retained handle's send
                     // would return `Ok` into a channel nobody drains — the
                     // silent drop the worker contract forbids.
-                    let _ = error_tx.try_send(Err(err.into()));
+                    let _ = error_tx.try_send(Err(err));
                     is_open = false;
                     break;
                 }
             }
             Step::Outbound(Some(WsMessage::Audio(audio))) => {
-                if let Err(err) = ws_send.send(Message::Binary(Bytes::from(audio))).await {
+                if let Err(err) = ws_send
+                    .send(TransportMessage::Binary(Bytes::from(audio)))
+                    .await
+                {
                     // Terminal, as above.
-                    let _ = error_tx.try_send(Err(err.into()));
+                    let _ = error_tx.try_send(Err(err));
                     is_open = false;
                     break;
                 }
             }
             Step::Outbound(Some(WsMessage::Close)) | Step::Outbound(None) => {
-                let _ = ws_send.send(Message::Close(None)).await;
+                let _ = ws_send.send(TransportMessage::Close(None)).await;
                 is_open = false;
             }
         }
@@ -739,7 +770,7 @@ where
     // 3. If we stopped while the connection was still open (e.g. the
     //    consumer dropped the event stream), tell the peer we're going away.
     if is_open {
-        let _ = ws_send.send(Message::Close(None)).await;
+        let _ = ws_send.send(TransportMessage::Close(None)).await;
     }
     // 4. Signal end-of-stream to the consumer and return immediately — the
     //    worker must not linger until every handle is dropped.
@@ -766,23 +797,23 @@ enum InboundStop {
 /// the consumer dropped the event stream), carrying whether the socket is
 /// still writable.
 async fn handle_agent_inbound<S>(
-    inbound: Option<std::result::Result<Message, tungstenite::Error>>,
+    inbound: Option<Result<TransportMessage>>,
     ws_send: &mut S,
     response_tx: &mut Sender<Result<AgentEvent>>,
 ) -> std::ops::ControlFlow<InboundStop>
 where
-    S: futures::Sink<Message> + Unpin,
+    S: futures::Sink<TransportMessage, Error = DeepgramError> + Unpin,
 {
     use std::ops::ControlFlow;
     match inbound {
-        Some(Ok(Message::Text(text))) => {
+        Some(Ok(TransportMessage::Text(text))) => {
             let parsed: std::result::Result<AgentResponse, _> = serde_json::from_str(&text);
             let event = parsed.map(AgentEvent::Json).map_err(DeepgramError::from);
             if response_tx.start_send(event).is_err() {
                 return ControlFlow::Break(InboundStop::TransportUsable);
             }
         }
-        Some(Ok(Message::Binary(bytes))) => {
+        Some(Ok(TransportMessage::Binary(bytes))) => {
             if response_tx
                 .start_send(Ok(AgentEvent::Audio(bytes)))
                 .is_err()
@@ -790,30 +821,30 @@ where
                 return ControlFlow::Break(InboundStop::TransportUsable);
             }
         }
-        Some(Ok(Message::Ping(payload))) => {
-            // Ignore failures: if the WS is gone the next recv will tell us.
-            let _ = ws_send.send(Message::Pong(payload)).await;
+        Some(Ok(TransportMessage::Ping(payload))) => {
+            if let Err(err) = ws_send.send(TransportMessage::Pong(payload)).await {
+                let _ = response_tx.start_send(Err(err));
+                return ControlFlow::Break(InboundStop::TransportGone);
+            }
         }
-        Some(Ok(Message::Pong(_))) => {
+        Some(Ok(TransportMessage::Pong(_))) => {
             // Server-emitted pongs are unexpected; ignore.
         }
-        Some(Ok(Message::Close(None))) => return ControlFlow::Break(InboundStop::TransportUsable),
-        Some(Ok(Message::Close(Some(frame)))) => {
+        Some(Ok(TransportMessage::Close(None))) => {
+            return ControlFlow::Break(InboundStop::TransportUsable);
+        }
+        Some(Ok(TransportMessage::Close(Some(frame)))) => {
             // A normal (1000) close is not an error: the server ends every
             // session this way (after a client-initiated close and at the
             // 2-hour session cap). Only abnormal close codes reach the
             // consumer, matching the streaming TTS worker.
-            if u16::from(frame.code) != 1000 {
+            if frame.code != 1000 {
                 let _ = response_tx.start_send(Err(DeepgramError::WebsocketClose {
-                    code: frame.code.into(),
-                    reason: frame.reason.to_string(),
+                    code: frame.code,
+                    reason: frame.reason,
                 }));
             }
             return ControlFlow::Break(InboundStop::TransportUsable);
-        }
-        Some(Ok(Message::Frame(_))) => {
-            // Unfragmented Frame deliveries; tungstenite normally surfaces
-            // these as Text/Binary. Ignore anything raw that slips through.
         }
         Some(Err(err)) => {
             // A read error is terminal for the transport: forward it once
@@ -821,7 +852,7 @@ where
             // socket (which can surface duplicate errors) or accept
             // further commands doomed to fail. Matches the Flux TTS
             // worker.
-            let _ = response_tx.start_send(Err(err.into()));
+            let _ = response_tx.start_send(Err(err));
             return ControlFlow::Break(InboundStop::TransportGone);
         }
         None => return ControlFlow::Break(InboundStop::TransportGone),
@@ -854,8 +885,8 @@ mod tests {
     /// generic over its two halves.
     struct FailingSink;
 
-    impl futures::Sink<Message> for FailingSink {
-        type Error = tungstenite::Error;
+    impl futures::Sink<TransportMessage> for FailingSink {
+        type Error = DeepgramError;
 
         fn poll_ready(
             self: Pin<&mut Self>,
@@ -866,9 +897,11 @@ mod tests {
 
         fn start_send(
             self: Pin<&mut Self>,
-            _item: Message,
+            _item: TransportMessage,
         ) -> std::result::Result<(), Self::Error> {
-            Err(tungstenite::Error::AlreadyClosed)
+            Err(DeepgramError::InternalClientError(anyhow!(
+                "test write failure"
+            )))
         }
 
         fn poll_flush(
@@ -889,7 +922,7 @@ mod tests {
     struct SilentStream;
 
     impl Stream for SilentStream {
-        type Item = std::result::Result<Message, tungstenite::Error>;
+        type Item = Result<TransportMessage>;
 
         fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             Poll::Pending
@@ -899,16 +932,16 @@ mod tests {
     /// A write half that accepts every send and records it, so a test
     /// can assert what reached the wire.
     #[derive(Clone, Default)]
-    struct RecordingSink(std::sync::Arc<std::sync::Mutex<Vec<Message>>>);
+    struct RecordingSink(std::sync::Arc<std::sync::Mutex<Vec<TransportMessage>>>);
 
     impl RecordingSink {
-        fn written(&self) -> Vec<Message> {
+        fn written(&self) -> Vec<TransportMessage> {
             self.0.lock().expect("sink mutex is never poisoned").clone()
         }
     }
 
-    impl futures::Sink<Message> for RecordingSink {
-        type Error = tungstenite::Error;
+    impl futures::Sink<TransportMessage> for RecordingSink {
+        type Error = DeepgramError;
 
         fn poll_ready(
             self: Pin<&mut Self>,
@@ -917,7 +950,10 @@ mod tests {
             Poll::Ready(Ok(()))
         }
 
-        fn start_send(self: Pin<&mut Self>, item: Message) -> std::result::Result<(), Self::Error> {
+        fn start_send(
+            self: Pin<&mut Self>,
+            item: TransportMessage,
+        ) -> std::result::Result<(), Self::Error> {
             self.0
                 .lock()
                 .expect("sink mutex is never poisoned")
@@ -1055,7 +1091,7 @@ mod tests {
         assert_eq!(
             written
                 .iter()
-                .filter(|message| matches!(message, Message::Close(_)))
+                .filter(|message| matches!(message, TransportMessage::Close(_)))
                 .count(),
             1,
             "expected exactly one Close frame, got {written:?}"

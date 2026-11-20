@@ -243,6 +243,11 @@ path = "examples/manage/self_hosted_credentials.rs"
 required-features = ["manage"]
 
 [[example]]
+name = "in_memory_transport_factory"
+path = "examples/transport/in_memory_factory.rs"
+required-features = ["listen"]
+
+[[example]]
 name = "simple_agent"
 path = "examples/agent/websocket/simple_agent.rs"
 required-features = ["agent"]

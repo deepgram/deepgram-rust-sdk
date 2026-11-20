@@ -31,12 +31,7 @@ use http::Request;
 use pin_project::pin_project;
 use serde_urlencoded;
 use tokio::fs::File;
-use tokio_tungstenite::{tungstenite::protocol::Message, MaybeTlsStream, WebSocketStream};
-use tungstenite::{
-    handshake::client,
-    protocol::frame::coding::{Data, OpCode},
-    Utf8Bytes,
-};
+use tungstenite::handshake::client;
 use url::Url;
 use uuid::Uuid;
 
@@ -47,6 +42,9 @@ use crate::{
     common::{
         options::{Encoding, Endpointing, Options},
         stream_response::StreamResponse,
+    },
+    transport::{
+        BoxedStreamingTransport, NativeStreamingTransport, StreamingService, TransportMessage,
     },
     Deepgram, DeepgramError, Result, Transcription,
 };
@@ -351,6 +349,11 @@ impl WebsocketBuilder<'_> {
     /// from a drop guard — when the caller cancels the connect, e.g. via
     /// `tokio::time::timeout`.
     ///
+    /// A client configured with
+    /// [`Deepgram::with_streaming_transport_factory`](crate::Deepgram::with_streaming_transport_factory)
+    /// does not emit these records: the factory owns its connection phases,
+    /// which may not be DNS/TCP/TLS/WebSocket at all.
+    ///
     /// Accepts a `tokio::sync::mpsc::UnboundedSender<ConnectRecord>` or a
     /// closure wrapped with [`crate::diagnostics::sink_fn`].
     ///
@@ -501,14 +504,14 @@ macro_rules! send_message {
             // goes through `error_tx` and its guaranteed slot, so a consumer
             // that is behind on responses still receives the error and the
             // worker never waits for room to deliver it.
-            let _ = $error_tx.try_send(Err(err.into()));
+            let _ = $error_tx.try_send(Err(err));
             $is_open = false;
             break;
         }
     };
 }
 async fn run_worker(
-    ws_stream: WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>,
+    transport: BoxedStreamingTransport,
     mut message_tx: Sender<WsMessage>,
     mut message_rx: Receiver<WsMessage>,
     mut response_tx: Sender<Result<StreamResponse>>,
@@ -525,9 +528,7 @@ async fn run_worker(
     // full response channel. The slot is used at most once, on the single
     // terminal path that ends the worker.
     let mut error_tx = response_tx.clone();
-    // We use Vec<u8> for partial frames because we don't know if a fragment of a string is valid utf-8.
-    let mut partial_frame: Vec<u8> = Vec::new();
-    let (mut ws_stream_send, ws_stream_recv) = ws_stream.split();
+    let (mut ws_stream_send, ws_stream_recv) = transport.split();
     let mut ws_stream_recv = ws_stream_recv.fuse();
     let mut is_open: bool = true;
     // False once `message_rx` is exhausted (all senders dropped or the
@@ -543,7 +544,7 @@ async fn run_worker(
         KeepAlive,
         /// An inbound frame arrived, with response-channel capacity already
         /// reserved for forwarding it.
-        Inbound(Option<std::result::Result<Message, tungstenite::Error>>),
+        Inbound(Option<Result<TransportMessage>>),
         /// An outbound message is ready to be written to the socket.
         Outbound(Option<WsMessage>),
         /// The response consumer went away.
@@ -616,7 +617,7 @@ async fn run_worker(
             }
             Step::Inbound(response) => {
                 match response {
-                    Some(Ok(Message::Text(response))) => {
+                    Some(Ok(TransportMessage::Text(response))) => {
                         // eprintln!("<worker> received dg response");
                         let response = serde_json::from_str(&response).map_err(DeepgramError::from);
                         // Capacity was reserved above, so this does not block.
@@ -625,48 +626,31 @@ async fn run_worker(
                             break;
                         }
                     }
-                    Some(Ok(Message::Ping(value))) => {
-                        // We don't really care if the server receives the pong.
-                        let _ = ws_stream_send.send(Message::Pong(value)).await;
+                    Some(Ok(TransportMessage::Ping(value))) => {
+                        if let Err(err) = ws_stream_send.send(TransportMessage::Pong(value)).await {
+                            let _ = error_tx.try_send(Err(err));
+                            is_open = false;
+                            break;
+                        }
                     }
-                    Some(Ok(Message::Close(None))) => {
+                    Some(Ok(TransportMessage::Close(None))) => {
                         // eprintln!("<worker> received websocket close");
                         return Ok(());
                     }
-                    Some(Ok(Message::Close(Some(closeframe)))) => {
-                        // eprintln!("<worker> received websocket close");
-                        return Err(DeepgramError::WebsocketClose {
-                            code: closeframe.code.into(),
-                            reason: closeframe.reason.to_string(),
-                        });
-                    }
-
-                    Some(Ok(Message::Frame(frame))) => {
-                        match frame.header().opcode {
-                            OpCode::Data(Data::Text) => {
-                                partial_frame.extend(frame.payload());
-                            }
-                            // We know we're continuing a text frame because otherwise
-                            // partial_frame would be empty.
-                            OpCode::Data(Data::Continue) if !partial_frame.is_empty() => {
-                                partial_frame.extend(frame.payload())
-                            }
-                            _ => {
-                                // Ignore other partial frames.
-                            }
+                    Some(Ok(TransportMessage::Close(Some(closeframe)))) => {
+                        // Forward an abnormal peer close before ending the
+                        // worker. Returning the error from this detached task
+                        // would silently discard it instead.
+                        if closeframe.code != 1000 {
+                            let _ = response_tx.start_send(Err(DeepgramError::WebsocketClose {
+                                code: closeframe.code,
+                                reason: closeframe.reason,
+                            }));
                         }
-                        if frame.header().is_final {
-                            let response = std::mem::take(&mut partial_frame);
-                            let response =
-                                serde_json::from_slice(&response).map_err(|err| err.into());
-                            // Capacity was reserved above, so this does not block.
-                            if response_tx.start_send(response).is_err() {
-                                // Responses are no longer being received; close the stream.
-                                break;
-                            }
-                        }
+                        is_open = false;
+                        break;
                     }
-                    Some(Ok(Message::Binary(_) | Message::Pong(_))) => {
+                    Some(Ok(TransportMessage::Binary(_) | TransportMessage::Pong(_))) => {
                         // We don't expect binary messages or pongs from the API.
                         // They can be safely ignored.
                     }
@@ -676,7 +660,7 @@ async fn run_worker(
                         // it once and end the worker, rather than keep polling
                         // a broken socket, which can surface the same failure
                         // again. Capacity was reserved above.
-                        let _ = response_tx.start_send(Err(err.into()));
+                        let _ = response_tx.start_send(Err(err));
                         is_open = false;
                         break;
                     }
@@ -701,7 +685,7 @@ async fn run_worker(
                                 ws_stream_send,
                                 error_tx,
                                 is_open,
-                                Message::Binary(Bytes::from(audio.0))
+                                TransportMessage::Binary(Bytes::from(audio.0))
                             );
                             last_sent_message = tokio::time::Instant::now();
                         }
@@ -710,9 +694,9 @@ async fn run_worker(
                                 ws_stream_send,
                                 error_tx,
                                 is_open,
-                                Message::Text(Utf8Bytes::from(
+                                TransportMessage::Text(
                                     serde_json::to_string(&msg).unwrap_or_default()
-                                ))
+                                )
                             );
                             last_sent_message = tokio::time::Instant::now();
                             if msg == ControlMessage::CloseStream {
@@ -725,10 +709,10 @@ async fn run_worker(
                                 ws_stream_send,
                                 error_tx,
                                 is_open,
-                                Message::Text(Utf8Bytes::from(
+                                TransportMessage::Text(
                                     serde_json::to_string(&ControlMessage::CloseStream)
                                         .unwrap_or_default()
-                                ))
+                                )
                             );
                             is_open = false;
                         }
@@ -743,15 +727,15 @@ async fn run_worker(
     // second error for the same broken transport.
     if is_open {
         if let Err(err) = ws_stream_send
-            .send(Message::Text(Utf8Bytes::from(
+            .send(TransportMessage::Text(
                 serde_json::to_string(&ControlMessage::CloseStream).unwrap_or_default(),
-            )))
+            ))
             .await
         {
             // `error_tx`'s guaranteed slot delivers this even when the
             // consumer is behind; if the consumer has dropped the stream
             // there is nothing to be done about it now.
-            let _ = error_tx.try_send(Err(err.into()));
+            let _ = error_tx.try_send(Err(err));
         }
     }
     response_tx.close_channel();
@@ -802,6 +786,30 @@ impl WebsocketHandle {
         let url = builder.as_url()?;
         let host = url.host_str().ok_or(DeepgramError::InvalidUrl)?;
         let host_header = crate::websocket_host_header(&url).ok_or(DeepgramError::InvalidUrl)?;
+
+        if let Some(transport) = builder
+            .deepgram
+            .custom_transport(StreamingService::Listen, url.clone())
+            .await?
+        {
+            let (message_tx, message_rx) = mpsc::channel(256);
+            let (response_tx, response_rx) = mpsc::channel(256);
+            tokio::task::spawn({
+                let message_tx = message_tx.clone();
+                run_worker(
+                    transport,
+                    message_tx,
+                    message_rx,
+                    response_tx,
+                    builder.keep_alive.unwrap_or(false),
+                )
+            });
+            return Ok(WebsocketHandle {
+                message_tx,
+                response_rx,
+                request_id: None,
+            });
+        }
 
         let request = {
             let http_builder = Request::builder()
@@ -923,7 +931,7 @@ impl WebsocketHandle {
         tokio::task::spawn({
             let message_tx = message_tx.clone();
             run_worker(
-                ws_stream,
+                Box::new(NativeStreamingTransport::new(ws_stream)),
                 message_tx,
                 message_rx,
                 response_tx,
