@@ -1,6 +1,6 @@
 schema_version: 1
 status: in_progress
-last_verified: 2026-11-19
+last_verified: 2026-11-23
 
 # This ledger defines the bounded comparison set for Rust SDK parity. Refresh
 # these revisions together before changing a parity status.
@@ -16,21 +16,22 @@ last_verified: 2026-11-19
 sources:
   api_spec:
     repository: deepgram/deepgram-docs
-    revision: 2677eb4ddbf533b700725bb71a46633e858b8466
+    revision: 7e57d78076494e50a901315f806379319f20572c
     openapi: api/specs/openapi/openapi.yml
     asyncapi: api/specs/asyncapi/asyncapi.yml
   generated_sdks:
     javascript:
       repository: deepgram/deepgram-js-sdk
-      revision: 62482ff46b996d5c9733fde07ba23078271d28f6
+      revision: ece7c1914fbb120fdaf488e5ee3a8cd1b74e2179
     python:
       repository: deepgram/deepgram-python-sdk
-      revision: 5a420ce3abd416255c04acff504522398e8e5f1c
+      revision: 7bb602334316f6fa5ee02a4771ca77dc0e96514a
     java:
       repository: deepgram/deepgram-java-sdk
-      revision: c25deb966fd37b2828d1672955dd3a349cb7a61f
+      revision: 368eb9dd5a08d7f9de74e741ee49dc40e9f06fb2
   rust_baseline:
-    revision: e42ef37ad2e3b2a15454c9b9be65c4d6e12d7a1c
+    revision: d4e00b06130ea934fdccc23d6c49fa7c73b8db44
+    release: 0.15.0
 
 refresh:
   command: >-
@@ -39,42 +40,32 @@ refresh:
   behavior: The docs checkout must be at sources.api_spec.revision. Use --write
     only after reviewing and updating the source pin and snapshots together.
 
-pending_parity_prs:
-  - number: 204
-    revision: 1afd147d020f7a4c7b25bd2278387289a5d89c8b
-    scope: Management billing, invitations, and usage.
-  - number: 205
-    revision: 64817782803719e4397351d2e5d22934b1ec6ebc
-    scope: Voice Agent REST configurations, variables, and Think-model discovery.
-  - number: 206
-    revision: c5d175e2a8afbc2ddc8f0e8c7815bbcca6080ab0
-    scope: Deepgram Think and Think Live.
-  - number: 207
-    revision: de8da6337139be1746a973b0c5b17c3eac4243c3
-    scope: Custom Think-provider Voice Agent messages.
-
 inventories:
   openapi:
     operation_count: 50
     snapshot: parity/openapi-operations.json
-    route_coverage_status: pending_prs_cover_route_inventory
+    audit_ledger: parity/operation-audit-ledger.json
+    audit_row_count: 50
+    route_coverage_status: refreshed_pending_row_audit
     field_and_option_audit_status: pending
   asyncapi:
     operation_count: 84
     snapshot: parity/asyncapi-operations.json
-    protocol_message_coverage_status: pending_prs_cover_current_voice_agent_gap
+    audit_ledger: parity/operation-audit-ledger.json
+    audit_row_count: 84
+    protocol_message_coverage_status: refreshed_pending_row_audit
     field_and_behavior_audit_status: pending
 
 workstreams:
   rest_schema_and_option_sweep:
-    status: not_started
+    status: pending
     scope:
       - Listen and transcription request/response schema.
       - Text Intelligence and batch response schema.
       - Aura and Flux TTS request, response, and control schema.
       - Management and auth query, pagination, nullable-field, and error schema.
   voice_agent_schema_sweep:
-    status: not_started
+    status: pending
     scope:
       - Settings, history, audio, listen, think, Think Live, speak, functions, and custom endpoints.
       - Every client control, server event, enum, default, and unknown-value path.
@@ -104,14 +95,14 @@ workstreams:
       - src/speak/websocket.rs
       - src/speak/flux/websocket.rs
   developer_experience_parity:
-    status: not_started
+    status: pending
     scope:
       - Listen WebSocket documentation and example coverage (issue 91).
       - Named redaction selectors (issue 87).
       - Runnable Think Live and custom Think-provider examples.
       - README, crate docs, skills, and feature-specific builds.
   automated_parity_guard:
-    status: not_started
+    status: pending
     scope:
       - CI comparison of the pinned spec inventories and this ledger.
       - Local wire fixtures for typed streaming frames.
@@ -128,7 +119,7 @@ decisions_required:
     reason: Browser WebSockets cannot use the native Authorization-header model.
 
 claim:
-  current: Rust route and Voice Agent message parity is pending review and merge
-    of PRs 204 through 207.
+  current: The operation inventories are pinned to Rust 0.15.0 and current
+    sibling SDK snapshots. Row-level schema and behavior audits are pending.
   final: Rust has full documented API parity with the recorded JavaScript,
     Python, and Java SDK revisions only when every workstream is complete.
