@@ -354,14 +354,23 @@ pub enum DeepgramError {
     #[error("The provided options are not valid for this request: {0}")]
     InvalidOptions(String),
 
-    /// No rustls crypto provider was installed before constructing a client
+    /// No Rustls provider feature was enabled before constructing a client.
+    ///
+    /// Enable `reqwest-rustls`, or enable `reqwest-no-provider` and install
+    /// the application's chosen provider before constructing [`Deepgram`].
+    #[error(
+        "No rustls provider feature is enabled. Enable `reqwest-rustls`, or enable `reqwest-no-provider` and install a rustls provider before constructing `Deepgram`."
+    )]
+    MissingRustlsProviderFeature,
+
+    /// No Rustls crypto provider was installed before constructing a client
     /// with the `reqwest-no-provider` feature.
     ///
-    /// Enable `reqwest-rustls`, or install the application's chosen provider
-    /// with `rustls::crypto::CryptoProvider::install_default` before
-    /// constructing [`Deepgram`].
+    /// Install the application's chosen provider with
+    /// `rustls::crypto::CryptoProvider::install_default` before constructing
+    /// [`Deepgram`].
     #[error(
-        "No rustls crypto provider is configured. Enable `reqwest-rustls` or install a rustls provider before constructing `Deepgram`."
+        "No rustls crypto provider is configured. Install a rustls provider before constructing `Deepgram`."
     )]
     MissingRustlsCryptoProvider,
 
@@ -421,7 +430,7 @@ fn ensure_reqwest_crypto_provider() -> Result<()> {
 
 #[cfg(all(not(feature = "reqwest-rustls"), not(feature = "reqwest-no-provider")))]
 fn ensure_reqwest_crypto_provider() -> Result<()> {
-    Err(DeepgramError::MissingRustlsCryptoProvider)
+    Err(DeepgramError::MissingRustlsProviderFeature)
 }
 
 impl Deepgram {
@@ -944,10 +953,12 @@ mod tests {
     #[cfg(all(not(feature = "reqwest-rustls"), not(feature = "reqwest-no-provider")))]
     #[test]
     fn reqwest_rustls_provider_feature_is_required() {
-        assert!(matches!(
-            Deepgram::new("test_api_key"),
-            Err(DeepgramError::MissingRustlsCryptoProvider)
-        ));
+        let error = Deepgram::new("test_api_key").unwrap_err();
+        assert!(matches!(error, DeepgramError::MissingRustlsProviderFeature));
+        assert_eq!(
+            error.to_string(),
+            "No rustls provider feature is enabled. Enable `reqwest-rustls`, or enable `reqwest-no-provider` and install a rustls provider before constructing `Deepgram`."
+        );
     }
 
     #[cfg(all(
@@ -957,10 +968,12 @@ mod tests {
     ))]
     #[test]
     fn reqwest_no_provider_requires_an_installed_provider() {
-        assert!(matches!(
-            Deepgram::new("test_api_key"),
-            Err(DeepgramError::MissingRustlsCryptoProvider)
-        ));
+        let error = Deepgram::new("test_api_key").unwrap_err();
+        assert!(matches!(error, DeepgramError::MissingRustlsCryptoProvider));
+        assert_eq!(
+            error.to_string(),
+            "No rustls crypto provider is configured. Install a rustls provider before constructing `Deepgram`."
+        );
     }
 
     #[cfg(all(
