@@ -10,11 +10,16 @@ ROOT = Path(__file__).resolve().parent.parent
 OPENAPI = ROOT / "parity" / "openapi-operations.json"
 ASYNCAPI = ROOT / "parity" / "asyncapi-operations.json"
 OUTPUT = ROOT / "parity" / "operation-audit-ledger.json"
+OVERRIDES = ROOT / "parity" / "audit-overrides.json"
 
 
 def main() -> None:
     openapi = json.loads(OPENAPI.read_text())
     asyncapi = json.loads(ASYNCAPI.read_text())
+    overrides = json.loads(OVERRIDES.read_text()).get("overrides", {})
+
+    def with_override(row: dict[str, object]) -> dict[str, object]:
+        return {**row, **overrides.get(row["id"], {})}
 
     ledger = {
         "schema_version": 1,
@@ -33,7 +38,7 @@ def main() -> None:
             "a concrete test plan for every non-implemented row.",
         },
         "openapi_operations": [
-            {
+            with_override({
                 "id": f"openapi:{entry['operation_id']}",
                 "operation_id": entry["operation_id"],
                 "method": entry["method"],
@@ -47,11 +52,11 @@ def main() -> None:
                 ],
                 "test_plan": "Capture the Rust request or deserialize a pinned "
                 "response fixture for every implemented surface.",
-            }
+            })
             for entry in openapi
         ],
         "asyncapi_operations": [
-            {
+            with_override({
                 "id": f"asyncapi:{entry['schema_file']}:{entry['operation']}:{entry['action']}",
                 "schema_file": entry["schema_file"],
                 "operation": entry["operation"],
@@ -66,7 +71,7 @@ def main() -> None:
                 ],
                 "test_plan": "Serialize a client message or deserialize a pinned "
                 "server-frame fixture, matching the operation direction.",
-            }
+            })
             for entry in asyncapi
         ],
     }

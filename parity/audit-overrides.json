@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "overrides": {
+    "asyncapi:listen.v1.yml:ListenV1Configure:send": {
+      "status": "missing_rust_implementation",
+      "evidence": [
+        "deepgram-docs/api/specs/asyncapi/operations/listen.v1.yml: ListenV1Configure",
+        "src/listen/websocket.rs: WebsocketHandle has no configure method"
+      ],
+      "finding": "Rust cannot send the documented Listen V1 mid-stream Configure message.",
+      "test_plan": "Add a localhost WebSocket test that captures the exact Configure frame and asserts a typed request builder serializes supported keyterms and features."
+    },
+    "asyncapi:listen.v1.yml:ListenV1ConfigureSuccess:receive": {
+      "status": "missing_rust_implementation",
+      "evidence": [
+        "deepgram-docs/api/specs/asyncapi/operations/listen.v1.yml: ListenV1ConfigureSuccess",
+        "src/common/stream_response.rs: ConfigureSuccess is currently StreamResponse::Unknown"
+      ],
+      "finding": "Rust does not expose a typed confirmation when a Listen V1 Configure update is applied.",
+      "test_plan": "Add a fixture-based deserialization test for ConfigureSuccess and a local WebSocket test that delivers it after Configure."
+    },
+    "asyncapi:listen.v1.yml:ListenV1ConfigureFailure:receive": {
+      "status": "missing_rust_implementation",
+      "evidence": [
+        "deepgram-docs/api/specs/asyncapi/operations/listen.v1.yml: ListenV1ConfigureFailure",
+        "src/common/stream_response.rs: ConfigureFailure is currently StreamResponse::Unknown"
+      ],
+      "finding": "Rust does not expose a typed rejection when a Listen V1 Configure update is refused.",
+      "test_plan": "Add a fixture-based deserialization test for ConfigureFailure and a local WebSocket test that preserves the server code and description."
+    }
+  }
+}
