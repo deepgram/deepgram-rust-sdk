@@ -131,7 +131,7 @@ impl Auth<'_> {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "reqwest-rustls"))]
 mod tests {
     use crate::Deepgram;
 
