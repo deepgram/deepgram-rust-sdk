@@ -107,7 +107,8 @@ behavior.
 If your application selects its own provider, enable `reqwest-no-provider`
 instead, then add and install a rustls provider before constructing a
 `Deepgram` client. This applies to every feature combination, including
-token-based authentication:
+token-based authentication. Without an installed provider, construction
+returns `DeepgramError::MissingRustlsCryptoProvider`:
 
 ```sh
 cargo add deepgram --no-default-features --features listen,reqwest-no-provider
