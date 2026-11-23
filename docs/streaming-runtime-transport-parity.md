@@ -3,19 +3,19 @@
 Status: decision recorded — no SDK-managed reconnect or message replay.
 
 This audit compares streaming behavior outside the pinned OpenAPI and
-AsyncAPI contracts. Its Rust observations describe baseline
-`e42ef37a`; custom transport support is proposed separately by
+AsyncAPI contracts. Its Rust observations describe the 0.15.0 baseline
+`d4e00b06`; custom transport support shipped in
 [#213](https://github.com/deepgram/deepgram-rust-sdk/pull/213).
 
 ## Evidence baseline
 
 | Source | Revision |
 | --- | --- |
-| Deepgram API specs | `2677eb4ddbf533b700725bb71a46633e858b8466` |
-| JavaScript SDK | `62482ff46b996d5c9733fde07ba23078271d28f6` |
-| Python SDK | `5a420ce3abd416255c04acff504522398e8e5f1c` |
-| Java SDK | `c25deb966fd37b2828d1672955dd3a349cb7a61f` |
-| Rust audit baseline | `e42ef37a` |
+| Deepgram API specs | `7e57d78076494e50a901315f806379319f20572c` |
+| JavaScript SDK | `ece7c1914fbb120fdaf488e5ee3a8cd1b74e2179` |
+| Python SDK | `7bb602334316f6fa5ee02a4771ca77dc0e96514a` |
+| Java SDK | `368eb9dd5a08d7f9de74e741ee49dc40e9f06fb2` |
+| Rust audit baseline | `d4e00b06` (0.15.0) |
 
 The streaming surfaces are Listen V1 (`/v1/listen`), Listen V2 / Flux STT
 (`/v2/listen`), Speak V1 / Aura (`/v1/speak`), Speak V2 / Flux TTS
@@ -27,7 +27,7 @@ The streaming surfaces are Listen V1 (`/v1/listen`), Listen V2 / Flux STT
 | --- | --- | --- | --- | --- | --- |
 | SDK-managed reconnect | Yes. The wrapper reconnects native WebSockets; each connection defaults to 30 retries. | No. `reconnect` is declarative only. | Yes. `ReconnectingWebSocketListener` reconnects with exponential backoff; its default maximum is effectively unbounded. | No. A read/write failure or abnormal close is terminal. | Intentional Rust-native difference. |
 | Sending while disconnected | JavaScript queues messages and flushes them after opening. | Not applicable; no wrapper reconnect. | Queues up to `maxEnqueuedMessages`, then drops later messages. | The bounded command channel exists only for a live worker. When the worker exits, retained handle sends fail. | Do not copy without delivery semantics. |
-| Custom streaming transport | `transportFactory(url, headers, request)` supports all five surfaces. The SDK disables wrapper reconnect by default when a factory is present; callers can opt back in with `reconnect: true`. | Process-global monkey-patch accepts `factory(url, headers)` for all generated streaming clients. | `DeepgramTransportFactory.create(url, headers)` supports all streaming clients. | At baseline `e42ef37a`, every surface uses `tokio_tungstenite`. [#213](https://github.com/deepgram/deepgram-rust-sdk/pull/213) proposes an opt-in factory; the built-in sockets remain `tokio_tungstenite`-based. | Rust-equivalent transport seam; no wrapper retry by default. |
+| Custom streaming transport | `transportFactory(url, headers, request)` supports all five surfaces. The SDK disables wrapper reconnect by default when a factory is present; callers can opt back in with `reconnect: true`. | Process-global monkey-patch accepts `factory(url, headers)` for all generated streaming clients. | `DeepgramTransportFactory.create(url, headers)` supports all streaming clients. | [`Deepgram::with_streaming_transport_factory`](../src/lib.rs) supports all five surfaces. Built-in sockets remain `tokio_tungstenite`-based. | Rust-equivalent transport seam; no wrapper retry by default. |
 | Close/retry policy | Default does not reconnect after a normal close. Per-connection policy can override this; a client-sent `CloseStream` or `Close` makes the following 1005 close terminal. | Native transport behavior only. | Normal close is terminal by default; subclasses can override the policy. | Explicit close is terminal. A non-normal close or read/write error is surfaced once and ends the handle/event stream. | Intentional Rust-native terminal contract. |
 | Backpressure / terminal error | Wrapper queues while disconnected; queue ownership is in the reconnect wrapper. | Delegated to the installed transport. | Queues outbound messages across reconnects. | Every worker uses bounded channels; a terminal transport failure closes the command channel so later sends fail rather than disappear. | Preserve this invariant in any transport abstraction. |
 | Per-surface custom endpoint | Base URL/environment controls all wrapped endpoints. | `DeepgramClientEnvironment` sets four hosts (REST, Listen/Speak WebSocket, Agent WebSocket, Agent REST); no single base URL. | Endpoint configuration is client-level. | `Deepgram::with_base_url*` controls Listen V1/V2 and Speak V1/V2. Voice Agent uses its SaaS endpoint or explicit `Agent::start_at_url`; non-loopback Agent URLs require `wss://`. | Rust-equivalent, intentionally explicit for Voice Agent. |
