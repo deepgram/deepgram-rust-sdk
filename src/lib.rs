@@ -358,9 +358,8 @@ pub enum DeepgramError {
     /// with the `reqwest-no-provider` feature.
     ///
     /// Enable `reqwest-rustls`, or install the application's chosen provider
-    /// with [`rustls::crypto::CryptoProvider::install_default`] before
+    /// with `rustls::crypto::CryptoProvider::install_default` before
     /// constructing [`Deepgram`].
-    #[cfg(all(feature = "reqwest-no-provider", not(feature = "reqwest-rustls")))]
     #[error(
         "No rustls crypto provider is configured. Enable `reqwest-rustls` or install a rustls provider before constructing `Deepgram`."
     )]
@@ -405,6 +404,25 @@ impl From<TungsteniteError> for DeepgramError {
 
 #[cfg_attr(not(feature = "listen"), allow(unused))]
 type Result<T, E = DeepgramError> = std::result::Result<T, E>;
+
+#[cfg(feature = "reqwest-rustls")]
+fn ensure_reqwest_crypto_provider() -> Result<()> {
+    Ok(())
+}
+
+#[cfg(all(feature = "reqwest-no-provider", not(feature = "reqwest-rustls")))]
+fn ensure_reqwest_crypto_provider() -> Result<()> {
+    if rustls::crypto::CryptoProvider::get_default().is_some() {
+        Ok(())
+    } else {
+        Err(DeepgramError::MissingRustlsCryptoProvider)
+    }
+}
+
+#[cfg(all(not(feature = "reqwest-rustls"), not(feature = "reqwest-no-provider")))]
+fn ensure_reqwest_crypto_provider() -> Result<()> {
+    Err(DeepgramError::MissingRustlsCryptoProvider)
+}
 
 impl Deepgram {
     /// Construct a new Deepgram client.
@@ -645,11 +663,7 @@ impl Deepgram {
         #[cfg(feature = "manage")] agent_rest_url: Url,
         auth: Option<AuthMethod>,
     ) -> Result<Self> {
-        #[cfg(all(feature = "reqwest-no-provider", not(feature = "reqwest-rustls")))]
-        if rustls::crypto::CryptoProvider::get_default().is_none() {
-            return Err(DeepgramError::MissingRustlsCryptoProvider);
-        }
-
+        ensure_reqwest_crypto_provider()?;
         if base_url.cannot_be_a_base() {
             return Err(DeepgramError::InvalidUrl);
         }
@@ -903,6 +917,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "reqwest-rustls")]
     #[test]
     fn test_deepgram_new_with_temp_token() {
         let client = Deepgram::with_temp_token("test_temp_token").unwrap();
@@ -914,6 +929,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "reqwest-rustls")]
     #[test]
     fn test_deepgram_new_with_api_key() {
         let client = Deepgram::new("test_api_key").unwrap();
@@ -925,7 +941,20 @@ mod tests {
         );
     }
 
-    #[cfg(all(feature = "reqwest-no-provider", not(feature = "reqwest-rustls")))]
+    #[cfg(all(not(feature = "reqwest-rustls"), not(feature = "reqwest-no-provider")))]
+    #[test]
+    fn reqwest_rustls_provider_feature_is_required() {
+        assert!(matches!(
+            Deepgram::new("test_api_key"),
+            Err(DeepgramError::MissingRustlsCryptoProvider)
+        ));
+    }
+
+    #[cfg(all(
+        feature = "reqwest-no-provider",
+        not(feature = "reqwest-rustls"),
+        not(feature = "__test-aws-lc-rs")
+    ))]
     #[test]
     fn reqwest_no_provider_requires_an_installed_provider() {
         assert!(matches!(
@@ -948,6 +977,7 @@ mod tests {
         Deepgram::new("test_api_key").expect("construct client with installed provider");
     }
 
+    #[cfg(feature = "reqwest-rustls")]
     #[test]
     fn debug_output_never_contains_the_credential() {
         // `Deepgram` derives Debug and holds a reqwest `Client`, whose Debug

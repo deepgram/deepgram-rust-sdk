@@ -102,7 +102,8 @@ features are described below.
 The REST client needs a rustls crypto provider. `reqwest-rustls` selects the
 AWS-LC provider and is enabled by default. If you disable default features,
 enable `reqwest-rustls` with the product features you need to retain that
-behavior.
+behavior. If neither provider feature is enabled, construction returns
+`DeepgramError::MissingRustlsCryptoProvider`.
 
 If your application selects its own provider, enable `reqwest-no-provider`
 instead, then add and install a rustls provider before constructing a

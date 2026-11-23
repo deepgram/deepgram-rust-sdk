@@ -32,7 +32,9 @@ jobs:
         sudo apt-get install -y alsa pkg-config libasound2-dev
         export PKG_CONFIG_PATH=/usr/lib/pkgconfig:$PKG_CONFIG_PATH
     - name: Check no features
-      run: cargo check --all-targets --no-default-features
+      run: |
+        cargo check --all-targets --no-default-features
+        cargo test --lib --no-default-features reqwest_rustls_provider_feature_is_required
     - name: Check reqwest-rustls with read
       run: |
         cargo check --all-targets --no-default-features --features=read,reqwest-rustls
