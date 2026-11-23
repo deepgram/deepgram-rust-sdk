@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1](https://github.com/deepgram/deepgram-rust-sdk/compare/0.15.0...0.15.1) (2026-11-23)
+
+
+### Fixed
+
+* **listen:** deliver Flux STT responses that arrive after the audio stream ends ([#198](https://github.com/deepgram/deepgram-rust-sdk/issues/198)) ([acab039](https://github.com/deepgram/deepgram-rust-sdk/commit/acab03981ecaaea2d4fcdfb740958ad18c944e0b))
+
 ## [0.15.0](https://github.com/deepgram/deepgram-rust-sdk/compare/0.14.0...0.15.0) (2026-11-20)
 
 
