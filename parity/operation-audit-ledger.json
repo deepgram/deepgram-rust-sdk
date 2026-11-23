@@ -1346,7 +1346,8 @@
       "test_plan": "Add a localhost WebSocket test that captures the exact Configure frame and asserts a typed request builder serializes supported keyterms and features.",
       "evidence": [
         "deepgram-docs/api/specs/asyncapi/operations/listen.v1.yml: ListenV1Configure",
-        "src/listen/websocket.rs: WebsocketHandle has no configure method"
+        "src/listen/websocket.rs: WebsocketHandle has no configure method",
+        "production probe 2026-11-23: Configure keyterms and numerals returned ConfigureSuccess"
       ],
       "finding": "Rust cannot send the documented Listen V1 mid-stream Configure message."
     },
@@ -1366,7 +1367,8 @@
       "test_plan": "Add a fixture-based deserialization test for ConfigureSuccess and a local WebSocket test that delivers it after Configure.",
       "evidence": [
         "deepgram-docs/api/specs/asyncapi/operations/listen.v1.yml: ListenV1ConfigureSuccess",
-        "src/common/stream_response.rs: ConfigureSuccess is currently StreamResponse::Unknown"
+        "src/common/stream_response.rs: ConfigureSuccess is currently StreamResponse::Unknown",
+        "production probe 2026-11-23: ConfigureSuccess followed the documented Configure frame"
       ],
       "finding": "Rust does not expose a typed confirmation when a Listen V1 Configure update is applied."
     },

@@ -26,5 +26,13 @@ no typed sender or typed response variants. The operation ledger classifies all
 three rows as `missing_rust_implementation` and supplies the wire-fixture plan
 for the follow-up implementation PR.
 
+## Live protocol verification
+
+On 2026-11-23, a temporary client connected to production `/v1/listen` with a
+Nova-3 session, sent the documented `Configure` frame with keyterms and the
+`numerals` feature, and received `ConfigureSuccess`. The API key was passed
+only through the environment. This confirms that the missing Rust surface is a
+client gap rather than a stale specification entry.
+
 Do not mark the Listen workstream complete from this audit: query-option and
 response-field parity still require the row-level schema sweep.
