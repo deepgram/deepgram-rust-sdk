@@ -230,8 +230,26 @@ impl FluxBuilder<'_> {
             let mut handle = handle;
             let mut tx = tx;
             let mut stream = stream.fuse();
+            let mut audio_ended = false;
 
             loop {
+                if audio_ended {
+                    match handle.response_rx.next().await {
+                        Some(response) => {
+                            if tx.send(response).await.is_err() {
+                                // Receiver has been dropped.
+                                break;
+                            }
+                        }
+                        None => {
+                            tx.close_channel();
+                            // No more responses
+                            break;
+                        }
+                    }
+                    continue;
+                }
+
                 select_biased! {
                     // Receiving messages from FluxHandle
                     response = handle.response_rx.next() => {
@@ -267,14 +285,14 @@ impl FluxBuilder<'_> {
                             None => {
                                 // Keep looping after closing: the server sends
                                 // the final turn's responses only after it reads
-                                // `CloseStream`, and the loop ends once the
-                                // response channel closes. The fused stream is
-                                // not polled again.
+                                // `CloseStream`, and the response-only loop
+                                // ends once the response channel closes.
                                 if let Err(err) = handle.close_stream().await {
                                     if tx.send(Err(err)).await.is_err() {
                                         break;
                                     }
                                 }
+                                audio_ended = true;
                             }
                         }
                     }

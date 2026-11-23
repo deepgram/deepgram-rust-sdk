@@ -410,6 +410,7 @@ async fn stream_delivers_responses_sent_after_the_audio_ends() {
                 }
             }
         }
+        tokio::time::sleep(Duration::from_millis(100)).await;
         ws.send(Message::Text(turn_info_update(7).into()))
             .await
             .expect("server send");
