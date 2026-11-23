@@ -1,12 +1,14 @@
-// TODO: Remove this lint
-// Currently not documented because interface of this module is still changing
-#![allow(missing_docs)]
-
 //! Types used for live audio transcription.
 //!
-//! See the [Deepgram API Reference][api] for more info.
+//! Configure a [`WebsocketBuilder`] from [`Transcription::stream_request`],
+//! then stream audio with [`WebsocketBuilder::file`] or
+//! [`WebsocketBuilder::stream`], or control a session directly with
+//! [`WebsocketBuilder::handle`].
 //!
-//! [api]: https://developers.deepgram.com/api-reference/#transcription-streaming
+//! See the [streaming speech-to-text API reference][api] for request options
+//! and server responses.
+//!
+//! [api]: https://developers.deepgram.com/reference/speech-to-text/listen-streaming
 
 use std::{
     error::Error,
@@ -52,6 +54,12 @@ use crate::{
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
 
 #[derive(Clone, Debug)]
+/// Configures a live speech-to-text WebSocket request.
+///
+/// Obtain a builder from [`Transcription::stream_request`] or
+/// [`Transcription::stream_request_with_options`]. Set audio-format and
+/// streaming options before opening the session with [`Self::file`],
+/// [`Self::stream`], or [`Self::handle`].
 pub struct WebsocketBuilder<'a> {
     deepgram: &'a Deepgram,
     options: Options,
@@ -91,7 +99,7 @@ impl<'a> Transcription<'a> {
     ///     listen::websocket::WebsocketBuilder,
     /// };
     ///
-    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_KEY").unwrap_or_default()).unwrap();
     /// let transcription = dg.transcription();
     /// let builder: WebsocketBuilder<'_> = transcription
     ///     .stream_request()
@@ -120,7 +128,7 @@ impl<'a> Transcription<'a> {
     ///     },
     /// };
     ///
-    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_KEY").unwrap_or_default()).unwrap();
     /// let transcription = dg.transcription();
     /// let options = Options::builder()
     ///     .model(Model::Nova2)
@@ -191,7 +199,7 @@ impl WebsocketBuilder<'_> {
     ///     },
     /// };
     ///
-    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_KEY").unwrap_or_default()).unwrap();
     /// let transcription = dg.transcription();
     /// let options = Options::builder()
     ///     .model(Model::Nova2)
@@ -279,60 +287,80 @@ impl WebsocketBuilder<'_> {
         Ok(url)
     }
 
+    /// Sets the encoding of raw audio frames sent to the streaming endpoint.
+    ///
+    /// Set this when the input stream has no container header that identifies
+    /// its encoding.
     pub fn encoding(mut self, encoding: Encoding) -> Self {
         self.encoding = Some(encoding);
 
         self
     }
 
+    /// Sets the sample rate, in hertz, of raw audio frames.
+    ///
+    /// Set this together with [`Self::encoding`] when the input stream has no
+    /// container header.
     pub fn sample_rate(mut self, sample_rate: u32) -> Self {
         self.sample_rate = Some(sample_rate);
 
         self
     }
 
+    /// Sets the number of channels in each audio frame.
     pub fn channels(mut self, channels: u16) -> Self {
         self.channels = Some(channels);
 
         self
     }
 
+    /// Sets the endpointing configuration used to detect utterance boundaries.
     pub fn endpointing(mut self, endpointing: Endpointing) -> Self {
         self.endpointing = Some(endpointing);
 
         self
     }
 
+    /// Requests an `UtteranceEnd` event after this many milliseconds of
+    /// silence.
     pub fn utterance_end_ms(mut self, utterance_end_ms: u16) -> Self {
         self.utterance_end_ms = Some(utterance_end_ms);
 
         self
     }
 
+    /// Enables or disables interim transcript results.
     pub fn interim_results(mut self, interim_results: bool) -> Self {
         self.interim_results = Some(interim_results);
 
         self
     }
 
+    /// Enables or disables low-latency results.
     pub fn no_delay(mut self, no_delay: bool) -> Self {
         self.no_delay = Some(no_delay);
 
         self
     }
 
+    /// Enables or disables voice-activity-detection events.
     pub fn vad_events(mut self, vad_events: bool) -> Self {
         self.vad_events = Some(vad_events);
 
         self
     }
 
+    /// Sends keep-alive messages while the audio stream is idle.
+    ///
+    /// Use this for long-lived sessions that can have extended periods without
+    /// audio frames.
     pub fn keep_alive(mut self) -> Self {
         self.keep_alive = Some(true);
 
         self
     }
 
+    /// Sets the `callback` URL sent with the streaming request.
     pub fn callback(mut self, callback: Url) -> Self {
         self.callback = Some(callback);
 
@@ -359,7 +387,7 @@ impl WebsocketBuilder<'_> {
     ///
     /// ```
     /// # use deepgram::{Deepgram, common::options::Options, diagnostics::ConnectRecord};
-    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_TOKEN").unwrap_or_default()).unwrap();
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_KEY").unwrap_or_default()).unwrap();
     /// let (diag_tx, mut diag_rx) = tokio::sync::mpsc::unbounded_channel::<ConnectRecord>();
     /// let builder = dg
     ///     .transcription()
@@ -377,6 +405,16 @@ impl WebsocketBuilder<'_> {
 }
 
 impl WebsocketBuilder<'_> {
+    /// Streams audio from a file in fixed-size frames.
+    ///
+    /// `frame_size` is the number of bytes per frame and `frame_delay` paces
+    /// frames to approximate real-time delivery. Returns a stream of server
+    /// responses after the WebSocket connects.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be opened or the streaming session
+    /// cannot be started.
     pub async fn file(
         self,
         filename: impl AsRef<Path>,
@@ -401,6 +439,17 @@ impl WebsocketBuilder<'_> {
         self.stream(rx_stream).await
     }
 
+    /// Streams audio frames from an asynchronous source.
+    ///
+    /// Each successful item is sent as one binary audio frame. When the source
+    /// ends, the SDK sends `Finalize` and `CloseStream`, then continues to
+    /// deliver server responses until the session ends.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the WebSocket session cannot be started. Errors
+    /// yielded by `stream` are returned through the resulting
+    /// [`TranscriptionStream`].
     pub async fn stream<S, E>(self, stream: S) -> Result<TranscriptionStream>
     where
         S: Stream<Item = Result<Bytes, E>> + Send + Unpin + 'static,
@@ -489,7 +538,29 @@ impl WebsocketBuilder<'_> {
         })
     }
 
-    /// A low level interface to the Deepgram websocket transcription API.
+    /// Opens a low-level handle to the live transcription WebSocket.
+    ///
+    /// Use the handle when the application needs to send audio and control
+    /// messages separately from receiving responses.
+    ///
+    /// ```no_run
+    /// use deepgram::Deepgram;
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let dg = Deepgram::new(std::env::var("DEEPGRAM_API_KEY")?)?;
+    /// let mut handle = dg.transcription().stream_request().handle().await?;
+    ///
+    /// handle.send_data(vec![0; 320]).await?;
+    /// handle.finalize().await?;
+    /// handle.close_stream().await?;
+    ///
+    /// while let Some(response) = handle.receive().await {
+    ///     println!("{response:?}");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn handle(self) -> Result<WebsocketHandle> {
         WebsocketHandle::new(self).await
     }
@@ -775,6 +846,10 @@ impl Deref for Audio {
 }
 
 #[derive(Debug)]
+/// Controls an open live transcription WebSocket session.
+///
+/// Obtain a handle from [`WebsocketBuilder::handle`]. Send audio and control
+/// messages with its methods, then read server responses with [`Self::receive`].
 pub struct WebsocketHandle {
     message_tx: Sender<WsMessage>,
     response_rx: Receiver<Result<StreamResponse>>,
@@ -946,6 +1021,10 @@ impl WebsocketHandle {
         })
     }
 
+    /// Sends one binary audio frame to Deepgram.
+    ///
+    /// Returns an error if the session has ended or the frame cannot be
+    /// queued for transmission.
     pub async fn send_data(&mut self, data: Vec<u8>) -> Result<()> {
         let audio = Audio(data);
         // eprintln!("<handle> sending audio: {audio:?}");
@@ -969,7 +1048,9 @@ impl WebsocketHandle {
         self.send_control_message(ControlMessage::KeepAlive).await
     }
 
-    /// Close the websocket stream. No more data should be sent after this is called.
+    /// Sends `CloseStream` and closes the local audio sender.
+    ///
+    /// No more audio or control messages can be sent after this returns.
     pub async fn close_stream(&mut self) -> Result<()> {
         if !self.message_tx.is_closed() {
             self.send_control_message(ControlMessage::CloseStream)
@@ -992,6 +1073,11 @@ impl WebsocketHandle {
         Ok(())
     }
 
+    /// Waits for the next server response.
+    ///
+    /// Returns `None` after the server closes the session. A terminal
+    /// transport error is returned once as `Some(Err(_))` before the stream
+    /// ends.
     #[allow(clippy::let_and_return)]
     pub async fn receive(&mut self) -> Option<Result<StreamResponse>> {
         let resp = self.response_rx.next().await;
@@ -1017,6 +1103,11 @@ enum ControlMessage {
 
 #[derive(Debug)]
 #[pin_project]
+/// A stream of responses from a convenience live transcription session.
+///
+/// Returned by [`WebsocketBuilder::file`] and [`WebsocketBuilder::stream`].
+/// It implements [`Stream`] and yields server responses until the session
+/// closes.
 pub struct TranscriptionStream {
     #[pin]
     rx: Receiver<Result<StreamResponse>>,
