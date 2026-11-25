@@ -25,7 +25,7 @@ Never hardcode API keys or access tokens. Examples and the ignored end-to-end te
 | `src/transport.rs` | Public custom streaming transport factory, request/frame types, and the adapter that maps the built-in WebSocket to that contract |
 | `examples/` | Runnable example programs; registered targets are `[[example]]` entries in `Cargo.toml`, and sample audio is under `examples/audio/` |
 | `tests/` | Integration tests: `*_local.rs` run against in-process servers, `*_e2e.rs` are `#[ignore]` and need the live API |
-| `.github/workflows/` | `ci.yaml` is the CI matrix (nine jobs, listed below); `release-please.yml` creates stable releases; `context7.yml` refreshes the Context7 index on release |
+| `.github/workflows/` | `ci.yaml` is the CI matrix (11 jobs; the commands are listed below, except Coverage and Coverage-Report, which need nightly and `cargo-llvm-cov`); `release-please.yml` creates stable releases; `context7.yml` refreshes the Context7 index on release |
 | `.agents/skills/` | Agent-agnostic skills for using this SDK (speech-to-text, conversational STT, text-to-speech, voice agent, audio intelligence, text intelligence, management API) |
 
 ## Cargo features
