@@ -7,7 +7,9 @@
 
 use std::time::Duration;
 
-use deepgram::Deepgram;
+use deepgram::{
+    common::stream_response::StreamResponse, listen::websocket::ConfigureRequest, Deepgram,
+};
 use futures::{SinkExt, StreamExt};
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
@@ -399,4 +401,72 @@ async fn late_responses_after_close_stream_are_delivered() {
         .await
         .expect("the stream must end after the server closes");
     assert!(end.is_none(), "got {end:?}");
+}
+
+/// Listen V1 Configure reaches the wire and its outcomes remain typed.
+#[tokio::test]
+async fn configure_reaches_the_wire_and_returns_typed_responses() {
+    let port = spawn_mock_server(|mut ws| async move {
+        while let Some(Ok(message)) = ws.next().await {
+            if let Message::Text(text) = message {
+                let value: serde_json::Value = serde_json::from_str(&text).expect("json frame");
+                if value["type"] == "Configure" {
+                    assert_eq!(value["keyterms"], serde_json::json!(["Deepgram"]));
+                    assert_eq!(value["features"], serde_json::json!({"numerals": true}));
+                    ws.send(
+                        Message::Text(
+                            format!(
+                                r#"{{"type":"ConfigureSuccess","request_id":"{REQUEST_ID}","keyterms":["Deepgram"]}}"#
+                            )
+                            .into(),
+                        ),
+                    )
+                    .await
+                    .expect("server sends success");
+                    ws.send(
+                        Message::Text(
+                            format!(
+                                r#"{{"type":"ConfigureFailure","request_id":"{REQUEST_ID}","code":"CONFIGURE_INTERNAL_ERROR","description":"retry"}}"#
+                            )
+                            .into(),
+                        ),
+                    )
+                    .await
+                    .expect("server sends failure");
+                    ws.close(None).await.expect("server close");
+                    break;
+                }
+            }
+        }
+    })
+    .await;
+
+    let mut handle = client(port)
+        .transcription()
+        .stream_request()
+        .handle()
+        .await
+        .expect("connect");
+    handle
+        .configure(
+            ConfigureRequest::new()
+                .with_keyterms(["Deepgram"])
+                .with_features([("numerals", true)]),
+        )
+        .await
+        .expect("configure");
+
+    let success = handle.receive().await.expect("success").expect("no error");
+    assert!(matches!(
+        success,
+        StreamResponse::ConfigureSuccess {
+            keyterms: Some(ref keyterms),
+            ..
+        } if keyterms == &["Deepgram"]
+    ));
+    let failure = handle.receive().await.expect("failure").expect("no error");
+    assert!(matches!(
+        failure,
+        StreamResponse::ConfigureFailure { ref code, .. } if code == "CONFIGURE_INTERNAL_ERROR"
+    ));
 }

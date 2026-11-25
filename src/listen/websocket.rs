@@ -9,6 +9,7 @@
 //! [api]: https://developers.deepgram.com/api-reference/#transcription-streaming
 
 use std::{
+    collections::HashMap,
     error::Error,
     fmt,
     ops::Deref,
@@ -50,6 +51,44 @@ use crate::{
 };
 
 static LIVE_LISTEN_URL_PATH: &str = "v1/listen";
+
+/// A mid-stream Listen V1 configuration update.
+///
+/// Omitted fields leave their current server values unchanged. Set
+/// [`keyterms`](Self::with_keyterms) to an empty list to clear every keyterm.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ConfigureRequest {
+    keyterms: Option<Vec<String>>,
+    features: Option<HashMap<String, bool>>,
+}
+
+impl ConfigureRequest {
+    /// Creates an empty update that changes no server settings.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Replaces the stream's keyterms.
+    pub fn with_keyterms(mut self, keyterms: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.keyterms = Some(keyterms.into_iter().map(Into::into).collect());
+        self
+    }
+
+    /// Replaces the formatting feature toggles supplied in this update.
+    pub fn with_features(
+        mut self,
+        features: impl IntoIterator<Item = (impl Into<String>, bool)>,
+    ) -> Self {
+        self.features = Some(
+            features
+                .into_iter()
+                .map(|(name, enabled)| (name.into(), enabled))
+                .collect(),
+        );
+        self
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct WebsocketBuilder<'a> {
@@ -969,6 +1008,19 @@ impl WebsocketHandle {
         self.send_control_message(ControlMessage::KeepAlive).await
     }
 
+    /// Sends a mid-stream Listen V1 configuration update.
+    ///
+    /// The server answers with [`StreamResponse::ConfigureSuccess`] or
+    /// [`StreamResponse::ConfigureFailure`]. Only one Configure update may be
+    /// pending at a time.
+    pub async fn configure(&mut self, request: ConfigureRequest) -> Result<()> {
+        self.send_control_message(ControlMessage::Configure {
+            keyterms: request.keyterms,
+            features: request.features,
+        })
+        .await
+    }
+
     /// Close the websocket stream. No more data should be sent after this is called.
     pub async fn close_stream(&mut self) -> Result<()> {
         if !self.message_tx.is_closed() {
@@ -1013,6 +1065,12 @@ enum ControlMessage {
     Finalize,
     KeepAlive,
     CloseStream,
+    Configure {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        keyterms: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        features: Option<HashMap<String, bool>>,
+    },
 }
 
 #[derive(Debug)]
@@ -1115,7 +1173,7 @@ mod file_chunker {
 mod tests {
     use std::time::Duration;
 
-    use super::ControlMessage;
+    use super::{ConfigureRequest, ControlMessage};
     use crate::common::options::{Encoding, Endpointing, Options};
 
     #[test]
@@ -1151,6 +1209,25 @@ mod tests {
         assert_eq!(
             &serde_json::to_string(&ControlMessage::CloseStream).unwrap(),
             r#"{"type":"CloseStream"}"#
+        );
+    }
+
+    #[test]
+    fn configure_message_format() {
+        let request = ConfigureRequest::new()
+            .with_keyterms(["Deepgram"])
+            .with_features([("numerals", true)]);
+        let message = ControlMessage::Configure {
+            keyterms: request.keyterms,
+            features: request.features,
+        };
+        assert_eq!(
+            serde_json::to_value(message).unwrap(),
+            serde_json::json!({
+                "type": "Configure",
+                "keyterms": ["Deepgram"],
+                "features": {"numerals": true},
+            })
         );
     }
 

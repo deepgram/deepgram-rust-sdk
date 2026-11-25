@@ -184,6 +184,22 @@ pub enum StreamResponse {
         #[allow(missing_docs)]
         last_word_end: f64,
     },
+    /// The server applied a mid-stream Listen V1 configuration update.
+    ConfigureSuccess {
+        /// Request identifier for the streaming session.
+        request_id: String,
+        /// Keyterms now in effect, when the update replaced them.
+        keyterms: Option<Vec<String>>,
+    },
+    /// The server rejected a mid-stream Listen V1 configuration update.
+    ConfigureFailure {
+        /// Request identifier for the streaming session.
+        request_id: String,
+        /// Server rejection code.
+        code: String,
+        /// Human-readable explanation of the rejection.
+        description: String,
+    },
     /// A server message whose `type` this release does not model.
     ///
     /// The raw JSON frame is preserved, so a frame such as the server's
@@ -221,6 +237,16 @@ enum TaggedStreamResponse {
     UtteranceEnd {
         channel: Vec<u8>,
         last_word_end: f64,
+    },
+    ConfigureSuccess {
+        request_id: String,
+        #[serde(default)]
+        keyterms: Option<Vec<String>>,
+    },
+    ConfigureFailure {
+        request_id: String,
+        code: String,
+        description: String,
     },
 }
 
@@ -275,6 +301,22 @@ impl From<TaggedStreamResponse> for StreamResponse {
                 channel,
                 last_word_end,
             },
+            TaggedStreamResponse::ConfigureSuccess {
+                request_id,
+                keyterms,
+            } => Self::ConfigureSuccess {
+                request_id,
+                keyterms,
+            },
+            TaggedStreamResponse::ConfigureFailure {
+                request_id,
+                code,
+                description,
+            } => Self::ConfigureFailure {
+                request_id,
+                code,
+                description,
+            },
         }
     }
 }
@@ -287,11 +329,12 @@ impl<'de> Deserialize<'de> for StreamResponse {
         let value = serde_json::Value::deserialize(deserializer)?;
 
         match value.get("type").and_then(|value| value.as_str()) {
-            Some("Results" | "Metadata" | "SpeechStarted" | "UtteranceEnd") => {
-                serde_json::from_value::<TaggedStreamResponse>(value)
-                    .map(Self::from)
-                    .map_err(de::Error::custom)
-            }
+            Some(
+                "Results" | "Metadata" | "SpeechStarted" | "UtteranceEnd" | "ConfigureSuccess"
+                | "ConfigureFailure",
+            ) => serde_json::from_value::<TaggedStreamResponse>(value)
+                .map(Self::from)
+                .map_err(de::Error::custom),
             _ => Ok(Self::Unknown(value)),
         }
     }
@@ -362,6 +405,30 @@ impl Serialize for StreamResponse {
                 "channel": channel,
                 "last_word_end": last_word_end,
             }),
+            Self::ConfigureSuccess {
+                request_id,
+                keyterms,
+            } => {
+                let mut value = serde_json::json!({
+                    "type": "ConfigureSuccess",
+                    "request_id": request_id,
+                    "keyterms": keyterms,
+                });
+                if keyterms.is_none() {
+                    value.as_object_mut().unwrap().remove("keyterms");
+                }
+                value
+            }
+            Self::ConfigureFailure {
+                request_id,
+                code,
+                description,
+            } => serde_json::json!({
+                "type": "ConfigureFailure",
+                "request_id": request_id,
+                "code": code,
+                "description": description,
+            }),
             Self::Unknown(value) => return value.serialize(serializer),
         };
 
@@ -389,6 +456,36 @@ mod tests {
             }
             _ => panic!("expected Unknown response"),
         }
+    }
+
+    #[test]
+    fn configure_responses_deserialize_to_typed_variants() {
+        let success = serde_json::from_str::<StreamResponse>(
+            r#"{"type":"ConfigureSuccess","request_id":"request-123","keyterms":["Deepgram"]}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            success,
+            StreamResponse::ConfigureSuccess {
+                request_id,
+                keyterms: Some(keyterms),
+            } if request_id == "request-123" && keyterms == ["Deepgram"]
+        ));
+
+        let failure = serde_json::from_str::<StreamResponse>(
+            r#"{"type":"ConfigureFailure","request_id":"request-123","code":"CONFIGURE_KEYTERM_LIMIT_EXCEEDED","description":"too many keyterms"}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            failure,
+            StreamResponse::ConfigureFailure {
+                request_id,
+                code,
+                description,
+            } if request_id == "request-123"
+                && code == "CONFIGURE_KEYTERM_LIMIT_EXCEEDED"
+                && description == "too many keyterms"
+        ));
     }
 
     #[test]
